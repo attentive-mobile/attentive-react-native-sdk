@@ -55,12 +55,12 @@ android {
 
 }
 
-Properties ghProperties = new Properties()
-File ghPropertiesFile = file("github.properties")
-if (!ghPropertiesFile.exists()) {
-  throw new GradleException('Could not find github.properties file.')
-}
-ghProperties.load(ghPropertiesFile.newDataInputStream())
+//Properties ghProperties = new Properties()
+//File ghPropertiesFile = file("github.properties")
+//if (!ghPropertiesFile.exists()) {
+//  throw new GradleException('Could not find github.properties file.')
+//}
+//ghProperties.load(ghPropertiesFile.newDataInputStream())
 
 repositories {
   mavenCentral()
@@ -68,8 +68,8 @@ repositories {
   maven {
     url = uri("https://maven.pkg.github.com/attentive-mobile/attentive-android-sdk")
     credentials {
-      username = ghProperties.getProperty('gpr.user')
-      password = ghProperties.getProperty('gpr.key')
+//      username = ghProperties.getProperty('gpr.user')
+//      password = ghProperties.getProperty('gpr.key')
     }
   }
 }
