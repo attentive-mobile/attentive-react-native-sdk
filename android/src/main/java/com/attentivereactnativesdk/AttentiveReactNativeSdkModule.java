@@ -154,7 +154,6 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
   public void recordProductViewEvent(ReadableMap productViewAttrs) {
     Log.i(TAG, "Sending product viewed event");
 
-    System.out.println("pfaff: " + productViewAttrs.toString());
     List<Item> items = buildItems(productViewAttrs.getArray("items"));
     String deeplink = productViewAttrs.getString("deeplink");
     ProductViewEvent productViewEvent = new ProductViewEvent.Builder(items).deeplink(deeplink).build();
