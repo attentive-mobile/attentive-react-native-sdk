@@ -154,6 +154,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
   public void recordProductViewEvent(ReadableMap productViewAttrs) {
     Log.i(TAG, "Sending product viewed event");
 
+    System.out.println("pfaff: " + productViewAttrs.toString());
     List<Item> items = buildItems(productViewAttrs.getArray("items"));
     String deeplink = productViewAttrs.getString("deeplink");
     ProductViewEvent productViewEvent = new ProductViewEvent.Builder(items).deeplink(deeplink).build();
@@ -212,6 +213,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
   }
 
   private List<Item> buildItems(ReadableArray rawItems) {
+    Log.i(TAG, "buildItems method called with rawItems: " + rawItems.toString());
     List<Item> items = new ArrayList<>();
     for (int i = 0; i < rawItems.size(); i++) {
       ReadableMap rawItem = rawItems.getMap(i);
@@ -219,7 +221,25 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
       ReadableMap priceMap = rawItem.getMap("price");
       Price price = new Price.Builder(new BigDecimal(priceMap.getString("price")), Currency.getInstance(priceMap.getString("currency"))).build();
 
-      Item item = new Item.Builder(rawItem.getString("productId"), rawItem.getString("productVariantId"), price).build();
+      Item.Builder builder = new Item.Builder(rawItem.getString("productId"), rawItem.getString("productVariantId"), price);
+
+      if (rawItem.hasKey("productImage")) {
+        builder.productImage(rawItem.getString("productImage"));
+      }
+
+      if (rawItem.hasKey("name")) {
+        builder.name(rawItem.getString("name"));
+      }
+
+      if (rawItem.hasKey("quantity")) {
+        builder.quantity(rawItem.getInt("quantity"));
+      }
+
+      if (rawItem.hasKey("category")) {
+        builder.category(rawItem.getString("category"));
+      }
+
+      Item item = builder.build();
       items.add(item);
     }
 

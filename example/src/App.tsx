@@ -21,7 +21,7 @@ function App(): JSX.Element {
   useEffect(() => {
     const config: AttentiveConfiguration = {
       attentiveDomain: 'games',
-      mode: Mode.Production,
+      mode: Mode.Debug,
     };
     // 'initialize' should be called when the app starts
     // 'initialize' should only be called once per app session
@@ -38,6 +38,25 @@ function App(): JSX.Element {
       customIdentifiers: { customIdKey: 'customIdValue' },
     };
     Attentive.identify(identifiers);
+
+    const productViewAttrs = {
+      items: [
+        {
+          productId: '123',
+          productVariantId: '123-variant',
+          price: { price: '19.99', currency: 'USD' }, // Matches Price type
+          productImage: 'https://example.com/image1.jpg',
+          name: 'Product 1',
+          quantity: 3,
+          category: 'Electronics',
+        },
+      ],
+      deeplink: 'myapp://product/123',
+    };
+
+    console.log(productViewAttrs)
+       Attentive.recordProductViewEvent(productViewAttrs)
+
   }, []);
 
   return (
