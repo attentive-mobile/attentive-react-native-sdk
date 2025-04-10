@@ -21,7 +21,7 @@ function App(): JSX.Element {
   useEffect(() => {
     const config: AttentiveConfiguration = {
       attentiveDomain: 'games',
-      mode: Mode.Production,
+      mode: Mode.Debug,
     };
     // 'initialize' should be called when the app starts
     // 'initialize' should only be called once per app session
