@@ -23,16 +23,16 @@ rm -rf ~/.gradle/daemon
 ./gradlew clean --refresh-dependencies 2>/dev/null || echo "Gradle clean failed (expected if no node_modules)"
 
 # iOS cleanup
-# cd ../ios || exit
-# rm -rf Pods
-# rm -rf build
-# rm -rf Podfile.lock
-# pod deintegrate
-# yarn cache clean
-# pod cache clean --all
+cd ../ios || exit
+rm -rf Pods
+rm -rf build
+rm -rf Podfile.lock
+pod deintegrate
+yarn cache clean
+pod cache clean --all
 # Remove local podspecs cache to avoid version conflicts
-# rm -rf ~/Library/Caches/CocoaPods
-# rm -rf ~/Library/Developer/Xcode/DerivedData
+rm -rf ~/Library/Caches/CocoaPods
+rm -rf ~/Library/Developer/Xcode/DerivedData
 
 # General cleanup (AFTER Android/iOS specific cleanup)
 # cd ..
