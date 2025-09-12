@@ -35,8 +35,8 @@ rm -rf ~/Library/Caches/CocoaPods
 rm -rf ~/Library/Developer/Xcode/DerivedData
 
 # General cleanup (AFTER Android/iOS specific cleanup)
-# cd ..
-# rm -rf node_modules
+cd ..
+rm -rf node_modules
 
 # Install all the things
 echo ""
@@ -45,6 +45,9 @@ echo "* Install all the things *"
 echo "**************************"
 echo ""
 yarn install
-# cd ios || exit
+cd ios || exit
 # Install pods with repo update to ensure fresh dependencies
-# pod install --repo-update
+pod install --repo-update
+cd ..
+echo "Project cleaned and dependencies installed!"
+exit 0
