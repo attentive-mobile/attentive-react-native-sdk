@@ -17,7 +17,7 @@ import {
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-function App(): JSX.Element {
+function App(): React.JSX.Element {
   useEffect(() => {
     const config: AttentiveConfiguration = {
       attentiveDomain: 'games',
