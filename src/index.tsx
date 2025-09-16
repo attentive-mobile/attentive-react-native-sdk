@@ -32,6 +32,7 @@ export type AttentiveConfiguration = {
   attentiveDomain: string;
   mode: Mode;
   skipFatigueOnCreatives?: boolean;
+  enableDebugger?: boolean;
 };
 
 export type UserIdentifiers = {
@@ -82,6 +83,10 @@ export class Attentive {
 
   static recordCustomEvent(customEvent: CustomEvent): void {
     AttentiveReactNativeSdk.recordCustomEvent(customEvent);
+  }
+
+  static invokeAttentiveDebugHelper(): void {
+    AttentiveReactNativeSdk.invokeAttentiveDebugHelper();
   }
 }
 

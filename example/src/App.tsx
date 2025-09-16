@@ -22,6 +22,7 @@ function App(): React.JSX.Element {
     const config: AttentiveConfiguration = {
       attentiveDomain: 'games',
       mode: Mode.Debug,
+      enableDebugger: true, // Enable debugging helpers
     };
     // 'initialize' should be called when the app starts
     // 'initialize' should only be called once per app session
