@@ -34,7 +34,16 @@ struct DebugEvent {
   public init(domain: String, mode: String, skipFatigueOnCreatives: Bool, enableDebugger: Bool) {
     self.sdk = ATTNSDK(domain: domain, mode: ATTNSDKMode(rawValue: mode) ?? .production)
     self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives ?? false
-    self.debuggingEnabled = enableDebugger ?? false
+    
+    // Only enable debugging if both enableDebugger is true AND the app is running in debug mode
+    let enableDebuggerFromConfig = enableDebugger ?? false
+    #if DEBUG
+    let isDebugBuild = true
+    #else
+    let isDebugBuild = false
+    #endif
+    self.debuggingEnabled = enableDebuggerFromConfig && isDebugBuild
+    
     ATTNEventTracker.setup(with: sdk)
   }
 

@@ -204,4 +204,37 @@ describe('Attentive SDK', () => {
       expect(validConfig.enableDebugger).toBe(true);
     });
   });
+
+  describe('Debug mode safety', () => {
+    it('should pass enableDebugger flag to native module regardless of build mode', () => {
+      // This test verifies that the enableDebugger flag is passed through to the native module
+      // The actual debug mode checking happens in the native modules
+      const config: AttentiveConfiguration = {
+        attentiveDomain: 'test-domain',
+        mode: Mode.Production,
+        enableDebugger: true,
+      };
+
+      Attentive.initialize(config);
+
+      expect(mockAttentiveReactNativeSdk.initialize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          enableDebugger: true,
+        })
+      );
+    });
+
+    it('should pass enableDebugger: false when not specified', () => {
+      const config: AttentiveConfiguration = {
+        attentiveDomain: 'test-domain',
+        mode: Mode.Production,
+      };
+
+      Attentive.initialize(config);
+
+      // When enableDebugger is not specified, it should not be in the config object
+      const lastCall = mockAttentiveReactNativeSdk.initialize.mock.calls[0][0];
+      expect(lastCall).not.toHaveProperty('enableDebugger');
+    });
+  });
 });

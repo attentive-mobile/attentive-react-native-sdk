@@ -64,8 +64,13 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     final String domain = config.getString("attentiveDomain");
     final Boolean skipFatigue = config.hasKey("skipFatigueOnCreatives") ?
       config.getBoolean("skipFatigueOnCreatives") : false;
-    this.debuggingEnabled = config.hasKey("enableDebugger") ?
+    
+    // Only enable debugging if both enableDebugger is true AND the app is running in debug mode
+    final Boolean enableDebuggerFromConfig = config.hasKey("enableDebugger") ?
       config.getBoolean("enableDebugger") : false;
+    final boolean isDebugBuild = (getReactApplicationContext().getApplicationInfo().flags & 
+      android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+    this.debuggingEnabled = enableDebuggerFromConfig && isDebugBuild;
 
     attentiveConfig = new AttentiveConfig.Builder()
         .context(this.getReactApplicationContext())
