@@ -322,14 +322,20 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
   }
 
   private void showDebugDialog(Activity activity, String currentEvent, Map<String, Object> currentData) {
-    // Create custom dialog with tabs for current event and history
-    android.app.AlertDialog.Builder builder = new android.app.AlertDialog.Builder(activity, android.R.style.Theme_Black_NoTitleBar_Fullscreen);
+    // Get the root view of the current activity to add our overlay directly
+    ViewGroup rootView = (ViewGroup) activity.getWindow().getDecorView().getRootView();
 
-    // Create custom view for tabbed interface
+    // Create custom view for tabbed interface - this will be added directly to the activity
     android.widget.LinearLayout mainLayout = new android.widget.LinearLayout(activity);
     mainLayout.setOrientation(android.widget.LinearLayout.VERTICAL);
     mainLayout.setPadding(32, 32, 32, 32);
-    mainLayout.setBackgroundColor(0xE0000000); // Semi-transparent black background
+    mainLayout.setBackgroundColor(android.graphics.Color.TRANSPARENT); // Completely transparent background
+    
+    // Make the overlay fill the entire screen but allow touch-through for transparent areas
+    android.widget.FrameLayout.LayoutParams overlayParams = new android.widget.FrameLayout.LayoutParams(
+      android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+      android.widget.FrameLayout.LayoutParams.MATCH_PARENT);
+    mainLayout.setLayoutParams(overlayParams);
 
     // Create content container that will be positioned at bottom
     android.widget.LinearLayout contentContainer = new android.widget.LinearLayout(activity);
@@ -352,6 +358,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     titleText.setText("🐛 Attentive Debug Session");
     titleText.setTextSize(18);
     titleText.setTypeface(null, android.graphics.Typeface.BOLD);
+    titleText.setTextColor(0xFF000000); // Black text
     android.widget.LinearLayout.LayoutParams titleParams = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1);
     titleText.setLayoutParams(titleParams);
     headerLayout.addView(titleText);
@@ -360,6 +367,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     android.widget.Button closeButton = new android.widget.Button(activity);
     closeButton.setText("✕");
     closeButton.setTextSize(18);
+    closeButton.setTextColor(0xFF666666); // Dark gray text
     closeButton.setBackgroundColor(0xFFF0F0F0);
     closeButton.setPadding(16, 8, 16, 8);
     android.widget.LinearLayout.LayoutParams closeParams = new android.widget.LinearLayout.LayoutParams(
@@ -377,10 +385,12 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
 
     android.widget.Button currentTab = new android.widget.Button(activity);
     currentTab.setText("Current Event");
+    currentTab.setTextColor(0xFF000000); // Black text
     currentTab.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
     android.widget.Button historyTab = new android.widget.Button(activity);
     historyTab.setText("History (" + debugHistory.size() + ")");
+    historyTab.setTextColor(0xFF000000); // Black text
     historyTab.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1));
 
     tabLayout.addView(currentTab);
@@ -392,6 +402,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     android.widget.TextView contentText = new android.widget.TextView(activity);
     contentText.setTypeface(android.graphics.Typeface.MONOSPACE);
     contentText.setTextSize(12);
+    contentText.setTextColor(0xFF333333); // Dark gray text for better readability
     contentText.setPadding(0, 20, 0, 0);
     contentScroll.addView(contentText);
 
@@ -436,25 +447,19 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     currentTab.setEnabled(false);
     historyTab.setEnabled(true);
 
-    // Setup close button
+    // Setup close button to remove the overlay from the root view
     closeButton.setOnClickListener(v -> {
-      // We'll set this after dialog creation
+      rootView.removeView(mainLayout);
     });
 
-    builder.setView(mainLayout);
-
-    android.app.AlertDialog dialog = builder.create();
-    dialog.getWindow().setFlags(android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
-                                android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
-    dialog.show();
-
-    // Set close button action after dialog is created
-    closeButton.setOnClickListener(v -> dialog.dismiss());
+    // Add the overlay directly to the activity's root view
+    rootView.addView(mainLayout);
 
     // Auto-dismiss after 8 seconds (longer for history viewing)
     new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-      if (dialog.isShowing()) {
-        dialog.dismiss();
+      // Check if the view is still attached before removing
+      if (mainLayout.getParent() != null) {
+        rootView.removeView(mainLayout);
       }
     }, 8000);
   }

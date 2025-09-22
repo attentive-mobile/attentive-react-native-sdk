@@ -40,11 +40,6 @@ const ProductScreen = ({}: ProductScreenProps) => {
     };
 
     Attentive.recordProductViewEvent(productViewAttrs);
-
-    Alert.alert(
-      'Debug Info',
-      'Product View event recorded! Check the debug overlay for payload details.'
-    );
   }, []);
 
   const addToCart = () => {
