@@ -54,6 +54,7 @@ The debug overlay now features:
 #### **Improved User Experience**
 - **Bottom Positioning**: Overlay positioned at bottom for easy content visibility
 - **Larger Size**: 65% of screen height for better readability
+- **Share Button**: Export and share debug logs using platform-specific share functionality
 - **X Close Button**: Convenient close button in top-right corner
 - **Auto-dismiss**: 8-second timeout for hands-free operation
 
@@ -71,12 +72,14 @@ The debug overlay now features:
 - **Table View History**: Scrollable list with event summaries and detail drill-down
 - **Modal Presentation**: Full-screen overlay positioned at bottom of screen
 - **Native UI**: Uses iOS system fonts, colors, and design patterns
+- **Share Integration**: Native iOS share sheet with ↗ symbol, supports all iOS sharing options
 
 ### Android
 - **Custom Dialog**: Full-screen dialog with tab buttons for navigation
 - **Scrollable Content**: Large content area for viewing event details
 - **Material Design**: Follows Android design guidelines with proper spacing
 - **Bottom Positioning**: Positioned at bottom with rounded corners
+- **Share Integration**: Android share intent with ⤴ symbol, supports all Android sharing apps
 
 ## Example Usage
 
@@ -100,7 +103,56 @@ Attentive.recordProductViewEvent({
 
 // Manually show debug info
 Attentive.invokeAttentiveDebugHelper();
+
+// Export debug logs programmatically
+const debugLogs = await Attentive.exportDebugLogs();
+console.log(debugLogs);
 ```
+
+## Debug Log Export and Sharing
+
+The debug overlay includes built-in export functionality that allows developers to easily share debug information outside of their apps.
+
+### Share Button Location
+
+The share button is located in the top-right corner of the debug overlay, positioned to the left of the close button:
+
+- **iOS**: Uses the ↗ symbol (native iOS share icon)
+- **Android**: Uses the ⤴ symbol (Material Design share icon)
+
+### Share Functionality
+
+When the share button is tapped:
+
+1. **All debug events** from the current session are exported in a structured format
+2. **Platform-specific sharing** is triggered:
+   - **iOS**: Native share sheet with options for Messages, Mail, AirDrop, Files, etc.
+   - **Android**: Android share intent with options for Email, Messaging, Drive, etc.
+
+### Export Format
+
+The exported logs include:
+- **Session metadata**: Export timestamp, total event count
+- **Event details**: Timestamp, event type, summary, and full JSON payload
+- **Structured formatting**: Easy-to-read format suitable for analysis or support
+
+### Programmatic Export
+
+For advanced use cases, logs can also be exported programmatically:
+
+```typescript
+try {
+  const debugLogs = await Attentive.exportDebugLogs();
+  // Process or share the logs as needed
+  console.log('Debug logs exported:', debugLogs.length, 'characters');
+} catch (error) {
+  console.error('Failed to export debug logs:', error);
+}
+```
+
+### Individual Event Sharing
+
+When viewing individual event details (iOS), each event detail view also includes a share button for exporting single events.
 
 ## Production Considerations
 

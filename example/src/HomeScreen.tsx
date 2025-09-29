@@ -30,6 +30,20 @@ const HomeScreen = ({ navigation }: HomeScreenProps) => {
     Attentive.invokeAttentiveDebugHelper();
   };
 
+  const testExportDebugLogs = async () => {
+    try {
+      // @ts-ignore - Method exists in native implementation but types may not be updated yet
+      const debugLogs = await Attentive.exportDebugLogs();
+      Alert.alert(
+        'Debug Logs Exported',
+        `Successfully exported ${debugLogs.length} characters of debug data. Check console for full content.`
+      );
+      console.log('Exported Debug Logs:', debugLogs);
+    } catch (error) {
+      Alert.alert('Export Error', `Failed to export debug logs: ${error}`);
+    }
+  };
+
   const recordTestProductView = () => {
     Attentive.recordProductViewEvent({
       items: [
@@ -126,6 +140,14 @@ const HomeScreen = ({ navigation }: HomeScreenProps) => {
             title="🐛 Invoke Debug Helper"
             color="#4ecdc4"
             onPress={testDebugHelper}
+          />
+        </View>
+
+        <View style={styles.buttonContainer}>
+          <Button
+            title="📤 Export Debug Logs"
+            color="#ff6b6b"
+            onPress={testExportDebugLogs}
           />
         </View>
       </View>

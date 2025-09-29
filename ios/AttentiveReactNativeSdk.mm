@@ -75,6 +75,12 @@ RCT_EXPORT_METHOD(invokeAttentiveDebugHelper) {
   [_sdk invokeAttentiveDebugHelper];
 }
 
+RCT_EXPORT_METHOD(exportDebugLogs:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject) {
+  NSString *exportContent = [_sdk exportDebugLogs];
+  resolve(exportContent);
+}
+
 // Don't compile this code when we build for the old architecture.
 #ifdef RCT_NEW_ARCH_ENABLED
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:

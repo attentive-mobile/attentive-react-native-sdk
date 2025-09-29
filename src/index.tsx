@@ -88,6 +88,15 @@ export class Attentive {
   static invokeAttentiveDebugHelper(): void {
     AttentiveReactNativeSdk.invokeAttentiveDebugHelper();
   }
+
+  /**
+   * Exports debug logs as a formatted string for sharing or analysis
+   * Only available when debugging is enabled
+   * @returns Promise<string> A formatted string containing all debug events in the current session
+   */
+  static async exportDebugLogs(): Promise<string> {
+    return AttentiveReactNativeSdk.exportDebugLogs();
+  }
 }
 
 export type { AddToCartEvent, ProductViewEvent, PurchaseEvent, CustomEvent };

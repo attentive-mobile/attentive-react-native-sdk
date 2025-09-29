@@ -259,6 +259,70 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     }
   }
 
+  @ReactMethod
+  public void exportDebugLogs(com.facebook.react.bridge.Promise promise) {
+    try {
+      String exportContent = exportDebugLogs();
+      promise.resolve(exportContent);
+    } catch (Exception e) {
+      promise.reject("EXPORT_ERROR", "Failed to export debug logs: " + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Exports the current debug session logs as a formatted string
+   * @return A comprehensive formatted string containing all debug events in the current session
+   */
+  private String exportDebugLogs() {
+    if (!debuggingEnabled) {
+      return "Debug logging is not enabled. Please enable debugging to export logs.";
+    }
+    
+    if (debugHistory.isEmpty()) {
+      return "No debug events recorded in this session.";
+    }
+    
+    java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
+    String exportDate = formatter.format(new java.util.Date());
+    
+    StringBuilder exportContent = new StringBuilder();
+    exportContent.append("Attentive React Native SDK - Debug Session Export\n");
+    exportContent.append("Generated: ").append(exportDate).append("\n");
+    exportContent.append("Total Events: ").append(debugHistory.size()).append("\n\n");
+    exportContent.append("=".repeat(60)).append("\n\n");
+    
+    // Add all events in chronological order (oldest first for better readability)
+    for (int i = 0; i < debugHistory.size(); i++) {
+      DebugEvent event = debugHistory.get(i);
+      exportContent.append("Event #").append(i + 1).append("\n");
+      exportContent.append(event.formatForExport());
+      exportContent.append("\n");
+    }
+    
+    exportContent.append("=".repeat(60)).append("\n");
+    exportContent.append("End of Debug Session Export");
+    
+    return exportContent.toString();
+  }
+
+  /**
+   * Shares debug logs using the Android share intent
+   * @param context The current activity context
+   * @param content The content to share
+   */
+  private void shareDebugLogs(Activity context, String content) {
+    android.content.Intent shareIntent = new android.content.Intent();
+    shareIntent.setAction(android.content.Intent.ACTION_SEND);
+    shareIntent.setType("text/plain");
+    shareIntent.putExtra(android.content.Intent.EXTRA_TEXT, content);
+    shareIntent.putExtra(android.content.Intent.EXTRA_SUBJECT, "Attentive React Native SDK - Debug Session Export");
+    
+    android.content.Intent chooser = android.content.Intent.createChooser(shareIntent, "Share Debug Logs");
+    if (shareIntent.resolveActivity(context.getPackageManager()) != null) {
+      context.startActivity(chooser);
+    }
+  }
+
   private Map<String, String> convertToStringMap(Map<String, Object> inputMap) {
     Map<String, String> outputMap = new HashMap<>();
     for (Map.Entry<String, Object> entry : inputMap.entrySet()) {
@@ -349,7 +413,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     background.setCornerRadius(24);
     contentContainer.setBackground(background);
 
-    // Header with title and close button
+    // Header with title, share button, and close button
     android.widget.LinearLayout headerLayout = new android.widget.LinearLayout(activity);
     headerLayout.setOrientation(android.widget.LinearLayout.HORIZONTAL);
     headerLayout.setGravity(android.view.Gravity.CENTER_VERTICAL);
@@ -362,6 +426,20 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     android.widget.LinearLayout.LayoutParams titleParams = new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1);
     titleText.setLayoutParams(titleParams);
     headerLayout.addView(titleText);
+
+    // Share button - Android-style share icon
+    android.widget.Button shareButton = new android.widget.Button(activity);
+    shareButton.setText("⤴"); // Android-style share symbol
+    shareButton.setTextSize(18);
+    shareButton.setTextColor(0xFF1976D2); // Material blue color
+    shareButton.setBackgroundColor(0xFFF0F0F0);
+    shareButton.setPadding(16, 8, 16, 8);
+    android.widget.LinearLayout.LayoutParams shareParams = new android.widget.LinearLayout.LayoutParams(
+      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+    shareParams.setMargins(0, 0, 8, 0); // Add margin to the right
+    shareButton.setLayoutParams(shareParams);
+    headerLayout.addView(shareButton);
 
     // X Close button
     android.widget.Button closeButton = new android.widget.Button(activity);
@@ -446,6 +524,12 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     // Set initial tab state
     currentTab.setEnabled(false);
     historyTab.setEnabled(true);
+
+    // Setup share button to export and share debug logs
+    shareButton.setOnClickListener(v -> {
+      String exportContent = exportDebugLogs();
+      shareDebugLogs(activity, exportContent);
+    });
 
     // Setup close button to remove the overlay from the root view
     closeButton.setOnClickListener(v -> {
@@ -558,6 +642,45 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
       summaryParts.add("Payload: " + data.size() + " fields");
 
       return String.join(" • ", summaryParts);
+    }
+
+    /**
+     * Formats the debug event as a human-readable string for export
+     * @return A formatted string containing timestamp, event type, and data
+     */
+    public String formatForExport() {
+      java.text.SimpleDateFormat formatter = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault());
+      String timeString = formatter.format(new java.util.Date(timestamp));
+      
+      StringBuilder output = new StringBuilder();
+      output.append("[").append(timeString).append("] ").append(eventType).append("\n");
+      
+      // Add summary information if available
+      String summary = getSummary();
+      if (!summary.isEmpty()) {
+        output.append("Summary: ").append(summary).append("\n");
+      }
+      
+      output.append("Data:\n");
+      
+      // Format data as JSON for better readability
+      try {
+        org.json.JSONObject jsonObject = new org.json.JSONObject(data);
+        output.append(jsonObject.toString(2));
+      } catch (Exception e) {
+        output.append(data.toString());
+      }
+      
+      output.append("\n").append("=".repeat(50)).append("\n");
+      return output.toString();
+    }
+
+    /**
+     * Returns the timestamp in milliseconds
+     * @return The timestamp when this event was created
+     */
+    public long getTimestamp() {
+      return timestamp;
     }
   }
 }

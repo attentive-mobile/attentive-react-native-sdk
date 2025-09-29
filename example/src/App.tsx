@@ -20,9 +20,9 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 function App(): React.JSX.Element {
   useEffect(() => {
     const config: AttentiveConfiguration = {
-      attentiveDomain: 'games',
+      attentiveDomain: 'vs',
       mode: Mode.Debug,
-      enableDebugger: true, // Enable debugging helpers
+      enableDebugger: false, // Enable debugging helpers
     };
     // 'initialize' should be called when the app starts
     // 'initialize' should only be called once per app session

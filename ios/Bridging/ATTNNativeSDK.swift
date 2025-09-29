@@ -8,6 +8,7 @@
 
 import Foundation
 import attentive_ios_sdk
+import UIKit
 
 // Debug Event structure for session history
 struct DebugEvent {
@@ -21,6 +22,66 @@ struct DebugEvent {
     self.timestamp = Date()
     self.eventType = eventType
     self.data = data
+  }
+  
+  /**
+   * Formats the debug event as a human-readable string for export
+   * @return A formatted string containing timestamp, event type, and data
+   */
+  func formatForExport() -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+    let timeString = formatter.string(from: timestamp)
+    
+    var output = "[\(timeString)] \(eventType)\n"
+    
+    // Add summary information if available
+    let summary = getSummary()
+    if !summary.isEmpty {
+      output += "Summary: \(summary)\n"
+    }
+    
+    output += "Data:\n"
+    
+    // Format data as JSON for better readability
+    do {
+      let jsonData = try JSONSerialization.data(withJSONObject: data, options: .prettyPrinted)
+      if let jsonString = String(data: jsonData, encoding: .utf8) {
+        output += jsonString
+      } else {
+        output += "\(data)"
+      }
+    } catch {
+      output += "\(data)"
+    }
+    
+    return output + "\n" + String(repeating: "=", count: 50) + "\n"
+  }
+  
+  /**
+   * Generates a summary of the debug event for quick overview
+   * @return A brief summary string highlighting key information
+   */
+  private func getSummary() -> String {
+    var summaryParts: [String] = []
+    
+    if let itemsCount = data["items_count"] as? String {
+      summaryParts.append("Items: \(itemsCount)")
+    }
+    if let orderId = data["order_id"] as? String {
+      summaryParts.append("Order: \(orderId)")
+    }
+    if let creativeId = data["creativeId"] as? String {
+      summaryParts.append("Creative: \(creativeId)")
+    }
+    if let eventType = data["event_type"] as? String {
+      summaryParts.append("Type: \(eventType)")
+    }
+    
+    // Always show payload size info
+    summaryParts.append("Payload: \(data.count) fields")
+    
+    return summaryParts.joined(separator: " • ")
   }
 }
 
@@ -96,9 +157,52 @@ struct DebugEvent {
       }
     }
   }
+  
 }
 
 public extension ATTNNativeSDK {
+  /**
+   * Exports the current debug session logs as a formatted string
+   * @return A comprehensive formatted string containing all debug events in the current session
+   */
+  @objc
+  func exportDebugLogs() -> String {
+    guard debuggingEnabled else {
+      return "Debug logging is not enabled. Please enable debugging to export logs."
+    }
+    
+    if debugHistory.isEmpty {
+      return "No debug events recorded in this session."
+    }
+    
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    let exportDate = formatter.string(from: Date())
+    
+    var exportContent = """
+    Attentive React Native SDK - Debug Session Export
+    Generated: \(exportDate)
+    Total Events: \(debugHistory.count)
+    
+    \(String(repeating: "=", count: 60))
+    
+    """
+    
+    // Add all events in chronological order (oldest first for better readability)
+    for (index, event) in debugHistory.enumerated() {
+      exportContent += "Event #\(index + 1)\n"
+      exportContent += event.formatForExport()
+      exportContent += "\n"
+    }
+    
+    exportContent += """
+    \(String(repeating: "=", count: 60))
+    End of Debug Session Export
+    """
+    
+    return exportContent
+  }
+
   @objc
   func recordAddToCartEvent(_ attributes: [String: Any]) {
     let items = parseItems(attributes["items"] as? [[String : Any]] ?? [])
@@ -266,6 +370,17 @@ class DebugOverlayViewController: UIViewController {
     contentContainer.addSubview(historyView)
     historyView.isHidden = true
 
+    // Share button in top-right corner (left of close button)
+    let shareButton = UIButton(type: .system)
+    shareButton.setTitle("↗", for: .normal) // iOS-style share symbol
+    shareButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .medium)
+    shareButton.setTitleColor(.systemBlue, for: .normal)
+    shareButton.backgroundColor = UIColor.systemGray5
+    shareButton.layer.cornerRadius = 15
+    shareButton.addTarget(self, action: #selector(shareButtonTapped), for: .touchUpInside)
+    shareButton.translatesAutoresizingMaskIntoConstraints = false
+    containerView.addSubview(shareButton)
+    
     // X Close button in top-right corner
     let closeButton = UIButton(type: .system)
     closeButton.setTitle("✕", for: .normal)
@@ -289,9 +404,14 @@ class DebugOverlayViewController: UIViewController {
       closeButton.widthAnchor.constraint(equalToConstant: 30),
       closeButton.heightAnchor.constraint(equalToConstant: 30),
 
+      shareButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 12),
+      shareButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+      shareButton.widthAnchor.constraint(equalToConstant: 30),
+      shareButton.heightAnchor.constraint(equalToConstant: 30),
+
       titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
       titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-      titleLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+      titleLabel.trailingAnchor.constraint(equalTo: shareButton.leadingAnchor, constant: -8),
 
       segmentedControl.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 16),
       segmentedControl.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
@@ -410,6 +530,68 @@ class DebugOverlayViewController: UIViewController {
       currentEventView.isHidden = true
       historyView.isHidden = false
     }
+  }
+
+  /**
+   * Handles the share button tap to export and share debug logs
+   */
+  @objc private func shareButtonTapped() {
+    // Generate export content for the current history
+    let exportContent = generateExportContent()
+    
+    // Create activity view controller for sharing
+    let activityVC = UIActivityViewController(activityItems: [exportContent], applicationActivities: nil)
+    
+    // For iPad - prevent crash by setting popover presentation controller
+    if let popover = activityVC.popoverPresentationController {
+      // Find the share button view to anchor the popover
+      if let shareButton = view.subviews.first(where: { $0.accessibilityLabel == "shareButton" }) {
+        popover.sourceView = shareButton
+        popover.sourceRect = shareButton.bounds
+      } else {
+        popover.sourceView = view
+        popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+      }
+    }
+    
+    present(activityVC, animated: true)
+  }
+  
+  /**
+   * Generates formatted export content for sharing
+   * @return Formatted string containing all debug events
+   */
+  private func generateExportContent() -> String {
+    if history.isEmpty {
+      return "No debug events recorded in this session."
+    }
+    
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    let exportDate = formatter.string(from: Date())
+    
+    var exportContent = """
+    Attentive React Native SDK - Debug Session Export
+    Generated: \(exportDate)
+    Total Events: \(history.count)
+    
+    \(String(repeating: "=", count: 60))
+    
+    """
+    
+    // Add all events in chronological order (oldest first for better readability)
+    for (index, event) in history.enumerated() {
+      exportContent += "Event #\(index + 1)\n"
+      exportContent += event.formatForExport()
+      exportContent += "\n"
+    }
+    
+    exportContent += """
+    \(String(repeating: "=", count: 60))
+    End of Debug Session Export
+    """
+    
+    return exportContent
   }
 
   @objc private func closeButtonTapped() {
@@ -580,6 +762,17 @@ class EventDetailViewController: UIViewController {
     dataLabel.translatesAutoresizingMaskIntoConstraints = false
     scrollView.addSubview(dataLabel)
 
+    // Share button for single event
+    let shareButton = UIButton(type: .system)
+    shareButton.setTitle("↗", for: .normal) // iOS-style share symbol
+    shareButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .medium)
+    shareButton.setTitleColor(.systemBlue, for: .normal)
+    shareButton.backgroundColor = UIColor.systemGray5
+    shareButton.layer.cornerRadius = 15
+    shareButton.addTarget(self, action: #selector(shareEventButtonTapped), for: .touchUpInside)
+    shareButton.translatesAutoresizingMaskIntoConstraints = false
+    containerView.addSubview(shareButton)
+    
     let closeButton = UIButton(type: .system)
     closeButton.setTitle("✕", for: .normal)
     closeButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .medium)
@@ -601,9 +794,14 @@ class EventDetailViewController: UIViewController {
       closeButton.widthAnchor.constraint(equalToConstant: 30),
       closeButton.heightAnchor.constraint(equalToConstant: 30),
 
+      shareButton.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 12),
+      shareButton.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+      shareButton.widthAnchor.constraint(equalToConstant: 30),
+      shareButton.heightAnchor.constraint(equalToConstant: 30),
+
       titleLabel.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 16),
       titleLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
-      titleLabel.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -8),
+      titleLabel.trailingAnchor.constraint(equalTo: shareButton.leadingAnchor, constant: -8),
 
       timeLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
       timeLabel.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 16),
@@ -629,6 +827,47 @@ class EventDetailViewController: UIViewController {
     } catch {
       return "Error formatting data: \(error.localizedDescription)"
     }
+  }
+
+  /**
+   * Handles the share button tap to export and share a single debug event
+   */
+  @objc private func shareEventButtonTapped() {
+    let exportContent = generateSingleEventExport()
+    
+    // Create activity view controller for sharing
+    let activityVC = UIActivityViewController(activityItems: [exportContent], applicationActivities: nil)
+    
+    // For iPad - prevent crash by setting popover presentation controller
+    if let popover = activityVC.popoverPresentationController {
+      popover.sourceView = view
+      popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
+    }
+    
+    present(activityVC, animated: true)
+  }
+  
+  /**
+   * Generates formatted export content for a single event
+   * @return Formatted string containing the single debug event
+   */
+  private func generateSingleEventExport() -> String {
+    let formatter = DateFormatter()
+    formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+    let exportDate = formatter.string(from: Date())
+    
+    let eventContent = """
+    Attentive React Native SDK - Single Event Export
+    Generated: \(exportDate)
+    
+    \(String(repeating: "=", count: 60))
+    
+    \(event.formatForExport())
+    \(String(repeating: "=", count: 60))
+    End of Single Event Export
+    """
+    
+    return eventContent
   }
 
   @objc private func closeButtonTapped() {
