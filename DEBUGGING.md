@@ -77,9 +77,9 @@ The debug overlay now features:
 ### Android
 - **Custom Dialog**: Full-screen dialog with tab buttons for navigation
 - **Scrollable Content**: Large content area for viewing event details
-- **Material Design**: Follows Android design guidelines with proper spacing
-- **Bottom Positioning**: Positioned at bottom with rounded corners
-- **Share Integration**: Android share intent with ⤴ symbol, supports all Android sharing apps
+- **Material Design**: Follows Android design guidelines with proper spacing, destructive styling for close button, and discrete outline border
+- **Bottom Positioning**: Positioned at bottom with rounded corners and persistent display (matches iOS behavior)
+- **Share Integration**: Android share intent with ↗ Material Design share icon in large circular button (72dp), supports all Android sharing apps
 
 ## Example Usage
 
@@ -118,7 +118,7 @@ The debug overlay includes built-in export functionality that allows developers 
 The share button is located in the top-right corner of the debug overlay, positioned to the left of the close button:
 
 - **iOS**: Uses the ↗ symbol (native iOS share icon)
-- **Android**: Uses the ⤴ symbol (Material Design share icon)
+- **Android**: Uses the ↗ symbol in a large circular button (72dp) with perfect glyph centering and optimal spacing (Material Design share icon)
 
 ### Share Functionality
 

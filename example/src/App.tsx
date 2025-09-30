@@ -22,7 +22,7 @@ function App(): React.JSX.Element {
     const config: AttentiveConfiguration = {
       attentiveDomain: 'vs',
       mode: Mode.Debug,
-      enableDebugger: false, // Enable debugging helpers
+      enableDebugger: true, // Enable debugging helpers
     };
     // 'initialize' should be called when the app starts
     // 'initialize' should only be called once per app session

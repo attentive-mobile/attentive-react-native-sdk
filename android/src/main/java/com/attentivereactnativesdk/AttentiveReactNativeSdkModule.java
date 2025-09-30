@@ -71,6 +71,9 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     final boolean isDebugBuild = (getReactApplicationContext().getApplicationInfo().flags & 
       android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0;
     this.debuggingEnabled = enableDebuggerFromConfig && isDebugBuild;
+    
+    Log.i(TAG, "Debug initialization - enableDebuggerFromConfig: " + enableDebuggerFromConfig + 
+                ", isDebugBuild: " + isDebugBuild + ", debuggingEnabled: " + this.debuggingEnabled);
 
     attentiveConfig = new AttentiveConfig.Builder()
         .context(this.getReactApplicationContext())
@@ -373,21 +376,29 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
   }
 
   private void showDebugInfo(String event, Map<String, Object> data) {
+    Log.i(TAG, "showDebugInfo called for event: " + event + ", data: " + data);
+    
     // Add to debug history
     DebugEvent debugEvent = new DebugEvent(event, data);
     debugHistory.add(debugEvent);
 
     Activity currentActivity = getReactApplicationContext().getCurrentActivity();
     if (currentActivity != null) {
+      Log.i(TAG, "Current activity found, showing debug dialog on UI thread");
       UiThreadUtil.runOnUiThread(() -> {
         showDebugDialog(currentActivity, event, data);
       });
+    } else {
+      Log.w(TAG, "Current activity is null, cannot show debug dialog");
     }
   }
 
   private void showDebugDialog(Activity activity, String currentEvent, Map<String, Object> currentData) {
+    Log.i(TAG, "showDebugDialog called for event: " + currentEvent);
+    
     // Get the root view of the current activity to add our overlay directly
     ViewGroup rootView = (ViewGroup) activity.getWindow().getDecorView().getRootView();
+    Log.i(TAG, "Root view obtained: " + rootView);
 
     // Create custom view for tabbed interface - this will be added directly to the activity
     android.widget.LinearLayout mainLayout = new android.widget.LinearLayout(activity);
@@ -407,10 +418,11 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     contentContainer.setBackgroundColor(0xFFFFFFFF);
     contentContainer.setPadding(24, 24, 24, 24);
 
-    // Round corners
+    // Round corners with discrete outline border
     android.graphics.drawable.GradientDrawable background = new android.graphics.drawable.GradientDrawable();
-    background.setColor(0xFFFFFFFF);
-    background.setCornerRadius(24);
+    background.setColor(0xFFFFFFFF); // White background
+    background.setCornerRadius(24); // Rounded corners
+    background.setStroke(2, 0xFFE0E0E0); // Discrete light gray border (2dp width)
     contentContainer.setBackground(background);
 
     // Header with title, share button, and close button
@@ -427,30 +439,76 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     titleText.setLayoutParams(titleParams);
     headerLayout.addView(titleText);
 
-    // Share button - Android-style share icon
+    // Share button - Material Design share icon, circular
     android.widget.Button shareButton = new android.widget.Button(activity);
-    shareButton.setText("⤴"); // Android-style share symbol
-    shareButton.setTextSize(18);
+    shareButton.setText("↗"); // Material Design share icon - simple diagonal arrow up-right
+    shareButton.setTextSize(28); // Even larger text size for prominence
     shareButton.setTextColor(0xFF1976D2); // Material blue color
     shareButton.setBackgroundColor(0xFFF0F0F0);
-    shareButton.setPadding(16, 8, 16, 8);
-    android.widget.LinearLayout.LayoutParams shareParams = new android.widget.LinearLayout.LayoutParams(
-      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
-    shareParams.setMargins(0, 0, 8, 0); // Add margin to the right
+    // Padding will be set later for vertical centering
+    shareButton.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); // Make text bold
+    shareButton.setGravity(android.view.Gravity.CENTER); // Center the glyph properly
+    shareButton.setIncludeFontPadding(false); // Remove font padding for better centering
+    
+    // Remove button's default minimum width/height that can affect centering
+    shareButton.setMinWidth(0);
+    shareButton.setMinHeight(0);
+    shareButton.setMinimumWidth(0);
+    shareButton.setMinimumHeight(0);
+    
+    // Fix vertical centering by adjusting text baseline and using custom padding
+    shareButton.setTextAlignment(android.view.View.TEXT_ALIGNMENT_CENTER);
+    shareButton.setSingleLine(true);
+    shareButton.setLines(1);
+    
+    // Fine-tune share glyph position with slight additional upward shift
+    shareButton.setPadding(0, -20, 0, 8); // Slightly more negative top to lift text just a bit higher
+    
+    // Make button circular and even larger
+    android.graphics.drawable.GradientDrawable shareDrawable = new android.graphics.drawable.GradientDrawable();
+    shareDrawable.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+    shareDrawable.setColor(0xFFF0F0F0); // Light gray background
+    shareDrawable.setStroke(3, 0xFF1976D2); // Thicker blue border
+    shareButton.setBackground(shareDrawable);
+    
+    android.widget.LinearLayout.LayoutParams shareParams = new android.widget.LinearLayout.LayoutParams(72, 72); // Even larger circular size (72dp)
+    shareParams.setMargins(0, 0, 20, 0); // More separation to avoid mistapping
     shareButton.setLayoutParams(shareParams);
     headerLayout.addView(shareButton);
 
-    // X Close button
+    // Close button - circular with prominent X and destructive styling
     android.widget.Button closeButton = new android.widget.Button(activity);
-    closeButton.setText("✕");
-    closeButton.setTextSize(18);
-    closeButton.setTextColor(0xFF666666); // Dark gray text
-    closeButton.setBackgroundColor(0xFFF0F0F0);
-    closeButton.setPadding(16, 8, 16, 8);
-    android.widget.LinearLayout.LayoutParams closeParams = new android.widget.LinearLayout.LayoutParams(
-      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
-      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+    closeButton.setText("×"); // Clean multiplication symbol for close
+    closeButton.setTextSize(32); // Even larger for the close button
+    closeButton.setTextColor(0xFFD32F2F); // Destructive red color (Material Design red 700)
+    closeButton.setBackgroundColor(0xFFFFF0F0); // Very light red background
+    // Padding will be set later for vertical centering
+    closeButton.setTypeface(android.graphics.Typeface.DEFAULT_BOLD); // Make text bold
+    closeButton.setGravity(android.view.Gravity.CENTER); // Center the glyph properly
+    closeButton.setIncludeFontPadding(false); // Remove font padding for better centering
+    
+    // Remove button's default minimum width/height that can affect centering
+    closeButton.setMinWidth(0);
+    closeButton.setMinHeight(0);
+    closeButton.setMinimumWidth(0);
+    closeButton.setMinimumHeight(0);
+    
+    // Fix vertical centering by adjusting text baseline and using custom padding
+    closeButton.setTextAlignment(android.view.View.TEXT_ALIGNMENT_CENTER);
+    closeButton.setSingleLine(true);
+    closeButton.setLines(1);
+    
+    // Adjust close glyph to bring it back up from too low position
+    closeButton.setPadding(0, -13, 0, 9); // Increase negative top to lift text back up
+    
+    // Make button circular and even larger with destructive styling
+    android.graphics.drawable.GradientDrawable closeDrawable = new android.graphics.drawable.GradientDrawable();
+    closeDrawable.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+    closeDrawable.setColor(0xFFFFF0F0); // Very light red background
+    closeDrawable.setStroke(3, 0xFFD32F2F); // Destructive red border
+    closeButton.setBackground(closeDrawable);
+    
+    android.widget.LinearLayout.LayoutParams closeParams = new android.widget.LinearLayout.LayoutParams(72, 72); // Even larger circular size (72dp)
     closeButton.setLayoutParams(closeParams);
     headerLayout.addView(closeButton);
 
@@ -490,12 +548,22 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     contentScroll.setLayoutParams(scrollParams);
     contentContainer.addView(contentScroll);
 
-    // Position content container at bottom
+    // Position content container at bottom with minimum height (55% of screen - slightly shorter)
+    android.util.DisplayMetrics displayMetrics = new android.util.DisplayMetrics();
+    activity.getWindowManager().getDefaultDisplay().getMetrics(displayMetrics);
+    int screenHeight = displayMetrics.heightPixels;
+    int minHeight = (int) (screenHeight * 0.55); // 55% of screen height - slightly shorter
+    
     android.widget.LinearLayout.LayoutParams containerParams = new android.widget.LinearLayout.LayoutParams(
       android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
       android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
     containerParams.gravity = android.view.Gravity.BOTTOM;
+    
+    // Set minimum height to match iOS behavior
+    contentContainer.setMinimumHeight(minHeight);
     contentContainer.setLayoutParams(containerParams);
+    
+    Log.i(TAG, "Debug overlay minimum height set to: " + minHeight + "px (55% of " + screenHeight + "px)");
 
     // Add spacer to push content to bottom
     android.view.View spacer = new android.view.View(activity);
@@ -538,14 +606,9 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
 
     // Add the overlay directly to the activity's root view
     rootView.addView(mainLayout);
+    Log.i(TAG, "Debug overlay added to root view successfully");
 
-    // Auto-dismiss after 8 seconds (longer for history viewing)
-    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-      // Check if the view is still attached before removing
-      if (mainLayout.getParent() != null) {
-        rootView.removeView(mainLayout);
-      }
-    }, 8000);
+    // Note: No auto-dismiss to match iOS behavior - overlay stays until user closes it
   }
 
   private void updateCurrentEventContent(android.widget.TextView contentText, String event, Map<String, Object> data) {
