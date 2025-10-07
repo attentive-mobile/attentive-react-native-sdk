@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import com.attentivereactnativesdk.debug.AttentiveDebugHelper;
 
 @ReactModule(name = AttentiveReactNativeSdkModule.NAME)
 public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
@@ -41,9 +42,11 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
 
   private AttentiveConfig attentiveConfig;
   private Creative creative;
+  private AttentiveDebugHelper debugHelper;
 
   public AttentiveReactNativeSdkModule(ReactApplicationContext reactContext) {
     super(reactContext);
+    this.debugHelper = new AttentiveDebugHelper(reactContext);
   }
 
   @Override
@@ -62,6 +65,11 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     final String domain = config.getString("attentiveDomain");
     final Boolean skipFatigue = config.hasKey("skipFatigueOnCreatives") ?
       config.getBoolean("skipFatigueOnCreatives") : false;
+    
+    // Initialize debug helper
+    final Boolean enableDebuggerFromConfig = config.hasKey("enableDebugger") ?
+      config.getBoolean("enableDebugger") : false;
+    debugHelper.initialize(enableDebuggerFromConfig);
 
     attentiveConfig = new AttentiveConfig.Builder()
         .context(this.getReactApplicationContext())
@@ -89,6 +97,12 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
         UiThreadUtil.runOnUiThread(() -> {
           creative = new Creative(attentiveConfig, rootView);
           creative.trigger(null, creativeId);
+          if (debugHelper.isDebuggingEnabled()) {
+            Map<String, Object> debugData = new HashMap<>();
+            debugData.put("type", "trigger");
+            debugData.put("creativeId", creativeId != null ? creativeId : "default");
+            debugHelper.showDebugInfo("Creative Triggered", debugData);
+          }
         });
       } else {
         Log.w(TAG, "Could not trigger the Attentive Creative because the current Activity was null");
@@ -159,6 +173,14 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     ProductViewEvent productViewEvent = new ProductViewEvent.Builder(items).deeplink(deeplink).build();
 
     AttentiveEventTracker.getInstance().recordEvent(productViewEvent);
+
+    if (debugHelper.isDebuggingEnabled()) {
+      Map<String, Object> debugData = new HashMap<>();
+      debugData.put("items_count", String.valueOf(items.size()));
+      debugData.put("deeplink", deeplink);
+      debugData.put("payload", productViewAttrs.toHashMap());
+      debugHelper.showDebugInfo("Product View Event", debugData);
+    }
   }
 
   @ReactMethod
@@ -170,6 +192,14 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     PurchaseEvent purchaseEvent = new PurchaseEvent.Builder(items, order).build();
 
     AttentiveEventTracker.getInstance().recordEvent(purchaseEvent);
+
+    if (debugHelper.isDebuggingEnabled()) {
+      Map<String, Object> debugData = new HashMap<>();
+      debugData.put("items_count", String.valueOf(items.size()));
+      debugData.put("order_id", order.getOrderId());
+      debugData.put("payload", purchaseAttrs.toHashMap());
+      debugHelper.showDebugInfo("Purchase Event", debugData);
+    }
   }
 
   @ReactMethod
@@ -181,6 +211,14 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     AddToCartEvent addToCartEvent = new AddToCartEvent.Builder(items).deeplink(deeplink).build();
 
     AttentiveEventTracker.getInstance().recordEvent(addToCartEvent);
+
+    if (debugHelper.isDebuggingEnabled()) {
+      Map<String, Object> debugData = new HashMap<>();
+      debugData.put("items_count", String.valueOf(items.size()));
+      debugData.put("deeplink", deeplink);
+      debugData.put("payload", addToCartAttrs.toHashMap());
+      debugHelper.showDebugInfo("Add To Cart Event", debugData);
+    }
   }
 
   @ReactMethod
@@ -194,7 +232,31 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     CustomEvent customEvent = new CustomEvent.Builder(customEventAttrs.getString("type"), properties).build();
 
     AttentiveEventTracker.getInstance().recordEvent(customEvent);
+
+    if (debugHelper.isDebuggingEnabled()) {
+      Map<String, Object> debugData = new HashMap<>();
+      debugData.put("event_type", customEventAttrs.getString("type"));
+      debugData.put("properties_count", String.valueOf(properties.size()));
+      debugData.put("payload", customEventAttrs.toHashMap());
+      debugHelper.showDebugInfo("Custom Event", debugData);
+    }
   }
+
+  @ReactMethod
+  public void invokeAttentiveDebugHelper() {
+    debugHelper.invokeDebugHelper();
+  }
+
+  @ReactMethod
+  public void exportDebugLogs(com.facebook.react.bridge.Promise promise) {
+    try {
+      String exportContent = debugHelper.exportDebugLogs();
+      promise.resolve(exportContent);
+    } catch (Exception e) {
+      promise.reject("EXPORT_ERROR", "Failed to export debug logs: " + e.getMessage(), e);
+    }
+  }
+
 
   private Map<String, String> convertToStringMap(Map<String, Object> inputMap) {
     Map<String, String> outputMap = new HashMap<>();
@@ -244,4 +306,5 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
 
     return items;
   }
+
 }

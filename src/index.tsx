@@ -32,6 +32,7 @@ export type AttentiveConfiguration = {
   attentiveDomain: string;
   mode: Mode;
   skipFatigueOnCreatives?: boolean;
+  enableDebugger?: boolean;
 };
 
 export type UserIdentifiers = {
@@ -82,6 +83,19 @@ export class Attentive {
 
   static recordCustomEvent(customEvent: CustomEvent): void {
     AttentiveReactNativeSdk.recordCustomEvent(customEvent);
+  }
+
+  static invokeAttentiveDebugHelper(): void {
+    AttentiveReactNativeSdk.invokeAttentiveDebugHelper();
+  }
+
+  /**
+   * Exports debug logs as a formatted string for sharing or analysis
+   * Only available when debugging is enabled
+   * @returns Promise<string> A formatted string containing all debug events in the current session
+   */
+  static async exportDebugLogs(): Promise<string> {
+    return AttentiveReactNativeSdk.exportDebugLogs();
   }
 }
 

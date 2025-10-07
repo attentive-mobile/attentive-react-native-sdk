@@ -6,6 +6,7 @@ buildscript {
 
   dependencies {
     classpath "com.android.tools.build:gradle:7.3.1"
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10"
   }
 }
 
@@ -14,6 +15,7 @@ def isNewArchitectureEnabled() {
 }
 
 apply plugin: "com.android.library"
+apply plugin: "kotlin-android"
 
 
 def appProject = rootProject.allprojects.find { it.plugins.hasPlugin('com.android.application') }
@@ -81,6 +83,7 @@ dependencies {
   //noinspection GradleDynamicVersion
   implementation "com.facebook.react:react-native:+"
   implementation 'com.attentive:attentive-android-sdk:1.0.1'
+  implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
 }
 
 if (isNewArchitectureEnabled()) {

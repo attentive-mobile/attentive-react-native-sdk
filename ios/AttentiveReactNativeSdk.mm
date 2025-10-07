@@ -21,7 +21,7 @@
 RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(initialize:(NSDictionary*)configuration) {
-    _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"] mode:configuration[@"mode"] skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"]];
+    _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"] mode:configuration[@"mode"] skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"] enableDebugger:configuration[@"enableDebugger"]];
 }
 
 RCT_EXPORT_METHOD(triggerCreative) {
@@ -69,6 +69,16 @@ RCT_EXPORT_METHOD(recordPurchaseEvent:(NSDictionary*)attrs) {
 
 RCT_EXPORT_METHOD(recordCustomEvent:(NSDictionary*)attrs) {
   [_sdk recordCustomEvent:attrs];
+}
+
+RCT_EXPORT_METHOD(invokeAttentiveDebugHelper) {
+  [_sdk invokeAttentiveDebugHelper];
+}
+
+RCT_EXPORT_METHOD(exportDebugLogs:(RCTPromiseResolveBlock)resolve
+                  reject:(RCTPromiseRejectBlock)reject) {
+  NSString *exportContent = [_sdk exportDebugLogs];
+  resolve(exportContent);
 }
 
 // Don't compile this code when we build for the old architecture.

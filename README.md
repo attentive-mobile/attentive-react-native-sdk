@@ -36,6 +36,30 @@ const config : AttentiveConfiguration = {
 }
 ```
 
+### Debugging Features
+
+The SDK includes debugging helpers to show what data is being sent and received. Enable debugging by setting `enableDebugger: true`:
+
+```typescript
+const config : AttentiveConfiguration = {
+  attentiveDomain: 'YOUR_ATTENTIVE_DOMAIN',
+  mode: Mode.Debug,
+  enableDebugger: true, // Shows debug overlays for events and creatives
+}
+```
+
+When enabled, debug overlays will automatically appear when:
+- Creatives are triggered
+- Events are recorded (product views, purchases, etc.)
+
+You can also manually invoke the debug helper:
+
+```typescript
+Attentive.invokeAttentiveDebugHelper();
+```
+
+See [DEBUGGING.md](./DEBUGGING.md) for detailed information about debugging features.
+
 ### Initialize the SDK
 
 ```typescript
