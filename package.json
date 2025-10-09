@@ -1,6 +1,6 @@
 {
   "name": "@attentive-mobile/attentive-react-native-sdk",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "React Native Module for the Attentive SDK",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
