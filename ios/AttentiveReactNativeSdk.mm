@@ -7,10 +7,11 @@
 
 #import "AttentiveReactNativeSdk.h"
 
-#if __has_include(<AttentiveReactNativeSdk-Swift.h>)
-#import "AttentiveReactNativeSdk-Swift.h"
+#if __has_include(<attentive_react_native_sdk/attentive_react_native_sdk-Swift.h>)
+#import <attentive_react_native_sdk/attentive_react_native_sdk-Swift.h> // ATTN RN SDK is available as an external module.
+#elif __has_include("AttentiveReactNativeSdk-Swift.h")
+#import "AttentiveReactNativeSdk-Swift.h" // Internal. Example Project has a local reference to the ATTN RN SDK.
 #else
-// Load the headers from the attentive-ios-sdk Pod
 #import "attentive_react_native_sdk-Swift.h"
 #endif
 
