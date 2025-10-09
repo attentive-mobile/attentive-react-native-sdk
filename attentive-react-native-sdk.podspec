@@ -11,13 +11,12 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  s.platforms    = { :ios => "11.0" }
+  s.platforms    = { :ios => "14.0" }
   s.source       = { :git => "https://github.com/attentive-mobile/attentive-react-native-sdk.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"
 
   s.dependency 'attentive-ios-sdk', '1.0.0'
-  s.ios.deployment_target = '14.0'
   s.swift_versions = ['5']
   s.dependency "React-Core"
 
