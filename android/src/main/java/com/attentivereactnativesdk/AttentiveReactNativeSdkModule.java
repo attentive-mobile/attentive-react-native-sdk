@@ -18,12 +18,11 @@ import com.attentive.androidsdk.events.Price;
 import com.attentive.androidsdk.events.ProductViewEvent;
 import com.attentive.androidsdk.events.PurchaseEvent;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
 import com.facebook.react.bridge.ReadableArray;
 import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.UiThreadUtil;
-import com.facebook.react.module.annotations.ReactModule;
+import com.facebook.react.bridge.Promise;
 import java.math.BigDecimal;
 import java.security.InvalidParameterException;
 import java.util.ArrayList;
@@ -35,8 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import com.attentivereactnativesdk.debug.AttentiveDebugHelper;
 
-@ReactModule(name = AttentiveReactNativeSdkModule.NAME)
-public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
+public class AttentiveReactNativeSdkModule extends AttentiveReactNativeSdkSpec {
   public static final String NAME = "AttentiveReactNativeSdk";
   private static final String TAG = NAME;
 
@@ -44,9 +42,9 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
   private Creative creative;
   private AttentiveDebugHelper debugHelper;
 
-  public AttentiveReactNativeSdkModule(ReactApplicationContext reactContext) {
-    super(reactContext);
-    this.debugHelper = new AttentiveDebugHelper(reactContext);
+  AttentiveReactNativeSdkModule(ReactApplicationContext context) {
+    super(context);
+    this.debugHelper = new AttentiveDebugHelper(context);
   }
 
   @Override
@@ -55,7 +53,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     return NAME;
   }
 
-  @ReactMethod
+  @Override
   public void initialize(ReadableMap config) {
     final String rawMode = config.getString("mode");
     if (rawMode == null) {
@@ -80,13 +78,8 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     AttentiveEventTracker.getInstance().initialize(attentiveConfig);
   }
 
-  @ReactMethod
-  public void triggerCreative() {
-    this.triggerCreative(null);
-  }
-
-  @ReactMethod
-  public void triggerCreative(@Nullable String creativeId) {
+  @Override
+  public void triggerCreative(String creativeId) {
     Log.i(TAG, "Native Attentive module was called to trigger the creative.");
     try {
       Activity currentActivity = getReactApplicationContext().getCurrentActivity();
@@ -112,7 +105,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     }
   }
 
-  @ReactMethod
+  @Override
   public void destroyCreative() {
     if (creative != null) {
       UiThreadUtil.runOnUiThread(() -> {
@@ -122,17 +115,17 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     }
   }
 
-  @ReactMethod
+  @Override
   public void updateDomain(String domain) {
     attentiveConfig.changeDomain(domain);
   }
 
-  @ReactMethod
+  @Override
   public void clearUser() {
     attentiveConfig.clearUser();
   }
 
-  @ReactMethod
+  @Override
   public void identify(ReadableMap identifiers) {
     UserIdentifiers.Builder idsBuilder = new UserIdentifiers.Builder();
     if (identifiers.hasKey("phone")) {
@@ -164,7 +157,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     attentiveConfig.identify(idsBuilder.build());
   }
 
-  @ReactMethod
+  @Override
   public void recordProductViewEvent(ReadableMap productViewAttrs) {
     Log.i(TAG, "Sending product viewed event");
 
@@ -183,7 +176,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     }
   }
 
-  @ReactMethod
+  @Override
   public void recordPurchaseEvent(ReadableMap purchaseAttrs) {
     Log.i(TAG, "Sending purchase event");
     Order order = new Order.Builder(purchaseAttrs.getMap("order").getString("orderId")).build();
@@ -202,7 +195,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     }
   }
 
-  @ReactMethod
+  @Override
   public void recordAddToCartEvent(ReadableMap addToCartAttrs) {
     Log.i(TAG, "Sending add to cart event");
 
@@ -221,7 +214,7 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     }
   }
 
-  @ReactMethod
+  @Override
   public void recordCustomEvent(ReadableMap customEventAttrs) {
     Log.i(TAG, "Sending custom event");
     ReadableMap propertiesRawMap = customEventAttrs.getMap("properties");
@@ -242,13 +235,13 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
     }
   }
 
-  @ReactMethod
+  @Override
   public void invokeAttentiveDebugHelper() {
     debugHelper.invokeDebugHelper();
   }
 
-  @ReactMethod
-  public void exportDebugLogs(com.facebook.react.bridge.Promise promise) {
+  @Override
+  public void exportDebugLogs(Promise promise) {
     try {
       String exportContent = debugHelper.exportDebugLogs();
       promise.resolve(exportContent);
@@ -306,5 +299,4 @@ public class AttentiveReactNativeSdkModule extends ReactContextBaseJavaModule {
 
     return items;
   }
-
 }

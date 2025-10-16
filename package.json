@@ -161,6 +161,14 @@
       ]
     ]
   },
+  "codegenConfig": {
+    "name": "AttentiveReactNativeSdkSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.attentivereactnativesdk"
+    }
+  },
   "dependencies": {
     "@babel/runtime": "^7.27.0"
   }

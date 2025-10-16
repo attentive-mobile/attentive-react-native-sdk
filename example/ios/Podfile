@@ -16,9 +16,12 @@ end
 
 target 'AttentiveReactNativeSdkExample' do
   config = use_native_modules!
-
+  
   use_react_native!(
     :path => config[:reactNativePath],
+    # to enable hermes on iOS, change `false` to `true` and then install pods
+    :hermes_enabled => ENV['CI'] == 'true',
+    :fabric_enabled => true,
     # An absolute path to your application root.
     :app_path => "#{Pod::Config.instance.installation_root}/.."
   )

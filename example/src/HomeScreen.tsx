@@ -7,13 +7,21 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { Attentive } from '@attentive-mobile/attentive-react-native-sdk';
+import {
+  triggerCreative,
+  clearUser as clearUserFunc,
+  invokeAttentiveDebugHelper,
+  exportDebugLogs,
+  recordProductViewEvent,
+  recordAddToCartEvent,
+  recordCustomEvent,
+} from '@attentive-mobile/attentive-react-native-sdk';
 
 import type { HomeScreenProps } from './navTypes';
 
 const HomeScreen = ({ navigation }: HomeScreenProps) => {
   const showCreative = () => {
-    Attentive.triggerCreative();
+    triggerCreative();
   };
 
   const showProductPage = () => {
@@ -22,18 +30,17 @@ const HomeScreen = ({ navigation }: HomeScreenProps) => {
 
   const clearUser = () => {
     // Call 'clearUser' if the current user logs out
-    Attentive.clearUser();
+    clearUserFunc();
   };
 
   const testDebugHelper = () => {
     // This will show the debug overlay if debugging is enabled
-    Attentive.invokeAttentiveDebugHelper();
+    invokeAttentiveDebugHelper();
   };
 
   const testExportDebugLogs = async () => {
     try {
-      // @ts-ignore - Method exists in native implementation but types may not be updated yet
-      const debugLogs = await Attentive.exportDebugLogs();
+      const debugLogs = await exportDebugLogs();
       Alert.alert(
         'Debug Logs Exported',
         `Successfully exported ${debugLogs.length} characters of debug data. Check console for full content.`
@@ -45,12 +52,13 @@ const HomeScreen = ({ navigation }: HomeScreenProps) => {
   };
 
   const recordTestProductView = () => {
-    Attentive.recordProductViewEvent({
+    recordProductViewEvent({
       items: [
         {
           productId: 'debug-test-product',
           productVariantId: 'debug-test-variant',
-          price: { price: '29.99', currency: 'USD' },
+          price: '29.99',
+          currency: 'USD',
           name: 'Debug Test Product',
           productImage: 'https://example.com/image.jpg',
           quantity: 1,
@@ -67,12 +75,13 @@ const HomeScreen = ({ navigation }: HomeScreenProps) => {
   };
 
   const recordTestAddToCart = () => {
-    Attentive.recordAddToCartEvent({
+    recordAddToCartEvent({
       items: [
         {
           productId: 'debug-cart-product',
           productVariantId: 'debug-cart-variant',
-          price: { price: '49.99', currency: 'USD' },
+          price: '49.99',
+          currency: 'USD',
           name: 'Debug Cart Product',
           quantity: 2,
         },
@@ -87,7 +96,7 @@ const HomeScreen = ({ navigation }: HomeScreenProps) => {
   };
 
   const recordTestCustomEvent = () => {
-    Attentive.recordCustomEvent({
+    recordCustomEvent({
       type: 'debug_test_event',
       properties: {
         test_property: 'debug_value',

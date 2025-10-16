@@ -1,41 +1,47 @@
+export type UserIdentifiers = {
+  phone?: string;
+  email?: string;
+  klaviyoId?: string;
+  shopifyId?: string;
+  clientUserId?: string;
+  customIdentifiers?: Record<string, string>;
+};
+
+export type AttentiveSdkConfiguration = {
+  attentiveDomain: string;
+  mode: string; // "production" or "debug"
+  skipFatigueOnCreatives?: boolean;
+  enableDebugger?: boolean;
+};
+
+// Codegen does not support nested objects inside of arrays. We must flatten the Item type.
 export type Item = {
   productId: string;
   productVariantId: string;
-  price: Price;
+  price: string;
+  currency: string;
   productImage?: string;
   name?: string;
   quantity?: number;
   category?: string;
 };
 
-export type Price = {
-  price: string;
-  currency: string;
+export type ProductView = {
+  items: Item[];
+  deeplink?: string;
 };
 
-export type Order = {
+// Codegen does not support nested objects. We must flatten the Purchase type.
+export type Purchase = {
+  items: Item[];
   orderId: string;
-};
-
-export type Cart = {
   cartId?: string;
   cartCoupon?: string;
 };
 
-export type ProductViewEvent = {
+export type AddToCart = {
   items: Item[];
   deeplink?: string;
-};
-
-export type AddToCartEvent = {
-  items: Item[];
-  deeplink?: string;
-};
-
-export type PurchaseEvent = {
-  items: Item[];
-  order: Order;
-  cart?: Cart;
 };
 
 export type CustomEvent = {

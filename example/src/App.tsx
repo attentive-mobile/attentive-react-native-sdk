@@ -9,24 +9,24 @@ import type { RootStackParamList } from './navTypes';
 import HomeScreen from './HomeScreen';
 import ProductScreen from './ProductScreen';
 import {
-  Attentive,
-  AttentiveConfiguration,
-  Mode,
-  UserIdentifiers,
+  initialize,
+  identify,
+  type AttentiveSdkConfiguration,
+  type UserIdentifiers,
 } from '@attentive-mobile/attentive-react-native-sdk';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function App(): React.JSX.Element {
   useEffect(() => {
-    const config: AttentiveConfiguration = {
+    const config: AttentiveSdkConfiguration = {
       attentiveDomain: 'vs',
-      mode: Mode.Debug,
+      mode: 'debug', // 'debug' or 'production'
       enableDebugger: true, // Enable debugging helpers
     };
     // 'initialize' should be called when the app starts
     // 'initialize' should only be called once per app session
-    Attentive.initialize(config);
+    initialize(config);
 
     // Identify the current user as soon as possible. All of the identifiers are optional.
     // The more you pass, the better our SDK functions.
@@ -38,7 +38,7 @@ function App(): React.JSX.Element {
       clientUserId: 'userClientUserId',
       customIdentifiers: { customIdKey: 'customIdValue' },
     };
-    Attentive.identify(identifiers);
+    identify(identifiers);
   }, []);
 
   return (
