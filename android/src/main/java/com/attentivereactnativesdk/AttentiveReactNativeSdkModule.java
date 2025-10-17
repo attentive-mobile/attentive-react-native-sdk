@@ -34,7 +34,7 @@ import java.util.Locale;
 import java.util.Map;
 import com.attentivereactnativesdk.debug.AttentiveDebugHelper;
 
-public class AttentiveReactNativeSdkModule extends AttentiveReactNativeSdkSpec {
+public class AttentiveReactNativeSdkModule extends NativeAttentiveReactNativeSdkSpec {
   public static final String NAME = "AttentiveReactNativeSdk";
   private static final String TAG = NAME;
 
@@ -54,26 +54,19 @@ public class AttentiveReactNativeSdkModule extends AttentiveReactNativeSdkSpec {
   }
 
   @Override
-  public void initialize(ReadableMap config) {
-    final String rawMode = config.getString("mode");
-    if (rawMode == null) {
+  public void initialize(String attentiveDomain, String mode, boolean skipFatigueOnCreatives, boolean enableDebugger) {
+    if (mode == null) {
       throw new IllegalArgumentException("The 'mode' parameter cannot be null.");
     }
-
-    final String domain = config.getString("attentiveDomain");
-    final Boolean skipFatigue = config.hasKey("skipFatigueOnCreatives") ?
-      config.getBoolean("skipFatigueOnCreatives") : false;
     
     // Initialize debug helper
-    final Boolean enableDebuggerFromConfig = config.hasKey("enableDebugger") ?
-      config.getBoolean("enableDebugger") : false;
-    debugHelper.initialize(enableDebuggerFromConfig);
+    debugHelper.initialize(enableDebugger);
 
     attentiveConfig = new AttentiveConfig.Builder()
-        .context(this.getReactApplicationContext())
-        .domain(domain)
-        .mode(AttentiveConfig.Mode.valueOf(rawMode.toUpperCase(Locale.ROOT)))
-        .skipFatigueOnCreatives(skipFatigue)
+        .context(getReactApplicationContext())
+        .domain(attentiveDomain)
+        .mode(AttentiveConfig.Mode.valueOf(mode.toUpperCase(Locale.ROOT)))
+        .skipFatigueOnCreatives(skipFatigueOnCreatives)
         .build();
     AttentiveEventTracker.getInstance().initialize(attentiveConfig);
   }
@@ -126,26 +119,26 @@ public class AttentiveReactNativeSdkModule extends AttentiveReactNativeSdkSpec {
   }
 
   @Override
-  public void identify(ReadableMap identifiers) {
+  public void identify(String phone, String email, String klaviyoId, String shopifyId, String clientUserId, ReadableMap customIdentifiers) {
     UserIdentifiers.Builder idsBuilder = new UserIdentifiers.Builder();
-    if (identifiers.hasKey("phone")) {
-      idsBuilder.withPhone(identifiers.getString("phone"));
+    if (phone != null && !phone.isEmpty()) {
+      idsBuilder.withPhone(phone);
     }
-    if (identifiers.hasKey("email")) {
-      idsBuilder.withEmail(identifiers.getString("email"));
+    if (email != null && !email.isEmpty()) {
+      idsBuilder.withEmail(email);
     }
-    if (identifiers.hasKey("klaviyoId")) {
-      idsBuilder.withKlaviyoId(identifiers.getString("klaviyoId"));
+    if (klaviyoId != null && !klaviyoId.isEmpty()) {
+      idsBuilder.withKlaviyoId(klaviyoId);
     }
-    if (identifiers.hasKey("shopifyId")) {
-      idsBuilder.withShopifyId(identifiers.getString("shopifyId"));
+    if (shopifyId != null && !shopifyId.isEmpty()) {
+      idsBuilder.withShopifyId(shopifyId);
     }
-    if (identifiers.hasKey("clientUserId")) {
-      idsBuilder.withClientUserId(identifiers.getString("clientUserId"));
+    if (clientUserId != null && !clientUserId.isEmpty()) {
+      idsBuilder.withClientUserId(clientUserId);
     }
-    if (identifiers.hasKey("customIdentifiers")) {
+    if (customIdentifiers != null) {
       Map<String, String> customIds = new HashMap<>();
-      Map<String, Object> rawCustomIds = identifiers.getMap("customIdentifiers").toHashMap();
+      Map<String, Object> rawCustomIds = customIdentifiers.toHashMap();
       for (Map.Entry<String, Object> entry : rawCustomIds.entrySet()) {
         if (entry.getValue() instanceof String) {
           customIds.put(entry.getKey(), (String) entry.getValue());
@@ -158,79 +151,74 @@ public class AttentiveReactNativeSdkModule extends AttentiveReactNativeSdkSpec {
   }
 
   @Override
-  public void recordProductViewEvent(ReadableMap productViewAttrs) {
+  public void recordProductViewEvent(ReadableArray items, String deeplink) {
     Log.i(TAG, "Sending product viewed event");
 
-    List<Item> items = buildItems(productViewAttrs.getArray("items"));
-    String deeplink = productViewAttrs.getString("deeplink");
-    ProductViewEvent productViewEvent = new ProductViewEvent.Builder(items).deeplink(deeplink).build();
+    List<Item> itemsList = buildItems(items);
+    ProductViewEvent productViewEvent = new ProductViewEvent.Builder(itemsList).deeplink(deeplink).build();
 
     AttentiveEventTracker.getInstance().recordEvent(productViewEvent);
 
     if (debugHelper.isDebuggingEnabled()) {
       Map<String, Object> debugData = new HashMap<>();
-      debugData.put("items_count", String.valueOf(items.size()));
+      debugData.put("items_count", String.valueOf(itemsList.size()));
       debugData.put("deeplink", deeplink);
-      debugData.put("payload", productViewAttrs.toHashMap());
       debugHelper.showDebugInfo("Product View Event", debugData);
     }
   }
 
   @Override
-  public void recordPurchaseEvent(ReadableMap purchaseAttrs) {
+  public void recordPurchaseEvent(ReadableArray items, String orderId, String cartId, String cartCoupon) {
     Log.i(TAG, "Sending purchase event");
-    Order order = new Order.Builder(purchaseAttrs.getMap("order").getString("orderId")).build();
+    Order order = new Order.Builder(orderId).build();
 
-    List<Item> items = buildItems(purchaseAttrs.getArray("items"));
-    PurchaseEvent purchaseEvent = new PurchaseEvent.Builder(items, order).build();
+    List<Item> itemsList = buildItems(items);
+    PurchaseEvent purchaseEvent = new PurchaseEvent.Builder(itemsList, order).build();
 
     AttentiveEventTracker.getInstance().recordEvent(purchaseEvent);
 
     if (debugHelper.isDebuggingEnabled()) {
       Map<String, Object> debugData = new HashMap<>();
-      debugData.put("items_count", String.valueOf(items.size()));
-      debugData.put("order_id", order.getOrderId());
-      debugData.put("payload", purchaseAttrs.toHashMap());
+      debugData.put("items_count", String.valueOf(itemsList.size()));
+      debugData.put("order_id", orderId);
+      if (cartId != null) debugData.put("cart_id", cartId);
+      if (cartCoupon != null) debugData.put("cart_coupon", cartCoupon);
       debugHelper.showDebugInfo("Purchase Event", debugData);
     }
   }
 
   @Override
-  public void recordAddToCartEvent(ReadableMap addToCartAttrs) {
+  public void recordAddToCartEvent(ReadableArray items, String deeplink) {
     Log.i(TAG, "Sending add to cart event");
 
-    List<Item> items = buildItems(addToCartAttrs.getArray("items"));
-    String deeplink = addToCartAttrs.getString("deeplink");
-    AddToCartEvent addToCartEvent = new AddToCartEvent.Builder(items).deeplink(deeplink).build();
+    List<Item> itemsList = buildItems(items);
+    AddToCartEvent addToCartEvent = new AddToCartEvent.Builder(itemsList).deeplink(deeplink).build();
 
     AttentiveEventTracker.getInstance().recordEvent(addToCartEvent);
 
     if (debugHelper.isDebuggingEnabled()) {
       Map<String, Object> debugData = new HashMap<>();
-      debugData.put("items_count", String.valueOf(items.size()));
+      debugData.put("items_count", String.valueOf(itemsList.size()));
       debugData.put("deeplink", deeplink);
-      debugData.put("payload", addToCartAttrs.toHashMap());
       debugHelper.showDebugInfo("Add To Cart Event", debugData);
     }
   }
 
   @Override
-  public void recordCustomEvent(ReadableMap customEventAttrs) {
+  public void recordCustomEvent(String type, ReadableMap properties) {
     Log.i(TAG, "Sending custom event");
-    ReadableMap propertiesRawMap = customEventAttrs.getMap("properties");
-    if (propertiesRawMap == null) {
+    if (properties == null) {
       throw new IllegalArgumentException("The CustomEvent 'properties' field cannot be null.");
     }
-    Map<String, String> properties = convertToStringMap(propertiesRawMap.toHashMap());
-    CustomEvent customEvent = new CustomEvent.Builder(customEventAttrs.getString("type"), properties).build();
+    Map<String, String> propertiesMap = convertToStringMap(properties.toHashMap());
+    CustomEvent customEvent = new CustomEvent.Builder(type, propertiesMap).build();
 
     AttentiveEventTracker.getInstance().recordEvent(customEvent);
 
     if (debugHelper.isDebuggingEnabled()) {
       Map<String, Object> debugData = new HashMap<>();
-      debugData.put("event_type", customEventAttrs.getString("type"));
-      debugData.put("properties_count", String.valueOf(properties.size()));
-      debugData.put("payload", customEventAttrs.toHashMap());
+      debugData.put("event_type", type);
+      debugData.put("properties_count", String.valueOf(propertiesMap.size()));
       debugHelper.showDebugInfo("Custom Event", debugData);
     }
   }
@@ -272,8 +260,10 @@ public class AttentiveReactNativeSdkModule extends AttentiveReactNativeSdkSpec {
     for (int i = 0; i < rawItems.size(); i++) {
       ReadableMap rawItem = rawItems.getMap(i);
 
-      ReadableMap priceMap = rawItem.getMap("price");
-      Price price = new Price.Builder(new BigDecimal(priceMap.getString("price")), Currency.getInstance(priceMap.getString("currency"))).build();
+      // Price and currency are now flattened, not nested
+      String priceValue = rawItem.getString("price");
+      String currencyCode = rawItem.getString("currency");
+      Price price = new Price.Builder(new BigDecimal(priceValue), Currency.getInstance(currencyCode)).build();
 
       Item.Builder builder = new Item.Builder(rawItem.getString("productId"), rawItem.getString("productVariantId"), price);
 

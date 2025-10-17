@@ -1,5 +1,5 @@
 import type { TurboModule } from "react-native/Libraries/TurboModule/RCTExport";
-import { TurboModuleRegistry } from "react-native";
+import { TurboModuleRegistry, NativeModules } from "react-native";
 
 export interface Spec extends TurboModule {
   initialize: (
@@ -66,6 +66,12 @@ export interface Spec extends TurboModule {
   exportDebugLogs: () => Promise<string>;
 }
 
-export default TurboModuleRegistry.get<Spec>(
-  "AttentiveReactNativeSdk"
-) as Spec | null;
+// Try to load via TurboModule first (new architecture)
+// Fall back to NativeModules for old architecture
+const isTurboModuleEnabled = (global as any).__turboModuleProxy != null;
+
+const AttentiveReactNativeSdkModule = isTurboModuleEnabled
+  ? TurboModuleRegistry.get<Spec>("AttentiveReactNativeSdk")
+  : NativeModules.AttentiveReactNativeSdk;
+
+export default AttentiveReactNativeSdkModule as Spec | null;
