@@ -1,28 +1,45 @@
 package com.attentivereactnativesdk;
 
-import androidx.annotation.NonNull;
-
-import com.facebook.react.ReactPackage;
+import androidx.annotation.Nullable;
 import com.facebook.react.bridge.NativeModule;
 import com.facebook.react.bridge.ReactApplicationContext;
-import com.facebook.react.uimanager.ViewManager;
-
-import java.util.ArrayList;
+import com.facebook.react.module.model.ReactModuleInfo;
+import com.facebook.react.module.model.ReactModuleInfoProvider;
+import com.facebook.react.TurboReactPackage;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 
-public class AttentiveReactNativeSdkPackage implements ReactPackage {
-  @NonNull
+public class AttentiveReactNativeSdkPackage extends TurboReactPackage {
+
+  @Nullable
   @Override
-  public List<NativeModule> createNativeModules(@NonNull ReactApplicationContext reactContext) {
-    List<NativeModule> modules = new ArrayList<>();
-    modules.add(new AttentiveReactNativeSdkModule(reactContext));
-    return modules;
+  public NativeModule getModule(String name, ReactApplicationContext reactContext) {
+    if (name.equals(AttentiveReactNativeSdkModule.NAME)) {
+      return new AttentiveReactNativeSdkModule(reactContext);
+    } else {
+      return null;
+    }
   }
 
-  @NonNull
   @Override
-  public List<ViewManager> createViewManagers(@NonNull ReactApplicationContext reactContext) {
-    return Collections.emptyList();
+  public ReactModuleInfoProvider getReactModuleInfoProvider() {
+    return () -> {
+      final Map<String, ReactModuleInfo> moduleInfos = new HashMap<>();
+      boolean isTurboModule = BuildConfig.IS_NEW_ARCHITECTURE_ENABLED;
+      moduleInfos.put(
+              AttentiveReactNativeSdkModule.NAME,
+              new ReactModuleInfo(
+                      AttentiveReactNativeSdkModule.NAME,
+                      AttentiveReactNativeSdkModule.NAME,
+                      false, // canOverrideExistingModule
+                      false, // needsEagerInit
+                      true, // hasConstants
+                      false, // isCxxModule
+                      isTurboModule // isTurboModule
+      ));
+      return moduleInfos;
+    };
   }
 }

@@ -84,6 +84,7 @@ dependencies {
   implementation "com.facebook.react:react-native:+"
   implementation 'com.attentive:attentive-android-sdk:1.0.1'
   implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
+  implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.9.10"))
 }
 
 if (isNewArchitectureEnabled()) {

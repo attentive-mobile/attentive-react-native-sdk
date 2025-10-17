@@ -6,7 +6,7 @@
 //
 
 #ifdef RCT_NEW_ARCH_ENABLED
-#import "RNAttentiveReactNativeSdkSpec.h"
+#import "AttentiveReactNativeSdkSpec.h"
 
 @interface AttentiveReactNativeSdk : NSObject <NativeAttentiveReactNativeSdkSpec>
 #else

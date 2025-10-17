@@ -47,7 +47,7 @@ echo ""
 yarn install
 cd ios || exit
 # Install pods with repo update to ensure fresh dependencies
-pod install --repo-update
+RCT_NEW_ARCH_ENABLED=1 pod install --repo-update
 cd ..
 echo "Project cleaned and dependencies installed!"
 exit 0

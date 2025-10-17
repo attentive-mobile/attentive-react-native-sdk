@@ -1,240 +1,235 @@
-// Mock React Native before importing anything else
+// Mock the NativeAttentiveReactNativeSdk module
+const mockNativeModule = {
+  initialize: jest.fn(),
+  identify: jest.fn(),
+  clearUser: jest.fn(),
+  triggerCreative: jest.fn(),
+  destroyCreative: jest.fn(),
+  updateDomain: jest.fn(),
+  recordProductViewEvent: jest.fn(),
+  recordAddToCartEvent: jest.fn(),
+  recordPurchaseEvent: jest.fn(),
+  recordCustomEvent: jest.fn(),
+  invokeAttentiveDebugHelper: jest.fn(),
+  exportDebugLogs: jest.fn().mockResolvedValue('debug logs'),
+};
+
+jest.mock('../NativeAttentiveReactNativeSdk', () => ({
+  __esModule: true,
+  default: mockNativeModule,
+}));
+
 jest.mock('react-native', () => ({
-  NativeModules: {
-    AttentiveReactNativeSdk: {
-      initialize: jest.fn(),
-      identify: jest.fn(),
-      clearUser: jest.fn(),
-      triggerCreative: jest.fn(),
-      destroyCreative: jest.fn(),
-      updateDomain: jest.fn(),
-      recordProductViewEvent: jest.fn(),
-      recordAddToCartEvent: jest.fn(),
-      recordPurchaseEvent: jest.fn(),
-      recordCustomEvent: jest.fn(),
-      invokeAttentiveDebugHelper: jest.fn(),
-    },
-  },
   Platform: {
     select: jest.fn(),
   },
 }));
 
-import { NativeModules } from 'react-native';
-import { Attentive, AttentiveConfiguration, Mode } from '../index';
-
-const mockAttentiveReactNativeSdk = NativeModules.AttentiveReactNativeSdk;
+import {
+  initialize,
+  identify,
+  clearUser,
+  triggerCreative,
+  destroyCreative,
+  updateDomain,
+  recordProductViewEvent,
+  recordAddToCartEvent,
+  recordPurchaseEvent,
+  recordCustomEvent,
+  invokeAttentiveDebugHelper,
+  exportDebugLogs,
+} from '../index';
+import type { AttentiveSdkConfiguration } from '../index';
 
 describe('Attentive SDK', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  describe('Debugging functionality', () => {
-    it('should initialize with debugging enabled', () => {
-      const config: AttentiveConfiguration = {
+  describe('Initialization', () => {
+    it('should initialize with all configuration options', () => {
+      const config: AttentiveSdkConfiguration = {
         attentiveDomain: 'test-domain',
-        mode: Mode.Debug,
+        mode: 'debug',
         enableDebugger: true,
+        skipFatigueOnCreatives: true,
       };
 
-      Attentive.initialize(config);
+      initialize(config);
 
-      expect(mockAttentiveReactNativeSdk.initialize).toHaveBeenCalledWith(
-        config
-      );
-      expect(mockAttentiveReactNativeSdk.initialize).toHaveBeenCalledWith(
-        expect.objectContaining({
-          enableDebugger: true,
-        })
+      expect(mockNativeModule.initialize).toHaveBeenCalledWith(
+        'test-domain',
+        'debug',
+        true,
+        true
       );
     });
 
-    it('should initialize with debugging disabled by default', () => {
-      const config: AttentiveConfiguration = {
+    it('should initialize with minimal configuration', () => {
+      const config: AttentiveSdkConfiguration = {
         attentiveDomain: 'test-domain',
-        mode: Mode.Production,
+        mode: 'production',
       };
 
-      Attentive.initialize(config);
+      initialize(config);
 
-      expect(mockAttentiveReactNativeSdk.initialize).toHaveBeenCalledWith(
-        config
-      );
-      // When enableDebugger is not specified, it should not be in the config object
-      const lastCall = mockAttentiveReactNativeSdk.initialize.mock.calls[0][0];
-      expect(lastCall).not.toHaveProperty('enableDebugger');
-    });
-
-    it('should call invokeAttentiveDebugHelper', () => {
-      Attentive.invokeAttentiveDebugHelper();
-
-      expect(
-        mockAttentiveReactNativeSdk.invokeAttentiveDebugHelper
-      ).toHaveBeenCalled();
-    });
-
-    it('should accept enableDebugger flag in configuration', () => {
-      const configWithDebugger: AttentiveConfiguration = {
-        attentiveDomain: 'test-domain',
-        mode: Mode.Debug,
-        enableDebugger: true,
-        skipFatigueOnCreatives: false,
-      };
-
-      const configWithoutDebugger: AttentiveConfiguration = {
-        attentiveDomain: 'test-domain',
-        mode: Mode.Production,
-        enableDebugger: false,
-      };
-
-      Attentive.initialize(configWithDebugger);
-      expect(mockAttentiveReactNativeSdk.initialize).toHaveBeenLastCalledWith(
-        configWithDebugger
-      );
-
-      Attentive.initialize(configWithoutDebugger);
-      expect(mockAttentiveReactNativeSdk.initialize).toHaveBeenLastCalledWith(
-        configWithoutDebugger
+      expect(mockNativeModule.initialize).toHaveBeenCalledWith(
+        'test-domain',
+        'production',
+        false,
+        false
       );
     });
   });
 
-  describe('Event recording with debugging', () => {
+  describe('User identification', () => {
+    it('should identify user with all identifiers', () => {
+      identify({
+        phone: '+1234567890',
+        email: 'test@example.com',
+        klaviyoId: 'klaviyo-123',
+        shopifyId: 'shopify-123',
+        clientUserId: 'client-123',
+        customIdentifiers: { custom1: 'value1' },
+      });
+
+      expect(mockNativeModule.identify).toHaveBeenCalledWith(
+        '+1234567890',
+        'test@example.com',
+        'klaviyo-123',
+        'shopify-123',
+        'client-123',
+        { custom1: 'value1' }
+      );
+    });
+
+    it('should clear user', () => {
+      clearUser();
+
+      expect(mockNativeModule.clearUser).toHaveBeenCalled();
+    });
+  });
+
+  describe('Event recording', () => {
     it('should record product view event', () => {
-      const productViewEvent = {
-        items: [
-          {
-            productId: 'test-product',
-            productVariantId: 'test-variant',
-            price: { price: '10.00', currency: 'USD' },
-          },
-        ],
-        deeplink: 'test://product',
-      };
+      const items = [
+        {
+          productId: 'test-product',
+          productVariantId: 'test-variant',
+          price: '10.00',
+          currency: 'USD',
+        },
+      ];
 
-      Attentive.recordProductViewEvent(productViewEvent);
+      recordProductViewEvent({ items, deeplink: 'test://product' });
 
-      expect(
-        mockAttentiveReactNativeSdk.recordProductViewEvent
-      ).toHaveBeenCalledWith(productViewEvent);
+      expect(mockNativeModule.recordProductViewEvent).toHaveBeenCalledWith(
+        items,
+        'test://product'
+      );
     });
 
     it('should record add to cart event', () => {
-      const addToCartEvent = {
-        items: [
-          {
-            productId: 'test-product',
-            productVariantId: 'test-variant',
-            price: { price: '10.00', currency: 'USD' },
-          },
-        ],
-        deeplink: 'test://cart',
-      };
+      const items = [
+        {
+          productId: 'test-product',
+          productVariantId: 'test-variant',
+          price: '10.00',
+          currency: 'USD',
+        },
+      ];
 
-      Attentive.recordAddToCartEvent(addToCartEvent);
+      recordAddToCartEvent({ items, deeplink: 'test://cart' });
 
-      expect(
-        mockAttentiveReactNativeSdk.recordAddToCartEvent
-      ).toHaveBeenCalledWith(addToCartEvent);
+      expect(mockNativeModule.recordAddToCartEvent).toHaveBeenCalledWith(
+        items,
+        'test://cart'
+      );
     });
 
     it('should record purchase event', () => {
-      const purchaseEvent = {
-        items: [
-          {
-            productId: 'test-product',
-            productVariantId: 'test-variant',
-            price: { price: '10.00', currency: 'USD' },
-          },
-        ],
-        order: { orderId: 'test-order-123' },
-      };
+      const items = [
+        {
+          productId: 'test-product',
+          productVariantId: 'test-variant',
+          price: '10.00',
+          currency: 'USD',
+        },
+      ];
 
-      Attentive.recordPurchaseEvent(purchaseEvent);
+      recordPurchaseEvent({
+        items,
+        orderId: 'test-order-123',
+        cartId: 'cart-123',
+        cartCoupon: 'DISCOUNT10',
+      });
 
-      expect(
-        mockAttentiveReactNativeSdk.recordPurchaseEvent
-      ).toHaveBeenCalledWith(purchaseEvent);
+      expect(mockNativeModule.recordPurchaseEvent).toHaveBeenCalledWith(
+        items,
+        'test-order-123',
+        'cart-123',
+        'DISCOUNT10'
+      );
     });
 
     it('should record custom event', () => {
-      const customEvent = {
+      recordCustomEvent({
         type: 'test-event',
         properties: { key1: 'value1', key2: 'value2' },
-      };
+      });
 
-      Attentive.recordCustomEvent(customEvent);
-
-      expect(
-        mockAttentiveReactNativeSdk.recordCustomEvent
-      ).toHaveBeenCalledWith(customEvent);
+      expect(mockNativeModule.recordCustomEvent).toHaveBeenCalledWith(
+        'test-event',
+        { key1: 'value1', key2: 'value2' }
+      );
     });
   });
 
-  describe('Creative triggering with debugging', () => {
+  describe('Creative management', () => {
     it('should trigger creative without specific ID', () => {
-      Attentive.triggerCreative();
+      triggerCreative();
 
-      expect(mockAttentiveReactNativeSdk.triggerCreative).toHaveBeenCalledWith(
-        null
-      );
+      expect(mockNativeModule.triggerCreative).toHaveBeenCalledWith(undefined);
     });
 
     it('should trigger creative with specific ID', () => {
       const creativeId = 'test-creative-123';
-      Attentive.triggerCreative(creativeId);
+      triggerCreative(creativeId);
 
-      expect(mockAttentiveReactNativeSdk.triggerCreative).toHaveBeenCalledWith(
+      expect(mockNativeModule.triggerCreative).toHaveBeenCalledWith(
         creativeId
       );
     });
-  });
 
-  describe('Configuration validation', () => {
-    it('should ensure AttentiveConfiguration type includes enableDebugger', () => {
-      // This test ensures the TypeScript types are correct
-      const validConfig: AttentiveConfiguration = {
-        attentiveDomain: 'test',
-        mode: Mode.Debug,
-        enableDebugger: true,
-        skipFatigueOnCreatives: false,
-      };
+    it('should destroy creative', () => {
+      destroyCreative();
 
-      expect(validConfig.enableDebugger).toBe(true);
+      expect(mockNativeModule.destroyCreative).toHaveBeenCalled();
     });
   });
 
-  describe('Debug mode safety', () => {
-    it('should pass enableDebugger flag to native module regardless of build mode', () => {
-      // This test verifies that the enableDebugger flag is passed through to the native module
-      // The actual debug mode checking happens in the native modules
-      const config: AttentiveConfiguration = {
-        attentiveDomain: 'test-domain',
-        mode: Mode.Production,
-        enableDebugger: true,
-      };
+  describe('Domain management', () => {
+    it('should update domain', () => {
+      updateDomain('new-domain.com');
 
-      Attentive.initialize(config);
-
-      expect(mockAttentiveReactNativeSdk.initialize).toHaveBeenCalledWith(
-        expect.objectContaining({
-          enableDebugger: true,
-        })
+      expect(mockNativeModule.updateDomain).toHaveBeenCalledWith(
+        'new-domain.com'
       );
     });
+  });
 
-    it('should pass enableDebugger: false when not specified', () => {
-      const config: AttentiveConfiguration = {
-        attentiveDomain: 'test-domain',
-        mode: Mode.Production,
-      };
+  describe('Debugging', () => {
+    it('should invoke debug helper', () => {
+      invokeAttentiveDebugHelper();
 
-      Attentive.initialize(config);
+      expect(mockNativeModule.invokeAttentiveDebugHelper).toHaveBeenCalled();
+    });
 
-      // When enableDebugger is not specified, it should not be in the config object
-      const lastCall = mockAttentiveReactNativeSdk.initialize.mock.calls[0][0];
-      expect(lastCall).not.toHaveProperty('enableDebugger');
+    it('should export debug logs', async () => {
+      const logs = await exportDebugLogs();
+
+      expect(mockNativeModule.exportDebugLogs).toHaveBeenCalled();
+      expect(logs).toBe('debug logs');
     });
   });
 });
