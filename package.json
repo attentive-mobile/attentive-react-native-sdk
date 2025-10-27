@@ -31,11 +31,14 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "build": "bob build",
     "prepack": "bob build",
     "release": "release-it",
     "example": "yarn --cwd example",
     "bootstrap": "yarn example && yarn install && yarn example pods",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build"
+    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build",
+    "dev:ios": "yarn build && cd example && ./reset.sh && cd .. && yarn example ios",
+    "dev:android": "yarn build && cd example && ./reset.sh && cd .. && yarn example android"
   },
   "keywords": [
     "attentive",
