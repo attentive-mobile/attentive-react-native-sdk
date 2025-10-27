@@ -28,7 +28,7 @@ rm -rf Pods
 rm -rf build
 rm -rf Podfile.lock
 pod deintegrate
-yarn cache clean
+npm cache clean --force
 pod cache clean --all
 # Remove local podspecs cache to avoid version conflicts
 rm -rf ~/Library/Caches/CocoaPods
@@ -44,7 +44,7 @@ echo "**************************"
 echo "* Install all the things *"
 echo "**************************"
 echo ""
-yarn install
+npm install
 cd ios || exit
 # Install pods with repo update to ensure fresh dependencies
 RCT_NEW_ARCH_ENABLED=1 pod install --repo-update

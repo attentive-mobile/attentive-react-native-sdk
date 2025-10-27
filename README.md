@@ -3,6 +3,12 @@
 # Attentive React Native SDK
 The Attentive React Native SDK provides the functionality to render Attentive creative units and collect Attentive events in React Native mobile applications.
 
+## Package Manager
+
+This project uses **npm** as the preferred package manager for consistency and alignment with modern React Native best practices. While this library will work with any package manager (npm, yarn, or pnpm), the development scripts are configured to use npm.
+
+**Note on package managers:** Modern npm (v7+) has significantly improved performance and features, making it the recommended choice for React Native projects. Both npm and yarn work well with React Native, but this project standardizes on npm for development workflows.
+
 ## Installation
 
 Run `npm install @attentive-mobile/attentive-react-native-sdk` from your app's root directory.

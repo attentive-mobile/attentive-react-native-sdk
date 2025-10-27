@@ -34,11 +34,11 @@
     "build": "bob build",
     "prepack": "bob build",
     "release": "release-it",
-    "example": "yarn --cwd example",
-    "bootstrap": "yarn example && yarn install && yarn example pods",
+    "example": "npm --prefix example",
+    "bootstrap": "npm install && npm --prefix example install && npm --prefix example run pods",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build",
-    "dev:ios": "yarn build && cd example && ./reset.sh && cd .. && yarn example ios",
-    "dev:android": "yarn build && cd example && ./reset.sh && cd .. && yarn example android"
+    "dev:ios": "npm run build && cd example && ./reset.sh && cd .. && npm --prefix example run ios",
+    "dev:android": "npm run build && cd example && ./reset.sh && cd .. && npm --prefix example run android"
   },
   "keywords": [
     "attentive",
