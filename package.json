@@ -37,7 +37,8 @@
     "example": "npm --prefix example",
     "bootstrap": "npm install && npm --prefix example install && npm --prefix example run pods",
     "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build",
-    "dev": "npm run build && cd example && ./reset.sh && cd .. && npm --prefix example run start",
+    "dev:start": "npm run build && cd example && ./reset.sh && cd .. && npm run dev",
+    "dev": "npm --prefix example run start",
     "dev:ios": "npm --prefix example run ios",
     "dev:android": "npm --prefix example run android"
   },
