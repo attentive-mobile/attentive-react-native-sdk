@@ -54,10 +54,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         skipFatigueOnCreatives: Boolean,
         enableDebugger: Boolean
     ) {
-        if (mode == null) {
-            throw IllegalArgumentException("The 'mode' parameter cannot be null.")
-        }
-
         // Initialize debug helper
         debugHelper.initialize(enableDebugger)
 
@@ -208,7 +204,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
     }
 
-    override fun recordCustomEvent(type: String, properties: ReadableMap) {
+    override fun recordCustomEvent(type: String, properties: ReadableMap?) {
         Log.i(TAG, "Sending custom event")
         if (properties == null) {
             throw IllegalArgumentException("The CustomEvent 'properties' field cannot be null.")
@@ -256,7 +252,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         Log.i(TAG, "buildItems method called with rawItems: $rawItems")
         val items = mutableListOf<Item>()
         for (i in 0 until rawItems.size()) {
-            val rawItem = rawItems.getMap(i)
+            val rawItem = rawItems.getMap(i) ?: continue
 
             // Price and currency are now flattened, not nested
             val priceValue = rawItem.getString("price")
