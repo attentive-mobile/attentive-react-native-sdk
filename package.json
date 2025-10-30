@@ -1,6 +1,6 @@
 {
   "name": "@attentive-mobile/attentive-react-native-sdk",
-  "version": "1.0.5",
+  "version": "2.0.0",
   "description": "React Native Module for the Attentive SDK",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
@@ -31,11 +31,16 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "build": "bob build",
     "prepack": "bob build",
     "release": "release-it",
-    "example": "yarn --cwd example",
-    "bootstrap": "yarn example && yarn install && yarn example pods",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build"
+    "example": "npm --prefix example",
+    "bootstrap": "npm install && npm --prefix example install && npm --prefix example run pods",
+    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build",
+    "dev:start": "npm run build && cd example && ./reset.sh && cd .. && npm run dev",
+    "dev": "npm --prefix example run start",
+    "dev:ios": "npm --prefix example run ios",
+    "dev:android": "npm --prefix example run android"
   },
   "keywords": [
     "attentive",
@@ -160,6 +165,14 @@
         }
       ]
     ]
+  },
+  "codegenConfig": {
+    "name": "AttentiveReactNativeSdkSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.attentivereactnativesdk"
+    }
   },
   "dependencies": {
     "@babel/runtime": "^7.27.0"

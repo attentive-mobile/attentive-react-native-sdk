@@ -1,58 +1,64 @@
-/**
- * Sample React Native App
- */
-
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import type { RootStackParamList } from './navTypes';
+import {
+  initialize,
+  identify,
+  type AttentiveSdkConfiguration,
+  type UserIdentifiers,
+} from '@attentive-mobile/attentive-react-native-sdk';
+
 import HomeScreen from './HomeScreen';
 import ProductScreen from './ProductScreen';
-import {
-  Attentive,
-  AttentiveConfiguration,
-  Mode,
-  UserIdentifiers,
-} from '@attentive-mobile/attentive-react-native-sdk';
+import type { RootStackParamList } from './navTypes';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 function App(): React.JSX.Element {
   useEffect(() => {
-    const config: AttentiveConfiguration = {
+    // Initialize the SDK with New Architecture support
+    const config: AttentiveSdkConfiguration = {
       attentiveDomain: 'vs',
-      mode: Mode.Debug,
-      enableDebugger: true, // Enable debugging helpers
+      mode: 'debug',
+      enableDebugger: true,
     };
-    // 'initialize' should be called when the app starts
-    // 'initialize' should only be called once per app session
-    Attentive.initialize(config);
+    initialize(config);
 
-    // Identify the current user as soon as possible. All of the identifiers are optional.
-    // The more you pass, the better our SDK functions.
+    // Identify the user
     const identifiers: UserIdentifiers = {
       phone: '+15556667777',
-      email: 'some_email@gmailfake.com',
+      email: 'demo@example.com',
       klaviyoId: 'userKlaviyoId',
       shopifyId: 'userShopifyId',
       clientUserId: 'userClientUserId',
       customIdentifiers: { customIdKey: 'customIdValue' },
     };
-    Attentive.identify(identifiers);
+    identify(identifiers);
   }, []);
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator
+        initialRouteName="Home"
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: '#841584',
+          },
+          headerTintColor: '#fff',
+          headerTitleStyle: {
+            fontWeight: 'bold',
+          },
+        }}
+      >
         <Stack.Screen
           name="Home"
           component={HomeScreen}
-          options={{ title: 'Home' }}
+          options={{ title: 'Attentive SDK Example' }}
         />
         <Stack.Screen
           name="Product"
           component={ProductScreen}
-          options={{ title: 'Product Screen' }}
+          options={{ title: 'Product Details' }}
         />
       </Stack.Navigator>
     </NavigationContainer>

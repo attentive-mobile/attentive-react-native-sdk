@@ -38,8 +38,13 @@ class AttentiveDebugHelper(private val reactContext: ReactApplicationContext) {
     }
 
     private val debugHistory = mutableListOf<DebugEvent>()
-    var isDebuggingEnabled = false
-        private set
+    private var isDebuggingEnabled = false
+    
+    /**
+     * Returns whether debugging is currently enabled.
+     * Provides explicit getter method for Java interop.
+     */
+    fun isDebuggingEnabled(): Boolean = isDebuggingEnabled
 
     /**
      * Initializes debugging based on configuration and build type.
@@ -52,7 +57,7 @@ class AttentiveDebugHelper(private val reactContext: ReactApplicationContext) {
         isDebuggingEnabled = enableDebuggerFromConfig && isDebugBuild
         
         Log.i(TAG, "Debug initialization - enableDebuggerFromConfig: $enableDebuggerFromConfig, " +
-                "isDebugBuild: $isDebugBuild, debuggingEnabled: $isDebuggingEnabled")
+                "isDebugBuild: $isDebugBuild, debuggingEnabled: ${isDebuggingEnabled()}")
     }
 
     /**
@@ -62,7 +67,7 @@ class AttentiveDebugHelper(private val reactContext: ReactApplicationContext) {
      * @param data The event data
      */
     fun showDebugInfo(event: String, data: Map<String, Any?>) {
-        if (!isDebuggingEnabled) return
+        if (!isDebuggingEnabled()) return
         
         Log.i(TAG, "showDebugInfo called for event: $event, data: $data")
 
@@ -86,17 +91,28 @@ class AttentiveDebugHelper(private val reactContext: ReactApplicationContext) {
      * Shows existing debug session data without adding to history.
      */
     fun invokeDebugHelper() {
-        if (!isDebuggingEnabled) return
+        Log.i(TAG, "invokeDebugHelper called - isDebuggingEnabled: ${isDebuggingEnabled()}")
+        
+        if (!isDebuggingEnabled()) {
+            Log.w(TAG, "Debug helper not invoked because debugging is not enabled")
+            return
+        }
         
         val currentActivity = reactContext.currentActivity
+        Log.i(TAG, "Current activity: $currentActivity")
+        
         if (currentActivity != null) {
+            Log.i(TAG, "Activity is available, running on UI thread")
             UiThreadUtil.runOnUiThread {
                 val debugData = mapOf(
                     "action" to "manual_debug_call",
                     "session_events" to debugHistory.size.toString()
                 )
+                Log.i(TAG, "About to show debug dialog")
                 showDebugDialog(currentActivity, "Manual Debug View", debugData)
             }
+        } else {
+            Log.w(TAG, "Current activity is null, cannot show debug dialog")
         }
     }
 
@@ -105,7 +121,7 @@ class AttentiveDebugHelper(private val reactContext: ReactApplicationContext) {
      * @return A comprehensive formatted string containing all debug events in the current session
      */
     fun exportDebugLogs(): String {
-        if (!isDebuggingEnabled) {
+        if (!isDebuggingEnabled()) {
             return "Debug logging is not enabled. Please enable debugging to export logs."
         }
 

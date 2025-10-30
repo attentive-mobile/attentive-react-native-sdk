@@ -10,11 +10,15 @@ import {
 } from 'react-native';
 import type { ProductScreenProps } from './navTypes';
 import {
-  Attentive,
-  AddToCartEvent,
-  PurchaseEvent,
-  ProductViewEvent,
-  CustomEvent,
+  recordProductViewEvent,
+  recordAddToCartEvent,
+  recordPurchaseEvent,
+  recordCustomEvent,
+  invokeAttentiveDebugHelper,
+  type AddToCart,
+  type Purchase,
+  type ProductView,
+  type CustomEvent,
 } from '@attentive-mobile/attentive-react-native-sdk';
 
 const ProductScreen = ({}: ProductScreenProps) => {
@@ -24,10 +28,8 @@ const ProductScreen = ({}: ProductScreenProps) => {
         {
           productId: '555',
           productVariantId: '777',
-          price: {
-            price: '14.99',
-            currency: 'USD',
-          },
+          price: '14.99',
+          currency: 'USD',
         },
       ],
       deeplink: 'https://mydeeplink.com/products/32432423',
@@ -35,18 +37,18 @@ const ProductScreen = ({}: ProductScreenProps) => {
   };
 
   useEffect(() => {
-    const productViewAttrs: ProductViewEvent = {
+    const productViewAttrs: ProductView = {
       ...getItems(),
     };
 
-    Attentive.recordProductViewEvent(productViewAttrs);
+    recordProductViewEvent(productViewAttrs);
   }, []);
 
   const addToCart = () => {
-    const addToCartAttrs: AddToCartEvent = {
+    const addToCartAttrs: AddToCart = {
       ...getItems(),
     };
-    Attentive.recordAddToCartEvent(addToCartAttrs);
+    recordAddToCartEvent(addToCartAttrs);
 
     Alert.alert(
       'Debug Info',
@@ -55,13 +57,18 @@ const ProductScreen = ({}: ProductScreenProps) => {
   };
 
   const purchase = () => {
-    const purchaseAttrs: PurchaseEvent = {
-      ...getItems(),
-      order: {
-        orderId: '8989',
-      },
+    const purchaseAttrs: Purchase = {
+      items: [
+        {
+          productId: '555',
+          productVariantId: '777',
+          price: '14.99',
+          currency: 'USD',
+        },
+      ],
+      orderId: '8989',
     };
-    Attentive.recordPurchaseEvent(purchaseAttrs);
+    recordPurchaseEvent(purchaseAttrs);
 
     Alert.alert(
       'Debug Info',
@@ -75,7 +82,7 @@ const ProductScreen = ({}: ProductScreenProps) => {
       properties: { lastName: 'Christmas List' },
     };
 
-    Attentive.recordCustomEvent(customEventAttrs);
+    recordCustomEvent(customEventAttrs);
 
     Alert.alert(
       'Debug Info',
@@ -84,7 +91,7 @@ const ProductScreen = ({}: ProductScreenProps) => {
   };
 
   const testDebugHelper = () => {
-    Attentive.invokeAttentiveDebugHelper();
+    invokeAttentiveDebugHelper();
   };
 
   return (
