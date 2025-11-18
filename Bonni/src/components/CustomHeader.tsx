@@ -1,6 +1,7 @@
 /**
  * Custom Navigation Header
  * Matches the iOS app's custom navigation bar with peach background and centered logo
+ * Shows back button when navigation can go back, otherwise shows burger icon
  */
 
 import React from 'react';
@@ -10,7 +11,7 @@ import {
   StyleSheet,
   TouchableOpacity,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCart } from '../models/CartContext';
 import { RootStackParamList } from '../types/navigation';
@@ -24,30 +25,61 @@ type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 interface CustomHeaderProps {
   showLogo?: boolean;
   showCartIcon?: boolean;
-  showSettingsIcon?: boolean;
 }
 
+/**
+ * Custom header component that displays navigation controls
+ * - Shows burger icon on ProductList screen (main screen)
+ * - Shows back button on other screens when navigation can go back
+ * - Always shows cart icon on the right
+ * - Buttons are positioned at screen edges with proper offset
+ */
 const CustomHeader: React.FC<CustomHeaderProps> = ({
   showLogo = true,
   showCartIcon = true,
-  showSettingsIcon = true,
 }) => {
   const navigation = useNavigation<NavigationProp>();
+  const route = useRoute();
   const { cartItems } = useCart();
+
+  const isProductListScreen = route.name === 'ProductList';
+  const canGoBack = navigation.canGoBack();
+  const shouldShowBackButton = !isProductListScreen && canGoBack;
 
   const cartItemCount = cartItems.reduce(
     (sum, item) => sum + item.quantity,
     0
   );
 
+  const handleBackPress = () => {
+    if (canGoBack) {
+      navigation.goBack();
+    }
+  };
+
+  const handleBurgerPress = () => {
+    navigation.navigate('Settings');
+  };
+
   return (
     <View style={styles.header}>
-      {/* Left Button - Settings */}
+      {/* Left Button - Back or Burger */}
       <View style={styles.leftButton}>
-        {showSettingsIcon && (
+        {shouldShowBackButton ? (
           <TouchableOpacity
-            onPress={() => navigation.navigate('Settings')}
+            onPress={handleBackPress}
             style={styles.iconButton}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
+          >
+            <Text style={styles.backButtonText}>‹</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            onPress={handleBurgerPress}
+            style={styles.iconButton}
+            accessibilityLabel="Open settings"
+            accessibilityRole="button"
           >
             <BurgerIcon />
           </TouchableOpacity>
@@ -67,6 +99,8 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
           <TouchableOpacity
             onPress={() => navigation.navigate('Cart')}
             style={styles.iconButton}
+            accessibilityLabel="View cart"
+            accessibilityRole="button"
           >
             <CartIcon />
             {cartItemCount > 0 && (
@@ -88,11 +122,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     height: 56,
     backgroundColor: Colors.peach,
-    paddingHorizontal: Spacing.base,
+    paddingHorizontal: 0,
   },
   leftButton: {
-    width: 40,
+    width: 56,
     alignItems: 'flex-start',
+    paddingLeft: Spacing.base,
+    justifyContent: 'center',
   },
   centerContent: {
     flex: 1,
@@ -100,8 +136,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rightButton: {
-    width: 40,
+    width: 56,
     alignItems: 'flex-end',
+    paddingRight: Spacing.base,
+    justifyContent: 'center',
   },
   iconButton: {
     position: 'relative',
@@ -110,8 +148,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  iconText: {
-    fontSize: 24,
+  backButtonText: {
+    fontSize: 32,
+    fontWeight: '300',
+    color: Colors.black,
+    lineHeight: 32,
   },
   logoText: {
     fontSize: 24,

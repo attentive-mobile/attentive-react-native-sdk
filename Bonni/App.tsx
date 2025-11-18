@@ -50,6 +50,7 @@ function App(): React.JSX.Element {
             headerTitleStyle: {
               fontWeight: 'bold',
             },
+            headerBackVisible: false,
           }}
         >
           {/* Login Flow */}
@@ -77,6 +78,7 @@ function App(): React.JSX.Element {
             options={{
               headerTitle: () => <CustomHeader />,
               headerLeft: () => null,
+              headerRight: () => null,
             }}
           />
 
@@ -84,7 +86,9 @@ function App(): React.JSX.Element {
             name="ProductDetail"
             component={ProductDetailScreen}
             options={{
-              title: 'Product Details',
+              headerTitle: () => <CustomHeader />,
+              headerLeft: () => null,
+              headerRight: () => null,
             }}
           />
 
@@ -92,7 +96,9 @@ function App(): React.JSX.Element {
             name="Cart"
             component={CartScreen}
             options={{
-              title: 'Shopping Cart',
+              headerTitle: () => <CustomHeader />,
+              headerLeft: () => null,
+              headerRight: () => null,
             }}
           />
 
@@ -100,7 +106,9 @@ function App(): React.JSX.Element {
             name="Checkout"
             component={CheckoutScreen}
             options={{
-              title: 'Checkout',
+              headerTitle: () => <CustomHeader />,
+              headerLeft: () => null,
+              headerRight: () => null,
             }}
           />
 
@@ -116,7 +124,9 @@ function App(): React.JSX.Element {
             name="Settings"
             component={SettingsScreen}
             options={{
-              title: 'Settings',
+              headerTitle: () => <CustomHeader />,
+              headerLeft: () => null,
+              headerRight: () => null,
             }}
           />
         </Stack.Navigator>
