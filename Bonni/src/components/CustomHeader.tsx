@@ -20,6 +20,7 @@ import { Colors, Spacing } from '../constants/theme';
 
 import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg';
 import CartIcon from '../assets/images/ui/icons/cart-icon.svg';
+import BonniLogo from '../assets/images/ui/icons/bonni-logo.svg';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -91,7 +92,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
       {/* Center - Logo */}
       <View style={styles.centerContent}>
         {showLogo && (
-          <Text style={styles.logoText}>BONNI</Text>
+          <BonniLogo />
         )}
       </View>
 
