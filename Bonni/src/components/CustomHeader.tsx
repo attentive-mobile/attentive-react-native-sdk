@@ -66,53 +66,55 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
 
   return (
     <View style={[styles.header, { paddingTop: insets.top }]}>
-      {/* Left Button - Back or Burger */}
-      <View style={styles.leftButton}>
-        {shouldShowBackButton ? (
-          <TouchableOpacity
-            onPress={handleBackPress}
-            style={styles.iconButton}
-            accessibilityLabel="Go back"
-            accessibilityRole="button"
-          >
-            <Text style={styles.backButtonText}>‹</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            onPress={handleBurgerPress}
-            style={styles.iconButton}
-            accessibilityLabel="Open settings"
-            accessibilityRole="button"
-          >
-            <BurgerIcon />
-          </TouchableOpacity>
-        )}
-      </View>
+      <View style={styles.contentContainer}>
+        {/* Left Button - Back or Burger */}
+        <View style={styles.leftButton}>
+          {shouldShowBackButton ? (
+            <TouchableOpacity
+              onPress={handleBackPress}
+              style={styles.iconButton}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+            >
+              <Text style={styles.backButtonText}>‹</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={handleBurgerPress}
+              style={styles.iconButton}
+              accessibilityLabel="Open settings"
+              accessibilityRole="button"
+            >
+              <BurgerIcon />
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {/* Center - Logo */}
-      <View style={styles.centerContent}>
-        {showLogo && (
-          <BonniLogo />
-        )}
-      </View>
+        {/* Center - Logo */}
+        <View style={styles.centerContent}>
+          {showLogo && (
+            <BonniLogo />
+          )}
+        </View>
 
-      {/* Right Button - Cart */}
-      <View style={styles.rightButton}>
-        {showCartIcon && (
-          <TouchableOpacity
-            onPress={() => navigation.navigate('Cart')}
-            style={styles.iconButton}
-            accessibilityLabel="View cart"
-            accessibilityRole="button"
-          >
-            <CartIcon />
-            {cartItemCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{cartItemCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        )}
+        {/* Right Button - Cart */}
+        <View style={styles.rightButton}>
+          {showCartIcon && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Cart')}
+              style={styles.iconButton}
+              accessibilityLabel="View cart"
+              accessibilityRole="button"
+            >
+              <CartIcon />
+              {cartItemCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{cartItemCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -120,12 +122,14 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
 
 const styles = StyleSheet.create({
   header: {
+    backgroundColor: Colors.peach,
+    width: '100%',
+  },
+  contentContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     height: 56,
-    backgroundColor: Colors.peach,
-    width: '100%',
   },
   leftButton: {
     width: 56,

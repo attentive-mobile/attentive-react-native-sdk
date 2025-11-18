@@ -4,6 +4,7 @@
  */
 
 import React, { useEffect } from 'react';
+import { StatusBar, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -43,6 +44,11 @@ function App(): React.JSX.Element {
 
   return (
     <SafeAreaProvider>
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor={Colors.peach}
+        translucent={Platform.OS === 'android'}
+      />
       <CartProvider>
         <NavigationContainer>
         <Stack.Navigator
