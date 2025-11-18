@@ -19,6 +19,8 @@ import { PRODUCTS, Product } from '../models/Product';
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
 import { useAddToCart } from '../hooks/useAttentiveEvents';
 
+import CartIcon from '../assets/images/ui/icons/cart-icon.svg';
+
 const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => {
   const { addToCart } = useCart();
   const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart();
@@ -44,7 +46,7 @@ const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => 
           style={styles.addButton}
           onPress={() => handleAddToCart(item)}
         >
-          <Text style={styles.addButtonText}>+</Text>
+          <CartIcon width={15} height={15} />
         </TouchableOpacity>
       </TouchableOpacity>
       <Text style={styles.productName}>{item.name}</Text>
@@ -99,7 +101,7 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     width: '100%',
-    aspectRatio: 1,
+    aspectRatio: 2 / 3, // Height is 1.5x width (width:height = 2:3)
     marginBottom: Spacing.sm,
   },
   productImage: {
