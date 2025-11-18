@@ -18,6 +18,7 @@ import { useCart } from '../models/CartContext';
 import { RootStackParamList } from '../types/navigation';
 import { Colors, Spacing } from '../constants/theme';
 
+import BackIcon from '../assets/images/ui/icons/back-icon.svg';
 import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg';
 import CartIcon from '../assets/images/ui/icons/cart-icon.svg';
 import BonniLogo from '../assets/images/ui/icons/bonni-logo.svg';
@@ -76,7 +77,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
               accessibilityLabel="Go back"
               accessibilityRole="button"
             >
-              <Text style={styles.backButtonText}>‹</Text>
+              <BackIcon />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
