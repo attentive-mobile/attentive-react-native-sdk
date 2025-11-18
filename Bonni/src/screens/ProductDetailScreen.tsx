@@ -91,14 +91,14 @@ const styles = StyleSheet.create({
     padding: Spacing.xl,
   },
   productName: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.xxl + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     marginBottom: Spacing.sm,
   },
   productPrice: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.xl + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.success,
     marginBottom: Spacing.xl,
   },
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   addButtonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     letterSpacing: Typography.letterSpacing.normal,
   },
 });

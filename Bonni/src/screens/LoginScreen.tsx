@@ -77,8 +77,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.xl,
   },
   welcomeText: {
-    fontSize: Typography.sizes.xxxl,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.xxxl + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     textAlign: 'center',
     letterSpacing: Typography.letterSpacing.wide,
@@ -100,7 +100,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     letterSpacing: Typography.letterSpacing.normal,
   },
   secondaryButton: {
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: Colors.black,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
   },
 });
 

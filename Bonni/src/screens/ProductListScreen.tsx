@@ -82,8 +82,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   headerTitle: {
-    fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.xl + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
   listContent: {
@@ -128,18 +128,18 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     fontSize: 20,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     color: Colors.black,
   },
   productName: {
     fontSize: Typography.sizes.small,
-    fontWeight: Typography.weights.medium,
+    fontWeight: Typography.weights.regular,
     color: Colors.black,
     marginBottom: 4,
   },
   productPrice: {
     fontSize: Typography.sizes.small,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
 });

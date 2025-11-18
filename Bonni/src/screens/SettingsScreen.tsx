@@ -186,8 +186,8 @@ const styles = StyleSheet.create({
     padding: Spacing.base,
   },
   sectionTitle: {
-    fontSize: Typography.sizes.large,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.large + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     marginBottom: Spacing.md,
   },
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
   },
   inputGroup: {
     marginBottom: Spacing.base,
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: Colors.black,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
   },
   infoRow: {
     flexDirection: 'row',
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   infoValue: {
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
 });

@@ -16,7 +16,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../models/CartContext';
 import { RootStackParamList } from '../types/navigation';
-import { Colors, Spacing } from '../constants/theme';
+import { Colors, Spacing, Typography } from '../constants/theme';
 
 import BackIcon from '../assets/images/ui/icons/back-icon.svg';
 import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg';
@@ -163,8 +163,8 @@ const styles = StyleSheet.create({
     lineHeight: 32,
   },
   logoText: {
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 26,
+    fontWeight: Typography.weights.semibold,
     color: Colors.black,
     letterSpacing: 2,
   },
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   badgeText: {
     color: Colors.white,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: Typography.weights.semibold,
   },
 });
 

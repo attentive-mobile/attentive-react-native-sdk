@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
   },
   itemName: {
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     marginBottom: 4,
   },
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   itemPrice: {
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     color: Colors.black,
   },
   quantityControls: {
@@ -172,11 +172,11 @@ const styles = StyleSheet.create({
   quantityButtonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
   },
   quantity: {
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     minWidth: 24,
     textAlign: 'center',
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
   totalRow: {
@@ -207,13 +207,13 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.lightBackground,
   },
   totalLabel: {
-    fontSize: Typography.sizes.large,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.large + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
   totalValue: {
-    fontSize: Typography.sizes.large,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.large + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
   checkoutButton: {
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   checkoutButtonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     letterSpacing: Typography.letterSpacing.normal,
   },
   emptyContainer: {
@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: Typography.sizes.xl,
-    fontWeight: Typography.weights.semibold,
+    fontWeight: Typography.weights.medium,
     color: Colors.secondaryText,
     marginBottom: Spacing.xl,
   },
@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
   shopButtonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
   },
 });
 

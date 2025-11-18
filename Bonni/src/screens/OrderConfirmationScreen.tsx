@@ -80,11 +80,11 @@ const styles = StyleSheet.create({
   checkmark: {
     fontSize: 60,
     color: Colors.white,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
   },
   title: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.xxl + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     textAlign: 'center',
     marginBottom: Spacing.base,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
   },
   orderId: {
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     color: Colors.black,
   },
   confirmationText: {
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   doneButtonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     letterSpacing: Typography.letterSpacing.normal,
   },
 });

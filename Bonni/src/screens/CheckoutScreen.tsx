@@ -208,8 +208,8 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.lightBackground,
   },
   sectionTitle: {
-    fontSize: Typography.sizes.large,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.large + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     marginBottom: Spacing.md,
   },
@@ -239,8 +239,8 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
   },
   summaryValue: {
-    fontSize: Typography.sizes.large,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.large + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
   placeOrderButton: {
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   placeOrderButtonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     letterSpacing: Typography.letterSpacing.normal,
   },
 });

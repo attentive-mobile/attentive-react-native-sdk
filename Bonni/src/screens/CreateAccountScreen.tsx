@@ -116,8 +116,8 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.xxxl,
   },
   title: {
-    fontSize: Typography.sizes.xxl,
-    fontWeight: Typography.weights.bold,
+    fontSize: Typography.sizes.xxl + 4,
+    fontWeight: Typography.weights.medium,
     color: Colors.black,
     marginBottom: Spacing.sm,
   },
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: Typography.sizes.small,
-    fontWeight: Typography.weights.medium,
+    fontWeight: Typography.weights.regular,
     color: Colors.black,
   },
   input: {
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: Colors.white,
     fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.bold,
+    fontWeight: Typography.weights.semibold,
     letterSpacing: Typography.letterSpacing.normal,
   },
 });
