@@ -9,13 +9,15 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCart } from '../models/CartContext';
 import { RootStackParamList } from '../types/navigation';
 import { Colors, Spacing } from '../constants/theme';
+
+import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg';
+import CartIcon from '../assets/images/ui/icons/cart-icon.svg';
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -47,7 +49,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
             onPress={() => navigation.navigate('Settings')}
             style={styles.iconButton}
           >
-            <Text style={styles.iconText}>⚙️</Text>
+            <BurgerIcon />
           </TouchableOpacity>
         )}
       </View>
@@ -66,7 +68,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
             onPress={() => navigation.navigate('Cart')}
             style={styles.iconButton}
           >
-            <Text style={styles.iconText}>🛒</Text>
+            <CartIcon />
             {cartItemCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{cartItemCount}</Text>
