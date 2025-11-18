@@ -6,6 +6,7 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   initialize,
   type AttentiveSdkConfiguration,
@@ -22,8 +23,12 @@ import CheckoutScreen from './src/screens/CheckoutScreen';
 import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import { RootStackParamList } from './src/types/navigation';
+import { Colors } from './src/constants/theme';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// Stable function reference to avoid recreating on every render
+const renderCustomHeader = () => <CustomHeader />;
 
 function App(): React.JSX.Element {
   useEffect(() => {
@@ -37,14 +42,15 @@ function App(): React.JSX.Element {
   }, []);
 
   return (
-    <CartProvider>
-      <NavigationContainer>
+    <SafeAreaProvider>
+      <CartProvider>
+        <NavigationContainer>
         <Stack.Navigator
           initialRouteName="Login"
           screenOptions={{
             headerShown: true,
             headerStyle: {
-              backgroundColor: '#FFC5B9',
+              backgroundColor: Colors.peach,
             },
             headerTintColor: '#000',
             headerTitleStyle: {
@@ -76,9 +82,7 @@ function App(): React.JSX.Element {
             name="ProductList"
             component={ProductListScreen}
             options={{
-              headerTitle: () => <CustomHeader />,
-              headerLeft: () => null,
-              headerRight: () => null,
+              header: renderCustomHeader,
             }}
           />
 
@@ -86,9 +90,7 @@ function App(): React.JSX.Element {
             name="ProductDetail"
             component={ProductDetailScreen}
             options={{
-              headerTitle: () => <CustomHeader />,
-              headerLeft: () => null,
-              headerRight: () => null,
+              header: renderCustomHeader,
             }}
           />
 
@@ -96,9 +98,7 @@ function App(): React.JSX.Element {
             name="Cart"
             component={CartScreen}
             options={{
-              headerTitle: () => <CustomHeader />,
-              headerLeft: () => null,
-              headerRight: () => null,
+              header: renderCustomHeader,
             }}
           />
 
@@ -106,9 +106,7 @@ function App(): React.JSX.Element {
             name="Checkout"
             component={CheckoutScreen}
             options={{
-              headerTitle: () => <CustomHeader />,
-              headerLeft: () => null,
-              headerRight: () => null,
+              header: renderCustomHeader,
             }}
           />
 
@@ -124,14 +122,13 @@ function App(): React.JSX.Element {
             name="Settings"
             component={SettingsScreen}
             options={{
-              headerTitle: () => <CustomHeader />,
-              headerLeft: () => null,
-              headerRight: () => null,
+              header: renderCustomHeader,
             }}
           />
         </Stack.Navigator>
-      </NavigationContainer>
-    </CartProvider>
+        </NavigationContainer>
+      </CartProvider>
+    </SafeAreaProvider>
   );
 }
 

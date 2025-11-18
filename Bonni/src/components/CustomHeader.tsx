@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useCart } from '../models/CartContext';
 import { RootStackParamList } from '../types/navigation';
 import { Colors, Spacing } from '../constants/theme';
@@ -40,6 +41,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
 }) => {
   const navigation = useNavigation<NavigationProp>();
   const route = useRoute();
+  const insets = useSafeAreaInsets();
   const { cartItems } = useCart();
 
   const isProductListScreen = route.name === 'ProductList';
@@ -62,7 +64,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   };
 
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, { paddingTop: insets.top }]}>
       {/* Left Button - Back or Burger */}
       <View style={styles.leftButton}>
         {shouldShowBackButton ? (
@@ -122,7 +124,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     height: 56,
     backgroundColor: Colors.peach,
-    paddingHorizontal: 0,
+    width: '100%',
   },
   leftButton: {
     width: 56,
