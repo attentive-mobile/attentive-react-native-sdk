@@ -4,7 +4,7 @@
  * Automatically records Product View event on mount
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,10 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import {
-  recordProductViewEvent,
-  recordAddToCartEvent,
-} from '@attentive-mobile/attentive-react-native-sdk';
 import { ProductDetailScreenProps } from '../types/navigation';
 import { useCart } from '../models/CartContext';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { useProductView, useAddToCart } from '../hooks/useAttentiveEvents';
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   route,
@@ -28,41 +25,16 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
 }) => {
   const { product } = route.params;
   const { addToCart } = useCart();
+  const { recordProductView } = useProductView();
+  const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart();
 
   useEffect(() => {
     // Automatically record product view event on screen load
-    recordProductViewEvent({
-      items: [
-        {
-          productId: product.id,
-          productVariantId: product.id,
-          price: product.price.toString(),
-          currency: 'USD',
-          name: product.name,
-          category: product.category,
-          quantity: 1,
-        },
-      ],
-    });
-  }, [product]);
+    recordProductView(product);
+  }, [product, recordProductView]);
 
-  const handleAddToCart = () => {
-    addToCart(product);
-
-    // Record add to cart event
-    recordAddToCartEvent({
-      items: [
-        {
-          productId: product.id,
-          productVariantId: product.id,
-          price: product.price.toString(),
-          currency: 'USD',
-          name: product.name,
-          category: product.category,
-          quantity: 1,
-        },
-      ],
-    });
+  const handleAddToCart = useCallback(() => {
+    handleAddToCartWithTracking(product, addToCart);
 
     Alert.alert(
       'Added to Cart',
@@ -75,7 +47,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         },
       ]
     );
-  };
+  }, [product, handleAddToCartWithTracking, addToCart, navigation]);
 
   return (
     <ScrollView style={styles.container}>

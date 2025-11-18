@@ -3,7 +3,7 @@
  * Matches the iOS ProductViewController with 2-column grid
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,41 +13,26 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { recordAddToCartEvent } from '@attentive-mobile/attentive-react-native-sdk';
 import { ProductListScreenProps } from '../types/navigation';
 import { useCart } from '../models/CartContext';
 import { PRODUCTS, Product } from '../models/Product';
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
+import { useAddToCart } from '../hooks/useAttentiveEvents';
 
 const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => {
   const { addToCart } = useCart();
+  const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart();
 
-  const handleProductPress = (product: Product) => {
+  const handleProductPress = useCallback((product: Product) => {
     navigation.navigate('ProductDetail', { product });
-  };
+  }, [navigation]);
 
-  const handleAddToCart = (product: Product) => {
-    addToCart(product);
-
-    // Record event with Attentive SDK
-    recordAddToCartEvent({
-      items: [
-        {
-          productId: product.id,
-          productVariantId: product.id,
-          price: product.price.toString(),
-          currency: 'USD',
-          name: product.name,
-          category: product.category,
-          quantity: 1,
-        },
-      ],
-    });
-
+  const handleAddToCart = useCallback((product: Product) => {
+    handleAddToCartWithTracking(product, addToCart);
     Alert.alert('Added to Cart', `${product.name} added to cart!`);
-  };
+  }, [handleAddToCartWithTracking, addToCart]);
 
-  const renderProduct = ({ item }: { item: Product }) => (
+  const renderProduct = useCallback(({ item }: { item: Product }) => (
     <View style={styles.productCard}>
       <TouchableOpacity
         style={styles.imageContainer}
@@ -65,7 +50,7 @@ const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => 
       <Text style={styles.productName}>{item.name}</Text>
       <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
     </View>
-  );
+  ), [handleProductPress, handleAddToCart]);
 
   return (
     <View style={styles.container}>

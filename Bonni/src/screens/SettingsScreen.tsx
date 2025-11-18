@@ -3,7 +3,7 @@
  * Matches the iOS SettingsViewController
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,20 +13,18 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
-import {
-  identify,
-  clearUser,
-  triggerCreative,
-  recordCustomEvent,
-} from '@attentive-mobile/attentive-react-native-sdk';
 import { SettingsScreenProps } from '../types/navigation';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { useAttentiveUser } from '../hooks/useAttentiveUser';
+import { useAttentiveActions } from '../hooks/useAttentiveActions';
 
 const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const { identifyUser, clearUserIdentification } = useAttentiveUser();
+  const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions();
 
-  const handleSwitchUser = () => {
+  const handleSwitchUser = useCallback(() => {
     Alert.prompt(
       'Switch User',
       'Enter email or phone',
@@ -40,7 +38,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
           onPress: (value) => {
             if (value) {
               const isEmail = value.includes('@');
-              identify(isEmail ? { email: value } : { phone: value });
+              identifyUser(isEmail ? { email: value } : { phone: value });
               Alert.alert('Success', 'User updated!');
             }
           },
@@ -48,47 +46,44 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
       ],
       'plain-text'
     );
-  };
+  }, [identifyUser]);
 
-  const handleShowCreative = () => {
-    triggerCreative();
-  };
+  const handleShowCreative = useCallback(() => {
+    triggerAttentiveCreative();
+  }, [triggerAttentiveCreative]);
 
-  const handleClearUser = () => {
-    clearUser();
+  const handleClearUser = useCallback(() => {
+    clearUserIdentification();
     Alert.alert('Success', 'User cleared!');
-  };
+  }, [clearUserIdentification]);
 
-  const handleAddEmail = () => {
+  const handleAddEmail = useCallback(() => {
     if (email) {
-      identify({ email });
+      identifyUser({ email });
       Alert.alert('Success', `Email ${email} added!`);
       setEmail('');
     } else {
       Alert.alert('Error', 'Please enter an email');
     }
-  };
+  }, [email, identifyUser]);
 
-  const handleAddPhone = () => {
+  const handleAddPhone = useCallback(() => {
     if (phone) {
-      identify({ phone });
+      identifyUser({ phone });
       Alert.alert('Success', `Phone ${phone} added!`);
       setPhone('');
     } else {
       Alert.alert('Error', 'Please enter a phone number');
     }
-  };
+  }, [phone, identifyUser]);
 
-  const handleSendCustomEvent = () => {
-    recordCustomEvent({
-      type: 'settings_test_event',
-      properties: {
-        source: 'settings_screen',
-        timestamp: new Date().toISOString(),
-      },
+  const handleSendCustomEvent = useCallback(() => {
+    recordCustomAttentiveEvent('settings_test_event', {
+      source: 'settings_screen',
+      timestamp: new Date().toISOString(),
     });
     Alert.alert('Success', 'Custom event sent!');
-  };
+  }, [recordCustomAttentiveEvent]);
 
   return (
     <ScrollView style={styles.container}>

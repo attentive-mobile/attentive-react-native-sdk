@@ -3,7 +3,7 @@
  * Matches the iOS AddressViewController and PlaceOrderViewController combined
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,13 +14,14 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { recordPurchaseEvent } from '@attentive-mobile/attentive-react-native-sdk';
 import { CheckoutScreenProps } from '../types/navigation';
 import { useCart } from '../models/CartContext';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { usePurchase } from '../hooks/useAttentiveEvents';
 
 const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
   const { cartItems, getTotal, clearCart } = useCart();
+  const { recordPurchase } = usePurchase();
 
   // Contact
   const [email, setEmail] = useState('');
@@ -41,30 +42,19 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
   const [expirationDate, setExpirationDate] = useState('');
   const [cvv, setCvv] = useState('');
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = useCallback(() => {
     // Generate order ID
     const orderId = `ORDER-${Date.now()}`;
 
     // Record purchase event with Attentive SDK
-    recordPurchaseEvent({
-      items: cartItems.map((item) => ({
-        productId: item.product.id,
-        productVariantId: item.product.id,
-        price: item.product.price.toString(),
-        currency: 'USD',
-        name: item.product.name,
-        category: item.product.category,
-        quantity: item.quantity,
-      })),
-      orderId,
-    });
+    recordPurchase(cartItems, orderId);
 
     // Clear cart
     clearCart();
 
     // Navigate to confirmation
     navigation.replace('OrderConfirmation', { orderId });
-  };
+  }, [cartItems, recordPurchase, clearCart, navigation]);
 
   return (
     <KeyboardAvoidingView

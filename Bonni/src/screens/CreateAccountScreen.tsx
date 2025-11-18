@@ -3,7 +3,7 @@
  * Matches the iOS CreateAccountViewController
  */
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,19 +14,20 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { identify } from '@attentive-mobile/attentive-react-native-sdk';
 import { CreateAccountScreenProps } from '../types/navigation';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { useAttentiveUser } from '../hooks/useAttentiveUser';
 
 const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation }) => {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const { identifyUser } = useAttentiveUser();
 
-  const handleCreateAccount = () => {
+  const handleCreateAccount = useCallback(() => {
     // Identify user with Attentive SDK
     if (email || phone) {
-      identify({
+      identifyUser({
         email: email || undefined,
         phone: phone || undefined,
       });
@@ -34,7 +35,7 @@ const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation })
 
     // Navigate to product list
     navigation.replace('ProductList');
-  };
+  }, [email, phone, identifyUser, navigation]);
 
   return (
     <KeyboardAvoidingView
