@@ -18,12 +18,14 @@ import { useCart } from '../models/CartContext';
 import { PRODUCTS, Product } from '../models/Product';
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
 import { useAddToCart } from '../hooks/useAttentiveEvents';
+import { useDisplayAlerts } from '../hooks/useDisplayAlerts';
 
 import CartIcon from '../assets/images/ui/icons/cart-icon.svg';
 
 const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => {
   const { addToCart } = useCart();
   const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart();
+  const displayAlerts = useDisplayAlerts();
 
   const handleProductPress = useCallback((product: Product) => {
     navigation.navigate('ProductDetail', { product });
@@ -31,8 +33,10 @@ const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => 
 
   const handleAddToCart = useCallback((product: Product) => {
     handleAddToCartWithTracking(product, addToCart);
-    Alert.alert('Added to Cart', `${product.name} added to cart!`);
-  }, [handleAddToCartWithTracking, addToCart]);
+    if (displayAlerts) {
+      Alert.alert('Added to Cart', `${product.name} added to cart!`);
+    }
+  }, [handleAddToCartWithTracking, addToCart, displayAlerts]);
 
   const renderProduct = useCallback(({ item }: { item: Product }) => (
     <View style={styles.productCard}>

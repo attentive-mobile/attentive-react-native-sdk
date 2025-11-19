@@ -11,11 +11,13 @@ import {
   Image,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
 } from 'react-native';
 import { CartScreenProps } from '../types/navigation';
 import { useCart } from '../models/CartContext';
 import { CartItem } from '../models/Product';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
 
 const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   const { cartItems, updateQuantity, getSubtotal, getTax, getTotal } =
@@ -75,16 +77,19 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         <Text style={styles.totalValue}>${getTotal().toFixed(2)}</Text>
       </View>
 
-      <TouchableOpacity
-        style={[
-          styles.checkoutButton,
+      <Pressable
+        style={({ pressed }) => [
+          getPrimaryButtonStyle(pressed),
+          { marginTop: Spacing.xl },
           cartItems.length === 0 && styles.checkoutButtonDisabled,
         ]}
         onPress={handleCheckout}
         disabled={cartItems.length === 0}
       >
-        <Text style={styles.checkoutButtonText}>CHECK OUT</Text>
-      </TouchableOpacity>
+        {({ pressed }) => (
+          <Text style={getPrimaryButtonTextStyle(pressed)}>CHECK OUT</Text>
+        )}
+      </Pressable>
     </View>
   );
 
@@ -92,12 +97,14 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>Your cart is empty</Text>
-        <TouchableOpacity
-          style={styles.shopButton}
+        <Pressable
+          style={({ pressed }) => [getPrimaryButtonStyle(pressed), { paddingHorizontal: Spacing.xxxl }]}
           onPress={() => navigation.navigate('ProductList')}
         >
-          <Text style={styles.shopButtonText}>Start Shopping</Text>
-        </TouchableOpacity>
+          {({ pressed }) => (
+            <Text style={getPrimaryButtonTextStyle(pressed)}>Start Shopping</Text>
+          )}
+        </Pressable>
       </View>
     );
   }
@@ -216,22 +223,8 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
-  checkoutButton: {
-    height: Layout.buttonHeight,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BorderRadius.small,
-    marginTop: Spacing.xl,
-  },
   checkoutButtonDisabled: {
     backgroundColor: Colors.secondaryText,
-  },
-  checkoutButtonText: {
-    color: Colors.white,
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
-    letterSpacing: Typography.letterSpacing.normal,
   },
   emptyContainer: {
     flex: 1,
@@ -245,19 +238,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium,
     color: Colors.secondaryText,
     marginBottom: Spacing.xl,
-  },
-  shopButton: {
-    height: Layout.buttonHeight,
-    paddingHorizontal: Spacing.xxxl,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BorderRadius.small,
-  },
-  shopButtonText: {
-    color: Colors.white,
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
   },
 });
 

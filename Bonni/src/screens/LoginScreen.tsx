@@ -9,11 +9,13 @@ import {
   Text,
   StyleSheet,
   ImageBackground,
-  TouchableOpacity,
+  Pressable,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { LoginScreenProps } from '../types/navigation';
-import { Colors, Typography, Spacing, Layout } from '../constants/theme';
+import { Colors, Typography, Spacing } from '../constants/theme';
+import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle, getGhostButtonTextStyle } from '../constants/buttonStyles';
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleSignIn = () => {
@@ -34,34 +36,45 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       style={styles.container}
       resizeMode="cover"
     >
-      <View style={styles.content}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.content}>
+        <Text style={styles.greetingText}>
+          HEY BESTIE!
+        </Text>
         <Text style={styles.welcomeText}>
-          HEY BESTIE!{'\n'}Welcome to Bonni Beauty!
+          Welcome to{'\n'}Bonni Beauty!
         </Text>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.primaryButton]}
+          <Pressable
+            style={({ pressed }) => getPrimaryButtonStyle(pressed)}
             onPress={handleSignIn}
           >
-            <Text style={styles.primaryButtonText}>SIGN IN</Text>
-          </TouchableOpacity>
+            {({ pressed }) => (
+              <Text style={getPrimaryButtonTextStyle(pressed)}>SIGN IN</Text>
+            )}
+          </Pressable>
 
-          <TouchableOpacity
-            style={[styles.button, styles.primaryButton]}
+          <Pressable
+            style={({ pressed }) => getSecondaryButtonStyle(pressed)}
             onPress={handleContinueAsGuest}
           >
-            <Text style={styles.primaryButtonText}>CONTINUE AS GUEST</Text>
-          </TouchableOpacity>
+            {({ pressed }) => (
+              <Text style={getSecondaryButtonTextStyle(pressed)}>CONTINUE AS GUEST</Text>
+            )}
+          </Pressable>
 
-          <TouchableOpacity
-            style={[styles.button, styles.secondaryButton]}
+          <Pressable
+            style={ButtonStyles.ghost}
             onPress={handleCreateAccount}
           >
-            <Text style={styles.secondaryButtonText}>Create Account</Text>
-          </TouchableOpacity>
+            {({ pressed }) => (
+              <Text style={getGhostButtonTextStyle(pressed)}>Create Account</Text>
+            )}
+          </Pressable>
         </View>
       </View>
+      </SafeAreaView>
     </ImageBackground>
   );
 };
@@ -70,48 +83,36 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
   content: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: Spacing.xl,
   },
-  welcomeText: {
-    fontSize: Typography.sizes.xxxl + 4,
+  greetingText: {
+    fontSize: Typography.sizes.xl,
     fontWeight: Typography.weights.medium,
     color: Colors.black,
     textAlign: 'center',
     letterSpacing: Typography.letterSpacing.wide,
-    marginBottom: Spacing.xxxl * 2,
+    marginBottom: Spacing.md,
+  },
+  welcomeText: {
+    fontSize: Typography.sizes.xxl,
+    fontWeight: Typography.weights.medium,
+    color: Colors.black,
+    textAlign: 'center',
+    letterSpacing: Typography.letterSpacing.wide,
+    marginBottom: Spacing.xxxl * 1.5,
+    lineHeight: 48,
   },
   buttonContainer: {
     width: '100%',
     gap: Spacing.base,
-  },
-  button: {
-    height: Layout.buttonHeight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 8,
-  },
-  primaryButton: {
-    backgroundColor: Colors.black,
-  },
-  primaryButtonText: {
-    color: Colors.white,
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
-    letterSpacing: Typography.letterSpacing.normal,
-  },
-  secondaryButton: {
-    backgroundColor: Colors.white,
-    borderWidth: 1,
-    borderColor: Colors.black,
-  },
-  secondaryButtonText: {
-    color: Colors.black,
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.medium,
+    paddingHorizontal: Spacing.xl,
   },
 });
 

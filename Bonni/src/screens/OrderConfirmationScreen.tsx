@@ -8,10 +8,12 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { OrderConfirmationScreenProps } from '../types/navigation';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
 
 const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
   route,
@@ -29,7 +31,8 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+        <View style={styles.content}>
         <View style={styles.iconContainer}>
           <Text style={styles.checkmark}>✓</Text>
         </View>
@@ -49,10 +52,13 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
           You will receive a confirmation email shortly with your order details.
         </Text>
 
-        <TouchableOpacity style={styles.doneButton} onPress={handleDone}>
-          <Text style={styles.doneButtonText}>DONE</Text>
-        </TouchableOpacity>
+        <Pressable style={({ pressed }) => [getPrimaryButtonStyle(pressed), { width: '100%' }]} onPress={handleDone}>
+          {({ pressed }) => (
+            <Text style={getPrimaryButtonTextStyle(pressed)}>DONE</Text>
+          )}
+        </Pressable>
       </View>
+      </SafeAreaView>
     </View>
   );
 };
@@ -61,6 +67,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.white,
+  },
+  safeArea: {
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -118,20 +127,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: Spacing.xxxl,
-  },
-  doneButton: {
-    width: '100%',
-    height: Layout.buttonHeight,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BorderRadius.small,
-  },
-  doneButtonText: {
-    color: Colors.white,
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
-    letterSpacing: Typography.letterSpacing.normal,
   },
 });
 

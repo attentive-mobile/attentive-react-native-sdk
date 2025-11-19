@@ -9,13 +9,14 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import { CreateAccountScreenProps } from '../types/navigation';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
 import { useAttentiveUser } from '../hooks/useAttentiveUser';
 
 const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation }) => {
@@ -86,12 +87,14 @@ const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation })
               />
             </View>
 
-            <TouchableOpacity
-              style={styles.button}
+            <Pressable
+              style={({ pressed }) => [getPrimaryButtonStyle(pressed), { marginTop: Spacing.xl }]}
               onPress={handleCreateAccount}
             >
-              <Text style={styles.buttonText}>CREATE ACCOUNT</Text>
-            </TouchableOpacity>
+              {({ pressed }) => (
+                <Text style={getPrimaryButtonTextStyle(pressed)}>CREATE ACCOUNT</Text>
+              )}
+            </Pressable>
           </View>
         </View>
       </ScrollView>
@@ -145,20 +148,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: Spacing.md,
     fontSize: Typography.sizes.medium,
     color: Colors.black,
-  },
-  button: {
-    height: Layout.buttonHeight,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BorderRadius.small,
-    marginTop: Spacing.xl,
-  },
-  buttonText: {
-    color: Colors.white,
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
-    letterSpacing: Typography.letterSpacing.normal,
   },
 });
 

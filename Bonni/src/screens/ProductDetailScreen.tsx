@@ -10,14 +10,16 @@ import {
   Text,
   Image,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Alert,
 } from 'react-native';
 import { ProductDetailScreenProps } from '../types/navigation';
 import { useCart } from '../models/CartContext';
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
+import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
 import { useProductView, useAddToCart } from '../hooks/useAttentiveEvents';
+import { useDisplayAlerts } from '../hooks/useDisplayAlerts';
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   route,
@@ -27,6 +29,7 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   const { addToCart } = useCart();
   const { recordProductView } = useProductView();
   const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart();
+  const displayAlerts = useDisplayAlerts();
 
   useEffect(() => {
     // Automatically record product view event on screen load
@@ -36,18 +39,20 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   const handleAddToCart = useCallback(() => {
     handleAddToCartWithTracking(product, addToCart);
 
-    Alert.alert(
-      'Added to Cart',
-      `${product.name} has been added to your cart!`,
-      [
-        { text: 'Continue Shopping', style: 'cancel' },
-        {
-          text: 'View Cart',
-          onPress: () => navigation.navigate('Cart'),
-        },
-      ]
-    );
-  }, [product, handleAddToCartWithTracking, addToCart, navigation]);
+    if (displayAlerts) {
+      Alert.alert(
+        'Added to Cart',
+        `${product.name} has been added to your cart!`,
+        [
+          { text: 'Continue Shopping', style: 'cancel' },
+          {
+            text: 'View Cart',
+            onPress: () => navigation.navigate('Cart'),
+          },
+        ]
+      );
+    }
+  }, [product, handleAddToCartWithTracking, addToCart, navigation, displayAlerts]);
 
   return (
     <ScrollView style={styles.container}>
@@ -64,9 +69,11 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
           Crafted with premium ingredients to give you the best skincare experience.
         </Text>
 
-        <TouchableOpacity style={styles.addButton} onPress={handleAddToCart}>
-          <Text style={styles.addButtonText}>ADD TO CART</Text>
-        </TouchableOpacity>
+        <Pressable style={({ pressed }) => getPrimaryButtonStyle(pressed)} onPress={handleAddToCart}>
+          {({ pressed }) => (
+            <Text style={getPrimaryButtonTextStyle(pressed)}>ADD TO CART</Text>
+          )}
+        </Pressable>
       </View>
     </ScrollView>
   );
@@ -107,19 +114,6 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     lineHeight: 24,
     marginBottom: Spacing.xxxl,
-  },
-  addButton: {
-    height: Layout.buttonHeight,
-    backgroundColor: Colors.black,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: BorderRadius.small,
-  },
-  addButtonText: {
-    color: Colors.white,
-    fontSize: Typography.sizes.medium,
-    fontWeight: Typography.weights.semibold,
-    letterSpacing: Typography.letterSpacing.normal,
   },
 });
 
