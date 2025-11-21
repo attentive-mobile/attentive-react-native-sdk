@@ -3,33 +3,33 @@
  * React Native example app demonstrating Attentive SDK integration
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { StatusBar, Platform } from 'react-native';
-import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import React, { useEffect, useState, useCallback } from 'react'
+import { StatusBar, Platform } from 'react-native'
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
+import { createNativeStackNavigator } from '@react-navigation/native-stack'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import {
   initialize,
   type AttentiveSdkConfiguration,
-} from '@attentive-mobile/attentive-react-native-sdk';
+} from '@attentive-mobile/attentive-react-native-sdk'
 
-import { CartProvider } from './src/models/CartContext';
-import CustomHeader from './src/components/CustomHeader';
-import LoginScreen from './src/screens/LoginScreen';
-import CreateAccountScreen from './src/screens/CreateAccountScreen';
-import ProductListScreen from './src/screens/ProductListScreen';
-import ProductDetailScreen from './src/screens/ProductDetailScreen';
-import CartScreen from './src/screens/CartScreen';
-import CheckoutScreen from './src/screens/CheckoutScreen';
-import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen';
-import SettingsScreen from './src/screens/SettingsScreen';
-import { RootStackParamList } from './src/types/navigation';
-import { Colors } from './src/constants/theme';
+import { CartProvider } from './src/models/CartContext'
+import CustomHeader from './src/components/CustomHeader'
+import LoginScreen from './src/screens/LoginScreen'
+import CreateAccountScreen from './src/screens/CreateAccountScreen'
+import ProductListScreen from './src/screens/ProductListScreen'
+import ProductDetailScreen from './src/screens/ProductDetailScreen'
+import CartScreen from './src/screens/CartScreen'
+import CheckoutScreen from './src/screens/CheckoutScreen'
+import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen'
+import SettingsScreen from './src/screens/SettingsScreen'
+import { RootStackParamList } from './src/types/navigation'
+import { Colors } from './src/constants/theme'
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>()
 
 // Stable function reference to avoid recreating on every render
-const renderCustomHeader = () => <CustomHeader />;
+const renderCustomHeader = () => <CustomHeader />
 
 /**
  * Screens that don't show a header - StatusBar should match their background
@@ -40,9 +40,9 @@ const SCREENS_WITHOUT_HEADER: Record<string, string> = {
 }
 
 function App(): React.JSX.Element {
-  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>()
   // Initialize with transparent since Login is the initial route
-  const [statusBarBackgroundColor, setStatusBarBackgroundColor] = useState<string>('transparent');
+  const [statusBarBackgroundColor, setStatusBarBackgroundColor] = useState<string>('transparent')
 
   useEffect(() => {
     // Initialize the Attentive SDK
@@ -50,9 +50,9 @@ function App(): React.JSX.Element {
       attentiveDomain: 'games', // Replace with your Attentive domain
       mode: 'production',
       enableDebugger: true,
-    };
-    initialize(config);
-  }, []);
+    }
+    initialize(config)
+  }, [])
 
   // Set initial status bar color for Login screen (initial route)
   useEffect(() => {
@@ -202,7 +202,7 @@ function App(): React.JSX.Element {
         </NavigationContainer>
       </CartProvider>
     </SafeAreaProvider>
-  );
+  )
 }
 
-export default App;
+export default App

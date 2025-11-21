@@ -3,7 +3,7 @@
  * Matches the iOS LoginViewController design
  */
 
-import React from 'react';
+import React from 'react'
 import {
   View,
   Text,
@@ -11,24 +11,24 @@ import {
   ImageBackground,
   Pressable,
   Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LoginScreenProps } from '../types/navigation';
-import { Colors, Typography, Spacing } from '../constants/theme';
-import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle, getGhostButtonTextStyle } from '../constants/buttonStyles';
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { LoginScreenProps } from '../types/navigation'
+import { Colors, Typography, Spacing } from '../constants/theme'
+import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle, getGhostButtonTextStyle } from '../constants/buttonStyles'
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleSignIn = () => {
-    Alert.alert('Sign In', 'Sign in functionality coming soon!');
-  };
+    Alert.alert('Sign In', 'Sign in functionality coming soon!')
+  }
 
   const handleContinueAsGuest = () => {
-    navigation.navigate('ProductList');
-  };
+    navigation.navigate('ProductList')
+  }
 
   const handleCreateAccount = () => {
-    navigation.navigate('CreateAccount');
-  };
+    navigation.navigate('CreateAccount')
+  }
 
   return (
     <ImageBackground
@@ -76,8 +76,8 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
       </View>
       </SafeAreaView>
     </ImageBackground>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -114,6 +114,6 @@ const styles = StyleSheet.create({
     gap: Spacing.base,
     paddingHorizontal: Spacing.xl,
   },
-});
+})
 
-export default LoginScreen;
+export default LoginScreen

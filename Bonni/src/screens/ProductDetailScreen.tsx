@@ -4,7 +4,7 @@
  * Automatically records Product View event on mount
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback } from 'react'
 import {
   View,
   Text,
@@ -13,31 +13,31 @@ import {
   Pressable,
   ScrollView,
   Alert,
-} from 'react-native';
-import { ProductDetailScreenProps } from '../types/navigation';
-import { useCart } from '../models/CartContext';
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
-import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
-import { useProductView, useAddToCart } from '../hooks/useAttentiveEvents';
-import { useDisplayAlerts } from '../hooks/useDisplayAlerts';
+} from 'react-native'
+import { ProductDetailScreenProps } from '../types/navigation'
+import { useCart } from '../models/CartContext'
+import { Colors, Typography, Spacing } from '../constants/theme'
+import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import { useProductView, useAddToCart } from '../hooks/useAttentiveEvents'
+import { useDisplayAlerts } from '../hooks/useDisplayAlerts'
 
 const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { product } = route.params;
-  const { addToCart } = useCart();
-  const { recordProductView } = useProductView();
-  const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart();
-  const displayAlerts = useDisplayAlerts();
+  const { product } = route.params
+  const { addToCart } = useCart()
+  const { recordProductView } = useProductView()
+  const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart()
+  const displayAlerts = useDisplayAlerts()
 
   useEffect(() => {
     // Automatically record product view event on screen load
-    recordProductView(product);
-  }, [product, recordProductView]);
+    recordProductView(product)
+  }, [product, recordProductView])
 
   const handleAddToCart = useCallback(() => {
-    handleAddToCartWithTracking(product, addToCart);
+    handleAddToCartWithTracking(product, addToCart)
 
     if (displayAlerts) {
       Alert.alert(
@@ -50,9 +50,9 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
             onPress: () => navigation.navigate('Cart'),
           },
         ]
-      );
+      )
     }
-  }, [product, handleAddToCartWithTracking, addToCart, navigation, displayAlerts]);
+  }, [product, handleAddToCartWithTracking, addToCart, navigation, displayAlerts])
 
   return (
     <ScrollView style={styles.container}>
@@ -76,8 +76,8 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         </Pressable>
       </View>
     </ScrollView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -115,6 +115,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     marginBottom: Spacing.xxxl,
   },
-});
+})
 
-export default ProductDetailScreen;
+export default ProductDetailScreen

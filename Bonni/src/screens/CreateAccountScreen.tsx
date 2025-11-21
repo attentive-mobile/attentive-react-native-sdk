@@ -3,7 +3,7 @@
  * Matches the iOS CreateAccountViewController
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react'
 import {
   View,
   Text,
@@ -13,17 +13,17 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
-import { CreateAccountScreenProps } from '../types/navigation';
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
-import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
-import { useAttentiveUser } from '../hooks/useAttentiveUser';
+} from 'react-native'
+import { CreateAccountScreenProps } from '../types/navigation'
+import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
+import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import { useAttentiveUser } from '../hooks/useAttentiveUser'
 
 const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation }) => {
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const { identifyUser } = useAttentiveUser();
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const { identifyUser } = useAttentiveUser()
 
   const handleCreateAccount = useCallback(() => {
     // Identify user with Attentive SDK
@@ -31,12 +31,12 @@ const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation })
       identifyUser({
         email: email || undefined,
         phone: phone || undefined,
-      });
+      })
     }
 
     // Navigate to product list
-    navigation.replace('ProductList');
-  }, [email, phone, identifyUser, navigation]);
+    navigation.replace('ProductList')
+  }, [email, phone, identifyUser, navigation])
 
   return (
     <KeyboardAvoidingView
@@ -99,8 +99,8 @@ const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation })
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -149,6 +149,6 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.medium,
     color: Colors.black,
   },
-});
+})
 
-export default CreateAccountScreen;
+export default CreateAccountScreen

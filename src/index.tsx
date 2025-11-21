@@ -1,4 +1,4 @@
-import { Platform } from "react-native"
+import { Platform } from 'react-native'
 import type {
   UserIdentifiers,
   AttentiveSdkConfiguration,
@@ -6,27 +6,33 @@ import type {
   Purchase,
   AddToCart,
   CustomEvent,
-} from "./eventTypes"
+  Item,
+} from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
-} from "./NativeAttentiveReactNativeSdk"
+} from './NativeAttentiveReactNativeSdk'
 
 const LINKING_ERROR =
   `The package 'attentive-react-native-sdk' doesn't seem to be linked. Make sure: \n\n` +
-  Platform.select({ ios: "- You have run 'pod install'\n", default: "" }) +
-  "- You rebuilt the app after installing the package\n" +
-  "- You are not using Expo Go\n"
+  Platform.select({
+    ios: "- You have run 'pod install'\n",
+    default: '',
+  }) +
+  '- You rebuilt the app after installing the package\n' +
+  '- You are not using Expo Go\n'
 
-const AttentiveReactNativeSdk = (NativeAttentiveReactNativeSdkModule
-  ? NativeAttentiveReactNativeSdkModule
-  : new Proxy(
-      {},
-      {
-        get() {
-          throw new Error(LINKING_ERROR)
-        },
-      },
-    )) as Spec
+const AttentiveReactNativeSdk = (
+  NativeAttentiveReactNativeSdkModule
+    ? NativeAttentiveReactNativeSdkModule
+    : new Proxy(
+        {},
+        {
+          get() {
+            throw new Error(LINKING_ERROR)
+          },
+        }
+      )
+) as Spec
 
 /**
  * Initialize the Attentive SDK with the provided configuration
@@ -160,4 +166,5 @@ export type {
   Purchase,
   AddToCart,
   CustomEvent,
+  Item,
 }

@@ -1,11 +1,21 @@
 pre-commit:
   parallel: true
   commands:
-    lint:
+    lint-sdk:
       files: git diff --name-only @{push}
       glob: "*.{js,ts,jsx,tsx}"
-      run: npx eslint {files}
-    types:
+      exclude: "(Bonni|example)/.*"
+      run: npx eslint --no-cache {files}
+    types-sdk:
       files: git diff --name-only @{push}
       glob: "*.{js,ts, jsx, tsx}"
+      exclude: "(Bonni|example)/.*"
       run: npx tsc --noEmit
+    lint-bonni:
+      files: git diff --name-only @{push}
+      glob: "Bonni/**/*.{js,ts,jsx,tsx}"
+      run: cd Bonni && npx eslint --no-cache .
+    types-bonni:
+      files: git diff --name-only @{push}
+      glob: "Bonni/**/*.{js,ts,jsx,tsx}"
+      run: cd Bonni && npx tsc --noEmit

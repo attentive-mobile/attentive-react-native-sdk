@@ -3,7 +3,7 @@
  * Matches the iOS CartViewController
  */
 
-import React from 'react';
+import React from 'react'
 import {
   View,
   Text,
@@ -12,23 +12,23 @@ import {
   StyleSheet,
   TouchableOpacity,
   Pressable,
-} from 'react-native';
-import { CartScreenProps } from '../types/navigation';
-import { useCart } from '../models/CartContext';
-import { CartItem } from '../models/Product';
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
-import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
+} from 'react-native'
+import { CartScreenProps } from '../types/navigation'
+import { useCart } from '../models/CartContext'
+import { CartItem } from '../models/Product'
+import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme'
+import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
 
 const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
   const { cartItems, updateQuantity, getSubtotal, getTax, getTotal } =
-    useCart();
+    useCart()
 
   const handleCheckout = () => {
     if (cartItems.length === 0) {
-      return;
+      return
     }
-    navigation.navigate('Checkout');
-  };
+    navigation.navigate('Checkout')
+  }
 
   const renderCartItem = ({ item }: { item: CartItem }) => (
     <View style={styles.cartItem}>
@@ -60,7 +60,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         </TouchableOpacity>
       </View>
     </View>
-  );
+  )
 
   const renderFooter = () => (
     <View style={styles.footer}>
@@ -91,7 +91,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         )}
       </Pressable>
     </View>
-  );
+  )
 
   if (cartItems.length === 0) {
     return (
@@ -106,7 +106,7 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
           )}
         </Pressable>
       </View>
-    );
+    )
   }
 
   return (
@@ -119,8 +119,8 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
         ListFooterComponent={renderFooter}
       />
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -239,6 +239,6 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     marginBottom: Spacing.xl,
   },
-});
+})
 
-export default CartScreen;
+export default CartScreen

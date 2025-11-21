@@ -59,4 +59,4 @@ export const PRODUCTS: Product[] = [
     image: require('../assets/images/products/the-stick.png'),
     category: 'skincare',
   },
-];
+]

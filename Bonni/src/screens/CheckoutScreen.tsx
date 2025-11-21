@@ -3,7 +3,7 @@
  * Matches the iOS AddressViewController and PlaceOrderViewController combined
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react'
 import {
   View,
   Text,
@@ -13,51 +13,51 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
-import { CheckoutScreenProps } from '../types/navigation';
-import { useCart } from '../models/CartContext';
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
-import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
-import { usePurchase } from '../hooks/useAttentiveEvents';
+} from 'react-native'
+import { CheckoutScreenProps } from '../types/navigation'
+import { useCart } from '../models/CartContext'
+import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
+import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import { usePurchase } from '../hooks/useAttentiveEvents'
 
-const PLACEHOLDER_TEXT_COLOR = '#666666';
+const PLACEHOLDER_TEXT_COLOR = '#666666'
 
 const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
-  const { cartItems, getTotal, clearCart } = useCart();
-  const { recordPurchase } = usePurchase();
+  const { cartItems, getTotal, clearCart } = useCart()
+  const { recordPurchase } = usePurchase()
 
   // Contact
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('')
 
   // Delivery
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [address1, setAddress1] = useState('');
-  const [address2, setAddress2] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [zipCode, setZipCode] = useState('');
-  const [phone, setPhone] = useState('');
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [address1, setAddress1] = useState('')
+  const [address2, setAddress2] = useState('')
+  const [city, setCity] = useState('')
+  const [state, setState] = useState('')
+  const [zipCode, setZipCode] = useState('')
+  const [phone, setPhone] = useState('')
 
   // Payment
-  const [cardNumber, setCardNumber] = useState('');
-  const [nameOnCard, setNameOnCard] = useState('');
-  const [expirationDate, setExpirationDate] = useState('');
-  const [cvv, setCvv] = useState('');
+  const [cardNumber, setCardNumber] = useState('')
+  const [nameOnCard, setNameOnCard] = useState('')
+  const [expirationDate, setExpirationDate] = useState('')
+  const [cvv, setCvv] = useState('')
 
   const handlePlaceOrder = useCallback(() => {
     // Generate order ID
-    const orderId = `ORDER-${Date.now()}`;
+    const orderId = `ORDER-${Date.now()}`
 
     // Record purchase event with Attentive SDK
-    recordPurchase(cartItems, orderId);
+    recordPurchase(cartItems, orderId)
 
     // Clear cart
-    clearCart();
+    clearCart()
 
     // Navigate to confirmation
-    navigation.replace('OrderConfirmation', { orderId });
-  }, [cartItems, recordPurchase, clearCart, navigation]);
+    navigation.replace('OrderConfirmation', { orderId })
+  }, [cartItems, recordPurchase, clearCart, navigation])
 
   return (
     <KeyboardAvoidingView
@@ -218,8 +218,8 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -273,6 +273,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
-});
+})
 
-export default CheckoutScreen;
+export default CheckoutScreen

@@ -140,7 +140,7 @@ export function getPrimaryButtonStyle(pressed: boolean): ViewStyle {
  * Text style remains the same regardless of pressed state
  * Use with Pressable component's style prop: style={(pressed) => getPrimaryButtonTextStyle(pressed)}
  */
-export function getPrimaryButtonTextStyle(pressed: boolean): TextStyle {
+export function getPrimaryButtonTextStyle(_pressed: boolean): TextStyle {
   return primaryButtonText
 }
 

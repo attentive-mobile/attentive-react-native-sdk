@@ -1,16 +1,16 @@
-const path = require('path');
-const escape = require('escape-string-regexp');
-const exclusionList = require('metro-config/src/defaults/exclusionList');
-const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config');
-const pak = require('../package.json');
+const path = require('path')
+const escape = require('escape-string-regexp')
+const exclusionList = require('metro-config/src/defaults/exclusionList')
+const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config')
+const pak = require('../package.json')
 
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..')
 
 const modules = Object.keys({
   ...pak.peerDependencies,
-});
+})
 
-const defaultConfig = getDefaultConfig(__dirname);
+const defaultConfig = getDefaultConfig(__dirname)
 
 /**
  * Metro configuration
@@ -31,8 +31,8 @@ const config = {
     ),
 
     extraNodeModules: modules.reduce((acc, name) => {
-      acc[name] = path.join(__dirname, 'node_modules', name);
-      return acc;
+      acc[name] = path.join(__dirname, 'node_modules', name)
+      return acc
     }, {}),
     // Add asset extensions for SVG
     assetExts: defaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
@@ -49,6 +49,6 @@ const config = {
       },
     }),
   },
-};
+}
 
-module.exports = mergeConfig(defaultConfig, config);
+module.exports = mergeConfig(defaultConfig, config)

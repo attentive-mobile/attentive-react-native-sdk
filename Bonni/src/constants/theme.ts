@@ -22,7 +22,7 @@ export const Colors = {
   success: '#27AE60',
   error: '#E74C3C',
   warning: '#F39C12',
-};
+}
 
 export const Typography = {
   // Font sizes
@@ -53,7 +53,7 @@ export const Typography = {
     normal: 1.0,
     wide: 1.25,
   },
-};
+}
 
 export const Spacing = {
   xs: 4,
@@ -64,14 +64,14 @@ export const Spacing = {
   xl: 24,
   xxl: 32,
   xxxl: 48,
-};
+}
 
 export const BorderRadius = {
   small: 8,
   medium: 16,
   large: 24,
   round: 999,
-};
+}
 
 export const Shadows = {
   small: {
@@ -88,11 +88,11 @@ export const Shadows = {
     shadowRadius: 8,
     elevation: 4,
   },
-};
+}
 
 export const Layout = {
   screenPadding: Spacing.base,
   sectionSpacing: Spacing.xl,
   buttonHeight: 50,
   inputHeight: 46,
-};
+}

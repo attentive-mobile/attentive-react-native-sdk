@@ -1,6 +1,6 @@
 # Bonni Beauty - React Native Example App
 
-A comprehensive example app demonstrating the integration of the Attentive React Native SDK. This app replicates the native iOS "Bonni" example app using React Native 0.77 and follows best practices for cross-platform mobile development.
+A comprehensive example app demonstrating the integration of the Attentive React Native SDK. This app uses React Native 0.77 and follows best practices for cross-platform mobile development while replicating the native iOS and Android "Bonni" example app.
 
 ## Overview
 
@@ -35,36 +35,6 @@ Bonni Beauty is a fictional e-commerce beauty products store that showcases all 
 - **Custom Events**: Send custom event data
 - **User Management**: Clear user data, switch users
 
-## Project Structure
-
-```
-Bonni/
-├── src/
-│   ├── assets/
-│   │   └── images/
-│   │       ├── products/          # 6 product images
-│   │       └── ui/                # UI assets (logo, background)
-│   ├── components/
-│   │   └── CustomHeader.tsx       # Custom navigation header
-│   ├── constants/
-│   │   └── theme.ts               # Design system (colors, typography)
-│   ├── models/
-│   │   ├── Product.ts             # Product data model
-│   │   └── CartContext.tsx        # Shopping cart state management
-│   ├── screens/
-│   │   ├── LoginScreen.tsx
-│   │   ├── CreateAccountScreen.tsx
-│   │   ├── ProductListScreen.tsx
-│   │   ├── ProductDetailScreen.tsx
-│   │   ├── CartScreen.tsx
-│   │   ├── CheckoutScreen.tsx
-│   │   ├── OrderConfirmationScreen.tsx
-│   │   └── SettingsScreen.tsx
-│   └── types/
-│       └── navigation.ts          # Type-safe navigation
-└── App.tsx                        # Main app component
-```
-
 ## Getting Started
 
 ### Prerequisites
@@ -95,27 +65,6 @@ npm run ios
 ```bash
 npm run android
 ```
-
-## Design Specifications
-
-The app matches the native iOS design:
-
-- **Primary Color**: Peach (#FFC5B9) - Navigation header
-- **Typography**: System fonts with weights from thin to black
-- **Spacing**: 8pt grid system
-- **Border Radius**: 8pt (small), 16pt (medium)
-- **Layout**: Standard 16pt screen padding
-
-## Products
-
-The app includes 6 beauty products:
-
-1. Protective Superscreen - $39.99
-2. Mango Mask - $24.99
-3. Coconut Balm - $14.99
-4. Mango Balm - $29.99
-5. Honeydew Balm - $9.99
-6. The Stick - $19.99
 
 ## SDK Configuration
 

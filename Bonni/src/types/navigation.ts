@@ -2,8 +2,8 @@
  * Navigation types for type-safe navigation
  */
 
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Product } from '../models/Product';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack'
+import { Product } from '../models/Product'
 
 export type RootStackParamList = {
   Login: undefined;

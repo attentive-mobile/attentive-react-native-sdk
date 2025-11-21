@@ -3,7 +3,7 @@
  * Matches the iOS ProductViewController with 2-column grid
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback } from 'react'
 import {
   View,
   Text,
@@ -12,31 +12,31 @@ import {
   Image,
   TouchableOpacity,
   Alert,
-} from 'react-native';
-import { ProductListScreenProps } from '../types/navigation';
-import { useCart } from '../models/CartContext';
-import { PRODUCTS, Product } from '../models/Product';
-import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme';
-import { useAddToCart } from '../hooks/useAttentiveEvents';
-import { useDisplayAlerts } from '../hooks/useDisplayAlerts';
+} from 'react-native'
+import { ProductListScreenProps } from '../types/navigation'
+import { useCart } from '../models/CartContext'
+import { PRODUCTS, Product } from '../models/Product'
+import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme'
+import { useAddToCart } from '../hooks/useAttentiveEvents'
+import { useDisplayAlerts } from '../hooks/useDisplayAlerts'
 
-import CartIcon from '../assets/images/ui/icons/cart-icon.svg';
+import CartIcon from '../assets/images/ui/icons/cart-icon.svg'
 
 const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => {
-  const { addToCart } = useCart();
-  const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart();
-  const displayAlerts = useDisplayAlerts();
+  const { addToCart } = useCart()
+  const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart()
+  const displayAlerts = useDisplayAlerts()
 
   const handleProductPress = useCallback((product: Product) => {
-    navigation.navigate('ProductDetail', { product });
-  }, [navigation]);
+    navigation.navigate('ProductDetail', { product })
+  }, [navigation])
 
   const handleAddToCart = useCallback((product: Product) => {
-    handleAddToCartWithTracking(product, addToCart);
+    handleAddToCartWithTracking(product, addToCart)
     if (displayAlerts) {
-      Alert.alert('Added to Cart', `${product.name} added to cart!`);
+      Alert.alert('Added to Cart', `${product.name} added to cart!`)
     }
-  }, [handleAddToCartWithTracking, addToCart, displayAlerts]);
+  }, [handleAddToCartWithTracking, addToCart, displayAlerts])
 
   const renderProduct = useCallback(({ item }: { item: Product }) => (
     <View style={styles.productCard}>
@@ -56,7 +56,7 @@ const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => 
       <Text style={styles.productName}>{item.name}</Text>
       <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
     </View>
-  ), [handleProductPress, handleAddToCart]);
+  ), [handleProductPress, handleAddToCart])
 
   return (
     <View style={styles.container}>
@@ -72,8 +72,8 @@ const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => 
         columnWrapperStyle={styles.columnWrapper}
       />
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -146,6 +146,6 @@ const styles = StyleSheet.create({
     fontWeight: Typography.weights.medium,
     color: Colors.black,
   },
-});
+})
 
-export default ProductListScreen;
+export default ProductListScreen

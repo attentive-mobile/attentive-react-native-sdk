@@ -3,31 +3,31 @@
  * Matches the iOS OrderConfirmationViewController
  */
 
-import React from 'react';
+import React from 'react'
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { OrderConfirmationScreenProps } from '../types/navigation';
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
-import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles';
+} from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
+import { OrderConfirmationScreenProps } from '../types/navigation'
+import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme'
+import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
 
 const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
   route,
   navigation,
 }) => {
-  const { orderId } = route.params;
+  const { orderId } = route.params
 
   const handleDone = () => {
     // Navigate back to product list (root)
     navigation.reset({
       index: 0,
       routes: [{ name: 'ProductList' }],
-    });
-  };
+    })
+  }
 
   return (
     <View style={styles.container}>
@@ -60,8 +60,8 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
       </View>
       </SafeAreaView>
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -128,6 +128,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: Spacing.xxxl,
   },
-});
+})
 
-export default OrderConfirmationScreen;
+export default OrderConfirmationScreen

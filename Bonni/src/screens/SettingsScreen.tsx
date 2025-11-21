@@ -3,7 +3,7 @@
  * Matches the iOS SettingsViewController
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react'
 import {
   View,
   Text,
@@ -17,54 +17,54 @@ import {
   Platform,
   Modal,
   Switch,
-} from 'react-native';
-import { SettingsScreenProps } from '../types/navigation';
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme';
-import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle } from '../constants/buttonStyles';
-import { useAttentiveUser } from '../hooks/useAttentiveUser';
-import { useAttentiveActions } from '../hooks/useAttentiveActions';
-import { updateDomain } from '@attentive-mobile/attentive-react-native-sdk';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import PushNotificationIOS from '@react-native-community/push-notification-ios';
+} from 'react-native'
+import { SettingsScreenProps } from '../types/navigation'
+import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
+import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle } from '../constants/buttonStyles'
+import { useAttentiveUser } from '../hooks/useAttentiveUser'
+import { useAttentiveActions } from '../hooks/useAttentiveActions'
+import { updateDomain } from '@attentive-mobile/attentive-react-native-sdk'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import PushNotificationIOS from '@react-native-community/push-notification-ios'
 
 const CONFIG_STORAGE_KEYS = {
   DEBUGGER_ENABLED: 'attentive_debugger_enabled',
   DISPLAY_ALERTS: 'attentive_display_alerts',
   ATTENTIVE_DOMAIN: 'attentive_domain',
-};
+}
 
-const ATTENTIVE_DOMAINS = ['vs', 'games', '76ers', 'belk'];
+const ATTENTIVE_DOMAINS = ['vs', 'games', '76ers', 'belk']
 
 const SettingsScreen: React.FC<SettingsScreenProps> = () => {
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [deviceToken, setDeviceToken] = useState<string>('Not saved');
-  const [currentUser, setCurrentUser] = useState<string>('Guest');
-  const [responseModalVisible, setResponseModalVisible] = useState(false);
-  const [responseData, setResponseData] = useState<string>('');
-  const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true);
-  const [displayAlerts, setDisplayAlerts] = useState<boolean>(true);
-  const [attentiveDomain, setAttentiveDomain] = useState<string>('games');
-  const [domainPickerVisible, setDomainPickerVisible] = useState<boolean>(false);
-  const { identifyUser, clearUserIdentification } = useAttentiveUser();
-  const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions();
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [deviceToken, setDeviceToken] = useState<string>('Not saved')
+  const [currentUser, setCurrentUser] = useState<string>('Guest')
+  const [responseModalVisible, setResponseModalVisible] = useState(false)
+  const [responseData, setResponseData] = useState<string>('')
+  const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true)
+  const [displayAlerts, setDisplayAlerts] = useState<boolean>(true)
+  const [attentiveDomain, setAttentiveDomain] = useState<string>('games')
+  const [domainPickerVisible, setDomainPickerVisible] = useState<boolean>(false)
+  const { identifyUser, clearUserIdentification } = useAttentiveUser()
+  const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions()
 
   // Load device token and configuration on mount
   useEffect(() => {
-    loadDeviceToken();
-    loadConfiguration();
-  }, []);
+    loadDeviceToken()
+    loadConfiguration()
+  }, [])
 
   const loadDeviceToken = async () => {
     try {
-      const token = await AsyncStorage.getItem('deviceToken');
+      const token = await AsyncStorage.getItem('deviceToken')
       if (token) {
-        setDeviceToken(token);
+        setDeviceToken(token)
       }
     } catch (error) {
-      console.error('Error loading device token:', error);
+      console.error('Error loading device token:', error)
     }
-  };
+  }
 
   /**
    * Load configuration from AsyncStorage
@@ -75,21 +75,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
         AsyncStorage.getItem(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED),
         AsyncStorage.getItem(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS),
         AsyncStorage.getItem(CONFIG_STORAGE_KEYS.ATTENTIVE_DOMAIN),
-      ]);
+      ])
 
       if (debuggerValue !== null) {
-        setDebuggerEnabled(debuggerValue === 'true');
+        setDebuggerEnabled(debuggerValue === 'true')
       }
       if (alertsValue !== null) {
-        setDisplayAlerts(alertsValue === 'true');
+        setDisplayAlerts(alertsValue === 'true')
       }
       if (domainValue !== null) {
-        setAttentiveDomain(domainValue);
+        setAttentiveDomain(domainValue)
       }
     } catch (error) {
-      console.error('Error loading configuration:', error);
+      console.error('Error loading configuration:', error)
     }
-  };
+  }
 
   /**
    * Handle debugger toggle change
@@ -97,21 +97,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    */
   const handleDebuggerToggle = useCallback(async (value: boolean) => {
     try {
-      setDebuggerEnabled(value);
-      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED, value.toString());
+      setDebuggerEnabled(value)
+      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED, value.toString())
       if (displayAlerts) {
         Alert.alert(
           'Debugger Setting',
           'Debugger setting has been saved. Note: This setting requires app restart to take effect.'
-        );
+        )
       }
     } catch (error) {
-      console.error('Error saving debugger setting:', error);
+      console.error('Error saving debugger setting:', error)
       if (displayAlerts) {
-        Alert.alert('Error', 'Failed to save debugger setting');
+        Alert.alert('Error', 'Failed to save debugger setting')
       }
     }
-  }, [displayAlerts]);
+  }, [displayAlerts])
 
   /**
    * Handle display alerts toggle change
@@ -119,13 +119,13 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    */
   const handleDisplayAlertsToggle = useCallback(async (value: boolean) => {
     try {
-      setDisplayAlerts(value);
-      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, value.toString());
+      setDisplayAlerts(value)
+      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, value.toString())
     } catch (error) {
-      console.error('Error saving display alerts setting:', error);
+      console.error('Error saving display alerts setting:', error)
       // Don't show alert here since alerts are being disabled
     }
-  }, []);
+  }, [])
 
   /**
    * Handle domain selection
@@ -133,16 +133,16 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    */
   const handleDomainSelect = useCallback(async (domain: string) => {
     try {
-      setAttentiveDomain(domain);
-      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.ATTENTIVE_DOMAIN, domain);
-      updateDomain(domain);
-      setDomainPickerVisible(false);
-      Alert.alert('Success', `Domain updated to: ${domain}`);
+      setAttentiveDomain(domain)
+      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.ATTENTIVE_DOMAIN, domain)
+      updateDomain(domain)
+      setDomainPickerVisible(false)
+      Alert.alert('Success', `Domain updated to: ${domain}`)
     } catch (error) {
-      console.error('Error saving domain setting:', error);
-      Alert.alert('Error', 'Failed to save domain setting');
+      console.error('Error saving domain setting:', error)
+      Alert.alert('Error', 'Failed to save domain setting')
     }
-  }, []);
+  }, [])
 
   const handleSwitchUser = useCallback(() => {
     Alert.prompt(
@@ -153,9 +153,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
           text: 'Log Out',
           style: 'destructive',
           onPress: () => {
-            clearUserIdentification();
-            setCurrentUser('Guest');
-            Alert.alert('Success', 'Logged out successfully');
+            clearUserIdentification()
+            setCurrentUser('Guest')
+            Alert.alert('Success', 'Logged out successfully')
           },
         },
         {
@@ -166,26 +166,26 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
           text: 'Identify',
           onPress: (value) => {
             if (value) {
-              const isEmail = value.includes('@');
-              identifyUser(isEmail ? { email: value } : { phone: value });
-              setCurrentUser(value);
-              Alert.alert('Success', 'User identified!');
+              const isEmail = value.includes('@')
+              identifyUser(isEmail ? { email: value } : { phone: value })
+              setCurrentUser(value)
+              Alert.alert('Success', 'User identified!')
             }
           },
         },
       ],
       'plain-text'
-    );
-  }, [identifyUser, clearUserIdentification]);
+    )
+  }, [identifyUser, clearUserIdentification])
 
   const handleManageAddresses = useCallback(() => {
     // TODO: Implement address management
-    Alert.alert('Manage Addresses', 'Address management feature coming soon');
-  }, []);
+    Alert.alert('Manage Addresses', 'Address management feature coming soon')
+  }, [])
 
   const handleShowCreative = useCallback(() => {
-    triggerAttentiveCreative();
-  }, [triggerAttentiveCreative]);
+    triggerAttentiveCreative()
+  }, [triggerAttentiveCreative])
 
   const handleShowPushPermission = useCallback(() => {
     // TODO: Implement via native bridge - SDK function: registerForPushNotifications()
@@ -198,21 +198,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
         Alert.alert(
           'Push Permission',
           `Permissions granted:\nAlert: ${permissions.alert}\nBadge: ${permissions.badge}\nSound: ${permissions.sound}`
-        );
-      });
+        )
+      })
     } else {
-      Alert.alert('Note', 'Push permissions are handled automatically on Android');
+      Alert.alert('Note', 'Push permissions are handled automatically on Android')
     }
-  }, []);
+  }, [])
 
   const handleSendPushToken = useCallback(async () => {
     // TODO: Implement via native bridge - SDK function: registerDeviceToken()
     // For now, simulate the response modal like iOS
     try {
-      const token = await AsyncStorage.getItem('deviceToken');
+      const token = await AsyncStorage.getItem('deviceToken')
       if (!token) {
-        Alert.alert('Error', 'No device token found. Please enable push notifications first.');
-        return;
+        Alert.alert('Error', 'No device token found. Please enable push notifications first.')
+        return
       }
 
       // Simulate response data (in production, this would come from the native SDK)
@@ -228,14 +228,14 @@ Response Body: {
   "deviceToken": "${token.substring(0, 20)}..."
 }
 
-Note: This is a mock response. Implement native bridge to get actual response.`;
+Note: This is a mock response. Implement native bridge to get actual response.`
 
-      setResponseData(mockResponse);
-      setResponseModalVisible(true);
+      setResponseData(mockResponse)
+      setResponseModalVisible(true)
     } catch (error) {
-      Alert.alert('Error', 'Failed to send push token');
+      Alert.alert('Error', 'Failed to send push token')
     }
-  }, []);
+  }, [])
 
   const handleSendAppOpenEvents = useCallback(() => {
     // TODO: Implement via native bridge - SDK function: registerAppEvents()
@@ -249,9 +249,9 @@ Note: This is a mock response. Implement native bridge to get actual response.`;
       message_type: 'app_open',
       message_subtype: '0',
       timestamp: new Date().toISOString(),
-    });
-    Alert.alert('Success', 'App open events sent!');
-  }, [recordCustomAttentiveEvent]);
+    })
+    Alert.alert('Success', 'App open events sent!')
+  }, [recordCustomAttentiveEvent])
 
   const handleSendLocalPushNotification = useCallback(() => {
     if (Platform.OS === 'ios') {
@@ -261,68 +261,66 @@ Note: This is a mock response. Implement native bridge to get actual response.`;
         alertBody: 'Local push notification test',
         fireDate: new Date(Date.now() + 5000).toISOString(),
         soundName: 'default',
-      };
+      }
 
-      PushNotificationIOS.scheduleLocalNotification(notification);
-      Alert.alert('Success', 'Push shows up in 5 seconds. Minimize app now.');
+      PushNotificationIOS.scheduleLocalNotification(notification)
+      Alert.alert('Success', 'Push shows up in 5 seconds. Minimize app now.')
     } else {
-      Alert.alert('Note', 'Local push notifications require additional setup on Android');
+      Alert.alert('Note', 'Local push notifications require additional setup on Android')
     }
-  }, []);
+  }, [])
 
   const handleClearUser = useCallback(() => {
-    clearUserIdentification();
-    setCurrentUser('Guest');
-    Alert.alert('Success', 'User cleared!');
-  }, [clearUserIdentification]);
+    clearUserIdentification()
+    setCurrentUser('Guest')
+    Alert.alert('Success', 'User cleared!')
+  }, [clearUserIdentification])
 
   const handleClearCookies = useCallback(async () => {
     // TODO: Implement WebKit cookie clearing via native bridge
     // For now, just show confirmation
-    Alert.alert('Success', 'Cookies cleared (WebKit cookies require native implementation)');
-  }, []);
+    Alert.alert('Success', 'Cookies cleared (WebKit cookies require native implementation)')
+  }, [])
 
   const handleCopyDeviceToken = useCallback(async () => {
     try {
-      const token = await AsyncStorage.getItem('deviceToken');
+      const token = await AsyncStorage.getItem('deviceToken')
       if (token) {
-        Clipboard.setString(token);
-        Alert.alert('Success', 'Device token copied to clipboard');
+        Clipboard.setString(token)
+        Alert.alert('Success', 'Device token copied to clipboard')
       } else {
-        Alert.alert('Error', 'No device token found');
+        Alert.alert('Error', 'No device token found')
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to copy device token');
+      Alert.alert('Error', 'Failed to copy device token')
     }
-  }, []);
+  }, [])
 
   const handleAddEmail = useCallback(() => {
     if (email) {
-      identifyUser({ email });
-      Alert.alert('Success', `Email ${email} added!`);
-      setEmail('');
+      identifyUser({ email })
+      Alert.alert('Success', `Email ${email} added!`)
+      setEmail('')
     } else {
-      Alert.alert('Error', 'Please enter an email');
+      Alert.alert('Error', 'Please enter an email')
     }
-  }, [email, identifyUser]);
+  }, [email, identifyUser])
 
   const handleAddPhone = useCallback(() => {
     if (phone) {
-      identifyUser({ phone });
-      Alert.alert('Success', `Phone ${phone} added!`);
-      setPhone('');
+      identifyUser({ phone })
+      Alert.alert('Success', `Phone ${phone} added!`)
+      setPhone('')
     } else {
-      Alert.alert('Error', 'Please enter a phone number');
+      Alert.alert('Error', 'Please enter a phone number')
     }
-  }, [phone, identifyUser]);
+  }, [phone, identifyUser])
 
-  const handleSendCustomEvent = useCallback(() => {
-    recordCustomAttentiveEvent('settings_test_event', {
-      source: 'settings_screen',
-      timestamp: new Date().toISOString(),
-    });
-    Alert.alert('Success', 'Custom event sent!');
-  }, [recordCustomAttentiveEvent]);
+  // Uncomment and wire up if you need to test custom events:
+  // recordCustomAttentiveEvent('settings_test_event', {
+  //   source: 'settings_screen',
+  //   timestamp: new Date().toISOString(),
+  // })
 
   return (
     <>
@@ -617,8 +615,8 @@ Note: This is a mock response. Implement native bridge to get actual response.`;
         </View>
       </Modal>
     </>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -785,6 +783,6 @@ const styles = StyleSheet.create({
     color: Colors.black,
     fontWeight: Typography.weights.bold,
   },
-});
+})
 
-export default SettingsScreen;
+export default SettingsScreen

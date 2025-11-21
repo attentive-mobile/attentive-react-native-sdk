@@ -4,24 +4,24 @@
  * Shows back button when navigation can go back, otherwise shows burger icon
  */
 
-import React from 'react';
+import React from 'react'
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-} from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useCart } from '../models/CartContext';
-import { RootStackParamList } from '../types/navigation';
-import { Colors, Spacing, Typography } from '../constants/theme';
+} from 'react-native'
+import { useNavigation, useRoute } from '@react-navigation/native'
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { useCart } from '../models/CartContext'
+import { RootStackParamList } from '../types/navigation'
+import { Colors, Spacing, Typography } from '../constants/theme'
 
-import BackIcon from '../assets/images/ui/icons/back-icon.svg';
-import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg';
-import CartIcon from '../assets/images/ui/icons/cart-icon.svg';
-import BonniLogo from '../assets/images/ui/icons/bonni-logo.svg';
+import BackIcon from '../assets/images/ui/icons/back-icon.svg'
+import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg'
+import CartIcon from '../assets/images/ui/icons/cart-icon.svg'
+import BonniLogo from '../assets/images/ui/icons/bonni-logo.svg'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
 
@@ -41,29 +41,29 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   showLogo = true,
   showCartIcon = true,
 }) => {
-  const navigation = useNavigation<NavigationProp>();
-  const route = useRoute();
-  const insets = useSafeAreaInsets();
-  const { cartItems } = useCart();
+  const navigation = useNavigation<NavigationProp>()
+  const route = useRoute()
+  const insets = useSafeAreaInsets()
+  const { cartItems } = useCart()
 
-  const isProductListScreen = route.name === 'ProductList';
-  const canGoBack = navigation.canGoBack();
-  const shouldShowBackButton = !isProductListScreen && canGoBack;
+  const isProductListScreen = route.name === 'ProductList'
+  const canGoBack = navigation.canGoBack()
+  const shouldShowBackButton = !isProductListScreen && canGoBack
 
   const cartItemCount = cartItems.reduce(
     (sum, item) => sum + item.quantity,
     0
-  );
+  )
 
   const handleBackPress = () => {
     if (canGoBack) {
-      navigation.goBack();
+      navigation.goBack()
     }
-  };
+  }
 
   const handleBurgerPress = () => {
-    navigation.navigate('Settings');
-  };
+    navigation.navigate('Settings')
+  }
 
   return (
     <View style={[styles.header, { paddingTop: insets.top }]}>
@@ -118,8 +118,8 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         </View>
       </View>
     </View>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   header: {
@@ -185,6 +185,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: Typography.weights.semibold,
   },
-});
+})
 
-export default CustomHeader;
+export default CustomHeader
