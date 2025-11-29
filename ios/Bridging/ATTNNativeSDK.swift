@@ -9,6 +9,7 @@
 import Foundation
 import attentive_ios_sdk
 import UIKit
+import UserNotifications
 
 // Debug Event structure for session history
 struct DebugEvent {
@@ -137,6 +138,152 @@ struct DebugEvent {
   @objc
   public func clearUser() {
     sdk.clearUser()
+  }
+
+  // MARK: - Push Notification Methods
+
+  /**
+   * Request push notification permission from the user.
+   * This will trigger the iOS permission dialog.
+   */
+  @objc
+  public func registerForPushNotifications() {
+    sdk.registerForPushNotifications()
+    if debuggingEnabled {
+      showDebugInfo(event: "Push Registration Requested", data: ["action": "registerForPushNotifications"])
+    }
+  }
+
+  /**
+   * Register the device token received from APNs with the Attentive backend.
+   * @param token The hex-encoded device token string
+   * @param authorizationStatus Current push authorization status string
+   */
+  @objc(registerDeviceToken:authorizationStatus:)
+  public func registerDeviceToken(_ token: String, authorizationStatus: String) {
+    // Convert hex string back to Data
+    guard let tokenData = hexStringToData(token) else {
+      print("[AttentiveSDK] Invalid device token format")
+      return
+    }
+
+    // Map string to UNAuthorizationStatus
+    let status = mapAuthorizationStatus(authorizationStatus)
+
+    sdk.registerDeviceToken(tokenData, authorizationStatus: status)
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Device Token Registered", data: [
+        "token": String(token.prefix(16)) + "...",
+        "authorizationStatus": authorizationStatus
+      ])
+    }
+  }
+
+  /**
+   * Handle when a push notification is opened by the user.
+   * @param userInfo The notification payload
+   * @param applicationState The app state when notification was opened
+   * @param authorizationStatus Current push authorization status
+   */
+  @objc(handlePushOpened:applicationState:authorizationStatus:)
+  public func handlePushOpened(_ userInfo: [String: Any], applicationState: String, authorizationStatus: String) {
+    let status = mapAuthorizationStatus(authorizationStatus)
+
+    // Convert userInfo to [AnyHashable: Any] for the SDK
+    let convertedUserInfo: [AnyHashable: Any] = userInfo.reduce(into: [:]) { result, pair in
+      result[pair.key] = pair.value
+    }
+
+    switch applicationState {
+    case "active":
+      // App was in foreground when notification was tapped
+      sdk.handleForegroundPush(userInfo: convertedUserInfo, authorizationStatus: status)
+    case "inactive", "background":
+      // App was in background or not running when notification was tapped
+      sdk.handlePushOpen(userInfo: convertedUserInfo, authorizationStatus: status)
+    default:
+      sdk.handlePushOpen(userInfo: convertedUserInfo, authorizationStatus: status)
+    }
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Push Opened", data: [
+        "applicationState": applicationState,
+        "authorizationStatus": authorizationStatus,
+        "userInfo": userInfo
+      ])
+    }
+  }
+
+  /**
+   * Handle when a push notification arrives while the app is in foreground.
+   * @param userInfo The notification payload
+   */
+  @objc(handleForegroundNotification:)
+  public func handleForegroundNotification(_ userInfo: [String: Any]) {
+    // Convert userInfo to [AnyHashable: Any] for the SDK
+    let convertedUserInfo: [AnyHashable: Any] = userInfo.reduce(into: [:]) { result, pair in
+      result[pair.key] = pair.value
+    }
+
+    // For foreground notifications, we just need to let the SDK know about it
+    // The completion handler behavior is handled by the app developer in their AppDelegate
+    sdk.handleForegroundNotification(convertedUserInfo) { options in
+      // Default: show alert, sound, and badge
+      // This is typically handled by the app, but we provide a sensible default
+    }
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Foreground Notification", data: ["userInfo": userInfo])
+    }
+  }
+
+  // MARK: - Push Notification Helpers
+
+  private func hexStringToData(_ hexString: String) -> Data? {
+    var data = Data()
+    var hex = hexString
+
+    // Remove any non-hex characters
+    hex = hex.replacingOccurrences(of: " ", with: "")
+    hex = hex.replacingOccurrences(of: "<", with: "")
+    hex = hex.replacingOccurrences(of: ">", with: "")
+
+    var index = hex.startIndex
+    while index < hex.endIndex {
+      let nextIndex = hex.index(index, offsetBy: 2, limitedBy: hex.endIndex) ?? hex.endIndex
+      if nextIndex > hex.endIndex { break }
+
+      let byteString = String(hex[index..<nextIndex])
+      if let byte = UInt8(byteString, radix: 16) {
+        data.append(byte)
+      } else {
+        return nil
+      }
+      index = nextIndex
+    }
+
+    return data.isEmpty ? nil : data
+  }
+
+  private func mapAuthorizationStatus(_ status: String) -> UNAuthorizationStatus {
+    switch status.lowercased() {
+    case "authorized":
+      return .authorized
+    case "denied":
+      return .denied
+    case "notdetermined":
+      return .notDetermined
+    case "provisional":
+      return .provisional
+    case "ephemeral":
+      if #available(iOS 14.0, *) {
+        return .ephemeral
+      }
+      return .authorized
+    default:
+      return .notDetermined
+    }
   }
 
   @objc

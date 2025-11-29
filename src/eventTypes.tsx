@@ -48,3 +48,34 @@ export type CustomEvent = {
   type: string;
   properties: Record<string, string>;
 };
+
+/**
+ * Push notification authorization status
+ * Maps to UNAuthorizationStatus on iOS
+ */
+export type PushAuthorizationStatus =
+  | 'authorized'
+  | 'denied'
+  | 'notDetermined'
+  | 'provisional'
+  | 'ephemeral';
+
+/**
+ * Application state when handling push notifications
+ */
+export type ApplicationState = 'active' | 'inactive' | 'background';
+
+/**
+ * Push notification user info payload
+ * Contains data from the remote notification
+ */
+export type PushNotificationUserInfo = Record<string, unknown>;
+
+/**
+ * Result of registering for push notifications
+ */
+export type PushRegistrationResult = {
+  success: boolean;
+  token?: string;
+  error?: string;
+};

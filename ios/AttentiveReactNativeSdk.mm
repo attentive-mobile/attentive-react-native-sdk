@@ -85,6 +85,26 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     [_sdk recordCustomEvent:attrs];
 }
 
+// Push Notification Methods (New Architecture)
+- (void)registerForPushNotifications {
+    [_sdk registerForPushNotifications];
+}
+
+- (void)registerDeviceToken:(NSString *)token
+       authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
+}
+
+- (void)handlePushOpened:(NSDictionary *)userInfo
+        applicationState:(NSString *)applicationState
+    authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk handlePushOpened:userInfo applicationState:applicationState authorizationStatus:authorizationStatus];
+}
+
+- (void)handleForegroundNotification:(NSDictionary *)userInfo {
+    [_sdk handleForegroundNotification:userInfo];
+}
+
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {
@@ -118,6 +138,26 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
 - (void)recordCustomEvent:(NSDictionary*)attrs {
     [_sdk recordCustomEvent:attrs];
+}
+
+// Push Notification Methods (Old Architecture)
+- (void)registerForPushNotifications {
+    [_sdk registerForPushNotifications];
+}
+
+- (void)registerDeviceToken:(NSString *)token
+       authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
+}
+
+- (void)handlePushOpened:(NSDictionary *)userInfo
+        applicationState:(NSString *)applicationState
+    authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk handlePushOpened:userInfo applicationState:applicationState authorizationStatus:authorizationStatus];
+}
+
+- (void)handleForegroundNotification:(NSDictionary *)userInfo {
+    [_sdk handleForegroundNotification:userInfo];
 }
 #endif
 
