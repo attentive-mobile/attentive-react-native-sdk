@@ -12,6 +12,11 @@ const mockNativeModule = {
   recordCustomEvent: jest.fn(),
   invokeAttentiveDebugHelper: jest.fn(),
   exportDebugLogs: jest.fn().mockResolvedValue('debug logs'),
+  // Push Notification Methods
+  registerForPushNotifications: jest.fn(),
+  registerDeviceToken: jest.fn(),
+  handlePushOpened: jest.fn(),
+  handleForegroundNotification: jest.fn(),
 };
 
 jest.mock('../NativeAttentiveReactNativeSdk', () => ({
@@ -38,6 +43,11 @@ import {
   recordCustomEvent,
   invokeAttentiveDebugHelper,
   exportDebugLogs,
+  // Push Notification Methods
+  registerForPushNotifications,
+  registerDeviceToken,
+  handlePushOpened,
+  handleForegroundNotification,
 } from '../index';
 import type { AttentiveSdkConfiguration } from '../index';
 
@@ -230,6 +240,45 @@ describe('Attentive SDK', () => {
 
       expect(mockNativeModule.exportDebugLogs).toHaveBeenCalled();
       expect(logs).toBe('debug logs');
+    });
+  });
+
+  describe('Push Notifications', () => {
+    it('should register for push notifications', () => {
+      registerForPushNotifications();
+
+      expect(mockNativeModule.registerForPushNotifications).toHaveBeenCalled();
+    });
+
+    it('should register device token', () => {
+      registerDeviceToken('abc123def456', 'authorized');
+
+      expect(mockNativeModule.registerDeviceToken).toHaveBeenCalledWith(
+        'abc123def456',
+        'authorized'
+      );
+    });
+
+    it('should handle push opened', () => {
+      const userInfo = { messageId: '123', title: 'Test notification' };
+
+      handlePushOpened(userInfo, 'background', 'authorized');
+
+      expect(mockNativeModule.handlePushOpened).toHaveBeenCalledWith(
+        userInfo,
+        'background',
+        'authorized'
+      );
+    });
+
+    it('should handle foreground notification', () => {
+      const userInfo = { messageId: '123', title: 'Test notification' };
+
+      handleForegroundNotification(userInfo);
+
+      expect(mockNativeModule.handleForegroundNotification).toHaveBeenCalledWith(
+        userInfo
+      );
     });
   });
 });

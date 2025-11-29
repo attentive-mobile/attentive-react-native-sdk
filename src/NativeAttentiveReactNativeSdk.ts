@@ -64,6 +64,41 @@ export interface Spec extends TurboModule {
   recordCustomEvent: (type: string, properties: Object) => void;
   invokeAttentiveDebugHelper: () => void;
   exportDebugLogs: () => Promise<string>;
+
+  // Push Notification Methods (iOS only)
+  /**
+   * Request push notification permission from the user.
+   * iOS only - Android is a no-op.
+   */
+  registerForPushNotifications: () => void;
+
+  /**
+   * Register the device token received from APNs.
+   * iOS only - Android is a no-op.
+   * @param token - The hex-encoded device token string
+   * @param authorizationStatus - Current push authorization status
+   */
+  registerDeviceToken: (token: string, authorizationStatus: string) => void;
+
+  /**
+   * Handle when a push notification is opened by the user.
+   * iOS only - Android is a no-op.
+   * @param userInfo - The notification payload
+   * @param applicationState - The app state when notification was opened ('active', 'inactive', 'background')
+   * @param authorizationStatus - Current push authorization status
+   */
+  handlePushOpened: (
+    userInfo: Object,
+    applicationState: string,
+    authorizationStatus: string
+  ) => void;
+
+  /**
+   * Handle when a push notification arrives while the app is in foreground.
+   * iOS only - Android is a no-op.
+   * @param userInfo - The notification payload
+   */
+  handleForegroundNotification: (userInfo: Object) => void;
 }
 
 // Try to load via TurboModule first (new architecture)

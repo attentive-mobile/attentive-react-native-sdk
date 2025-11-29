@@ -235,6 +235,104 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    // ==========================================================================
+    // MARK: - Push Notification Methods (Android Implementation - TODO)
+    // ==========================================================================
+    //
+    // These methods are stubs for Android push notification support.
+    // Android push notifications typically use Firebase Cloud Messaging (FCM)
+    // and require different handling than iOS APNs.
+    //
+    // TODO: Implement Android push notification support
+    // - Integrate with Firebase Cloud Messaging (FCM)
+    // - Register FCM token with Attentive backend
+    // - Handle push notification opens and foreground notifications
+    // - Consider using the attentive-android-sdk's push notification features if available
+    //
+    // Reference: The iOS implementation uses:
+    // - registerForPushNotifications() - Request permission
+    // - registerDeviceToken() - Send token to backend
+    // - handlePushOpened() - Track push open events
+    // - handleForegroundNotification() - Handle foreground push display
+    // ==========================================================================
+
+    /**
+     * Request push notification permission from the user.
+     *
+     * TODO: Implement for Android
+     * - For Android 13+ (API 33+), request POST_NOTIFICATIONS permission
+     * - For older versions, permissions are granted at install time
+     * - Initialize FCM and get the registration token
+     */
+    override fun registerForPushNotifications() {
+        Log.i(TAG, "[TODO] registerForPushNotifications called - Android implementation pending")
+        // TODO: Implement Android push notification registration
+        // 1. Check/request POST_NOTIFICATIONS permission (Android 13+)
+        // 2. Initialize Firebase Cloud Messaging
+        // 3. Get FCM registration token
+        // 4. Register token with Attentive backend
+    }
+
+    /**
+     * Register the device token with the Attentive backend.
+     *
+     * TODO: Implement for Android
+     * - Android uses FCM tokens instead of APNs tokens
+     * - Token format and registration endpoint may differ
+     *
+     * @param token The FCM registration token
+     * @param authorizationStatus Push authorization status (may not apply to Android)
+     */
+    override fun registerDeviceToken(token: String, authorizationStatus: String) {
+        Log.i(TAG, "[TODO] registerDeviceToken called - Android implementation pending")
+        Log.d(TAG, "Token: ${token.take(16)}..., Status: $authorizationStatus")
+        // TODO: Implement Android device token registration
+        // 1. Send FCM token to Attentive backend
+        // 2. Handle token refresh via FirebaseMessagingService.onNewToken()
+    }
+
+    /**
+     * Handle when a push notification is opened by the user.
+     *
+     * TODO: Implement for Android
+     * - Track push open events with Attentive
+     * - Handle deep linking if present in payload
+     *
+     * @param userInfo The notification payload (from FCM RemoteMessage data)
+     * @param applicationState App state when notification was opened
+     * @param authorizationStatus Push authorization status
+     */
+    override fun handlePushOpened(
+        userInfo: ReadableMap,
+        applicationState: String,
+        authorizationStatus: String
+    ) {
+        Log.i(TAG, "[TODO] handlePushOpened called - Android implementation pending")
+        Log.d(TAG, "App state: $applicationState, Auth status: $authorizationStatus")
+        // TODO: Implement Android push open tracking
+        // 1. Parse notification payload
+        // 2. Send push open event to Attentive backend
+        // 3. Handle any deep links in the payload
+    }
+
+    /**
+     * Handle when a push notification arrives while the app is in foreground.
+     *
+     * TODO: Implement for Android
+     * - Android handles foreground notifications differently than iOS
+     * - By default, FCM data messages don't show UI in foreground
+     * - Need to create NotificationCompat.Builder to show notification
+     *
+     * @param userInfo The notification payload
+     */
+    override fun handleForegroundNotification(userInfo: ReadableMap) {
+        Log.i(TAG, "[TODO] handleForegroundNotification called - Android implementation pending")
+        // TODO: Implement Android foreground notification handling
+        // 1. Create notification channel (required for Android 8+)
+        // 2. Build and display notification using NotificationCompat
+        // 3. Track foreground notification event with Attentive
+    }
+
     private fun convertToStringMap(inputMap: Map<String, Any?>): Map<String, String> {
         val outputMap = mutableMapOf<String, String>()
         for ((key, value) in inputMap) {
