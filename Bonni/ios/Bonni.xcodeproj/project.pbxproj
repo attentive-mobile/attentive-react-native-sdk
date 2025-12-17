@@ -112,6 +112,7 @@
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
+				2BD00E802EF3303B004FBA1B /* Generate Hermes dSYMs */,
 				00EEFC60759A1932668264C0 /* [CP] Embed Pods Frameworks */,
 				E235C05ADACE081382539298 /* [CP] Copy Pods Resources */,
 			);
@@ -206,6 +207,24 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-Bonni/Pods-Bonni-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
+		2BD00E802EF3303B004FBA1B /* Generate Hermes dSYMs */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Generate Hermes dSYMs";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -e\n\nHERMES_CLI_PATH=\"${PODS_ROOT}/hermes-engine/destroot/bin/hermesc\"\n\nif [[ -f \"$HERMES_CLI_PATH\" ]]; then\n  # Look for Hermes framework dSYM in Pods\n  HERMES_FRAMEWORK_PATH=\"${PODS_ROOT}/hermes-engine/destroot/Library/Frameworks/universal/hermes.xcframework\"\n  \n  # Find the actual framework for the current architecture\n  if [[ \"$PLATFORM_NAME\" == \"iphoneos\" ]]; then\n    HERMES_DSYM_SOURCE=\"${HERMES_FRAMEWORK_PATH}/ios-arm64/dSYMs/hermes.framework.dSYM\"\n  else\n    HERMES_DSYM_SOURCE=\"${HERMES_FRAMEWORK_PATH}/ios-arm64_x86_64-simulator/dSYMs/hermes.framework.dSYM\"\n  fi\n  \n  # Copy to the app's dSYM folder\n  if [[ -d \"$HERMES_DSYM_SOURCE\" ]]; then\n    DSYM_TARGET=\"${DWARF_DSYM_FOLDER_PATH}/hermes.framework.dSYM\"\n    echo \"Copying Hermes dSYM from ${HERMES_DSYM_SOURCE} to ${DSYM_TARGET}\"\n    cp -R \"${HERMES_DSYM_SOURCE}\" \"${DSYM_TARGET}\"\n  fi\nfi\n";
+		};
 		C38B50BA6285516D6DCD4F65 /* [CP] Check Pods Manifest.lock */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -270,7 +289,10 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Bonni/Bonni.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = SP5WN9647Z;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Bonni/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -287,6 +309,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.attentive.rn.example.Bonni;
 				PRODUCT_NAME = Bonni;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/Bonni/Bonni-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
@@ -301,7 +324,12 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_ENTITLEMENTS = Bonni/Bonni.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution";
+				CODE_SIGN_STYLE = Manual;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				"DEVELOPMENT_TEAM[sdk=iphoneos*]" = SP5WN9647Z;
 				INFOPLIST_FILE = Bonni/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -317,6 +345,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
 				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.attentive.rn.example.Bonni;
 				PRODUCT_NAME = Bonni;
+				PROVISIONING_PROFILE_SPECIFIER = "";
+				"PROVISIONING_PROFILE_SPECIFIER[sdk=iphoneos*]" = "Bonni-RN-App-Distribution";
 				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/Bonni/Bonni-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
