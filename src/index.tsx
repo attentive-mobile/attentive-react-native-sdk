@@ -195,6 +195,73 @@ function registerDeviceToken(
 }
 
 /**
+ * Register the device token received from APNs with a callback.
+ * This is the callback-based version that allows you to handle the response from the Attentive API.
+ *
+ * On iOS, this will register the device token with the Attentive SDK and invoke the callback
+ * after the registration completes (success or failure).
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param token - The hex-encoded device token string from APNs
+ * @param authorizationStatus - Current push authorization status
+ * @param callback - Callback function invoked after registration completes
+ *
+ * @example
+ * ```typescript
+ * import { registerDeviceTokenWithCallback, handleRegularOpen } from 'attentive-react-native-sdk';
+ *
+ * // In your AppDelegate equivalent (TypeScript):
+ * registerDeviceTokenWithCallback(
+ *   deviceToken,
+ *   'authorized',
+ *   (data, url, response, error) => {
+ *     console.log('Registration complete:', { data, url, response, error });
+ *     // After registration, trigger regular open event
+ *     handleRegularOpen('authorized');
+ *   }
+ * );
+ * ```
+ */
+function registerDeviceTokenWithCallback(
+  token: string,
+  authorizationStatus: PushAuthorizationStatus,
+  callback: (
+    data?: Object,
+    url?: string,
+    response?: Object,
+    error?: Object
+  ) => void
+): void {
+  AttentiveReactNativeSdk.registerDeviceTokenWithCallback(
+    token,
+    authorizationStatus,
+    callback
+  )
+}
+
+/**
+ * Handle regular/direct app open (not from a push notification).
+ * This should be called after device token registration to track app opens.
+ *
+ * On iOS, this will notify the Attentive SDK that the app was opened directly
+ * (not from a push notification tap).
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { handleRegularOpen } from 'attentive-react-native-sdk';
+ *
+ * // After device token registration:
+ * handleRegularOpen('authorized');
+ * ```
+ */
+function handleRegularOpen(authorizationStatus: PushAuthorizationStatus): void {
+  AttentiveReactNativeSdk.handleRegularOpen(authorizationStatus)
+}
+
+/**
  * Handle when a push notification is opened by the user.
  * Call this from your notification handler when the user taps a notification.
  *
@@ -247,7 +314,9 @@ function handlePushOpened(
  * handleForegroundNotification(notification.data);
  * ```
  */
-function handleForegroundNotification(userInfo: PushNotificationUserInfo): void {
+function handleForegroundNotification(
+  userInfo: PushNotificationUserInfo
+): void {
   AttentiveReactNativeSdk.handleForegroundNotification(userInfo as Object)
 }
 
@@ -267,6 +336,8 @@ export {
   // Push Notification Methods (iOS only)
   registerForPushNotifications,
   registerDeviceToken,
+  registerDeviceTokenWithCallback,
+  handleRegularOpen,
   handlePushOpened,
   handleForegroundNotification,
 }

@@ -73,12 +73,34 @@ export interface Spec extends TurboModule {
   registerForPushNotifications: () => void;
 
   /**
-   * Register the device token received from APNs.
+   * Register the device token received from APNs (simple version without callback).
    * iOS only - Android is a no-op.
    * @param token - The hex-encoded device token string
    * @param authorizationStatus - Current push authorization status
    */
   registerDeviceToken: (token: string, authorizationStatus: string) => void;
+
+  /**
+   * Register the device token received from APNs with a callback.
+   * iOS only - Android is a no-op.
+   * The callback receives the response from the Attentive API after registration.
+   * @param token - The hex-encoded device token string
+   * @param authorizationStatus - Current push authorization status
+   * @param callback - Callback invoked after registration completes
+   */
+  registerDeviceTokenWithCallback: (
+    token: string,
+    authorizationStatus: string,
+    callback: (data?: Object, url?: string, response?: Object, error?: Object) => void
+  ) => void;
+
+  /**
+   * Handle regular/direct app open (not from a push notification).
+   * iOS only - Android is a no-op.
+   * This should be called after device token registration to track app opens.
+   * @param authorizationStatus - Current push authorization status
+   */
+  handleRegularOpen: (authorizationStatus: string) => void;
 
   /**
    * Handle when a push notification is opened by the user.

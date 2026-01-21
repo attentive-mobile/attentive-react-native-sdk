@@ -12,7 +12,8 @@ import {
   initialize,
   identify,
   registerForPushNotifications,
-  registerDeviceToken,
+  registerDeviceTokenWithCallback,
+  handleRegularOpen,
   handlePushOpened,
   handleForegroundNotification,
   type AttentiveSdkConfiguration,
@@ -53,15 +54,21 @@ function App(): React.JSX.Element {
   const [statusBarBackgroundColor, setStatusBarBackgroundColor] = useState<string>('transparent')
 
   useEffect(() => {
+    console.log('🚀 [Attentive] App.tsx useEffect - Starting initialization')
+    console.log('   Platform:', Platform.OS)
+
     // Initialize the Attentive SDK
     const config: AttentiveSdkConfiguration = {
       attentiveDomain: 'games', // Replace with your Attentive domain
       mode: 'production',
       enableDebugger: true,
     }
+    console.log('📦 [Attentive] Initializing SDK with config:', config)
     initialize(config)
+    console.log('✅ [Attentive] SDK initialized')
 
     // Identify user with sample identifiers (like iOS AppDelegate)
+    console.log('👤 [Attentive] Identifying user')
     identify({
       phone: '+15671230987',
       email: 'someemail@email.com',
@@ -70,10 +77,15 @@ function App(): React.JSX.Element {
       klaviyoId: '555555',
       customIdentifiers: { customId: 'customIdValue' },
     })
+    console.log('✅ [Attentive] User identified')
 
     // Setup push notifications (iOS only for now)
     if (Platform.OS === 'ios') {
+      console.log('📱 [Attentive] Setting up push notifications for iOS')
       setupPushNotifications()
+      console.log('✅ [Attentive] Push notification setup complete')
+    } else {
+      console.log('⚠️ [Attentive] Not iOS - skipping push notification setup')
     }
 
     return () => {
@@ -89,34 +101,76 @@ function App(): React.JSX.Element {
 
   /**
    * Setup push notification handlers (mirrors iOS AppDelegate implementation)
+   * This is the TypeScript equivalent of:
+   * func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+   *     UNUserNotificationCenter.current().getNotificationSettings { settings in
+   *         let authStatus = settings.authorizationStatus
+   *         attentiveSdk?.registerDeviceToken(deviceToken, authorizationStatus: authStatus, callback: { data, url, response, error in
+   *             DispatchQueue.main.async {
+   *                 self.attentiveSdk?.handleRegularOpen(authorizationStatus: authStatus)
+   *             }
+   *         })
+   *     }
+   * }
    */
   const setupPushNotifications = useCallback(() => {
+    console.log('🔧 [Attentive] setupPushNotifications called')
+
     // Handle device token registration
+    console.log('📝 [Attentive] Adding "register" event listener')
     PushNotificationIOS.addEventListener('register', async (deviceToken: string) => {
-      console.log('[Attentive] Device token received:', deviceToken.substring(0, 16) + '...')
+      console.log('🎫 [Attentive] Device token received from APNs')
+      console.log('   Token (preview):', deviceToken.substring(0, 16) + '...')
+      console.log('   Token (full):', deviceToken)
+      console.log('   Token length:', deviceToken.length)
 
       // Store token for display in Settings screen
       await AsyncStorage.setItem('deviceToken', deviceToken)
       await AsyncStorage.setItem('deviceTokenForDisplay', deviceToken)
 
-      // Get authorization status and register with SDK
+      // Get authorization status and register with SDK (equivalent to getNotificationSettings)
       PushNotificationIOS.checkPermissions((permissions) => {
         let authStatus: PushAuthorizationStatus = 'notDetermined'
         if (permissions.alert || permissions.badge || permissions.sound) {
           authStatus = 'authorized'
         }
 
-        // Register device token with Attentive SDK
-        registerDeviceToken(deviceToken, authStatus)
+        console.log('✅ [Attentive] Authorization status:', authStatus)
+        console.log('📤 [Attentive] Registering device token with Attentive SDK (with callback)')
+
+        // Register device token with callback-based method (equivalent to Swift callback-based registration)
+        registerDeviceTokenWithCallback(
+          deviceToken,
+          authStatus,
+          (data?: Object, url?: string, response?: Object, error?: Object) => {
+            console.log('📥 [Attentive] Registration callback invoked')
+
+            if (error) {
+              console.error('❌ [Attentive] Registration callback returned error:', error)
+            } else {
+              console.log('✅ [Attentive] Device token registered successfully')
+              console.log('   Response URL:', url)
+              console.log('   Response:', response)
+              console.log('   Data:', data)
+            }
+
+            // Trigger regular open event (equivalent to DispatchQueue.main.async { handleRegularOpen })
+            console.log('📱 [Attentive] Triggering regular open event from callback')
+            handleRegularOpen(authStatus)
+            console.log('✅ [Attentive] Regular open event triggered successfully')
+          }
+        )
       })
     })
 
     // Handle registration errors
+    console.log('📝 [Attentive] Adding "registrationError" event listener')
     PushNotificationIOS.addEventListener('registrationError', (error) => {
-      console.error('[Attentive] Push registration error:', error)
+      console.error('❌ [Attentive] Push registration error:', error)
     })
 
     // Handle push notifications received while app is in foreground
+    console.log('📝 [Attentive] Adding "notification" event listener')
     PushNotificationIOS.addEventListener('notification', (notification: PushNotification) => {
       const userInfo = notification.getData()
       console.log('[Attentive] Push notification received in foreground:', userInfo)
@@ -129,13 +183,16 @@ function App(): React.JSX.Element {
     })
 
     // Handle local notifications
+    console.log('📝 [Attentive] Adding "localNotification" event listener')
     PushNotificationIOS.addEventListener('localNotification', (notification: PushNotification) => {
-      console.log('[Attentive] Local notification received:', notification.getMessage())
+      console.log('🔔 [Attentive] Local notification received:', notification.getMessage())
       notification.finish(PushNotificationIOS.FetchResult.NoData)
     })
 
     // Request push notification permissions
+    console.log('🔐 [Attentive] Requesting push notification permissions via native bridge')
     registerForPushNotifications()
+    console.log('✅ [Attentive] Permission request sent')
 
     // Check for initial notification (app was launched from push notification)
     PushNotificationIOS.getInitialNotification().then((notification) => {

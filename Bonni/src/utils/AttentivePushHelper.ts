@@ -19,10 +19,11 @@
 import { Platform } from 'react-native'
 import PushNotificationIOS, { PushNotification } from '@react-native-community/push-notification-ios'
 import {
-    registerDeviceToken,
+    registerDeviceTokenWithCallback,
     registerForPushNotifications,
     handleForegroundNotification,
     handlePushOpened,
+    handleRegularOpen,
     type PushAuthorizationStatus,
 } from 'attentive-react-native-sdk'
 
@@ -120,11 +121,26 @@ export class AttentivePushHelper {
     }
 
     /**
-     * Handle device token registration with callback-like logic
+     * Handle device token registration with callback-based logic
      * Implements the same flow as the Swift callback-based method:
      * 1. Get authorization status
-     * 2. Register device token
-     * 3. Trigger regular open event (simulated)
+     * 2. Register device token with callback
+     * 3. In callback: Trigger regular open event
+     *
+     * This is the TypeScript equivalent of:
+     * ```swift
+     * func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+     *     UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+     *         guard let self = self else { return }
+     *         let authStatus = settings.authorizationStatus
+     *         attentiveSdk?.registerDeviceToken(deviceToken, authorizationStatus: authStatus, callback: { data, url, response, error in
+     *             DispatchQueue.main.async {
+     *                 self.attentiveSdk?.handleRegularOpen(authorizationStatus: authStatus)
+     *             }
+     *         })
+     *     }
+     * }
+     * ```
      *
      * @param deviceToken - The device token from APNs
      */
@@ -137,26 +153,42 @@ export class AttentivePushHelper {
         this.deviceToken = deviceToken
 
         try {
-            // Get current authorization status
+            // Get current authorization status (equivalent to getNotificationSettings)
             const authStatus = await this.getAuthorizationStatus()
             console.log('✅ [AttentivePush] STEP 5: Authorization status:', authStatus)
 
-            // Register device token with Attentive SDK
-            console.log('📤 [AttentivePush] STEP 6: Registering device token with Attentive SDK')
+            // Register device token with Attentive SDK using callback-based method
+            console.log('📤 [AttentivePush] STEP 6: Registering device token with Attentive SDK (with callback)')
             console.log('   Token:', deviceToken.substring(0, 16) + '...')
             console.log('   Auth Status:', authStatus)
-            console.log('🌉 [AttentivePush] Calling native: registerDeviceToken()')
+            console.log('🌉 [AttentivePush] Calling native: registerDeviceTokenWithCallback()')
 
-            registerDeviceToken(deviceToken, authStatus)
+            // This is the equivalent of the Swift callback-based registration
+            registerDeviceTokenWithCallback(
+                deviceToken,
+                authStatus,
+                (data?: Object, url?: string, response?: Object, error?: Object) => {
+                    console.log('📥 [AttentivePush] Registration callback invoked')
 
-            console.log('✅ [AttentivePush] STEP 7: Device token registered successfully')
+                    if (error) {
+                        console.error('❌ [AttentivePush] Registration callback returned error:', error)
+                    } else {
+                        console.log('✅ [AttentivePush] STEP 7: Device token registered successfully')
+                        console.log('   Response URL:', url)
+                        console.log('   Response:', response)
+                        console.log('   Data:', data)
+                    }
 
-            // Mark as registered
-            this.isRegistered = true
+                    // Mark as registered (even if there was an error, we attempted registration)
+                    this.isRegistered = true
 
-            // Trigger regular open event
-            console.log('📱 [AttentivePush] STEP 8: Triggering regular open event')
-            this.handleRegularOpen(authStatus)
+                    // Trigger regular open event (equivalent to DispatchQueue.main.async { handleRegularOpen })
+                    console.log('📱 [AttentivePush] STEP 8: Triggering regular open event from callback')
+                    console.log('🌉 [AttentivePush] Calling native: handleRegularOpen()')
+                    handleRegularOpen(authStatus)
+                    console.log('✅ [AttentivePush] Regular open event triggered successfully')
+                }
+            )
 
         } catch (error) {
             console.error('❌ [AttentivePush] Device token registration failed:', error)
@@ -164,7 +196,8 @@ export class AttentivePushHelper {
 
             // Even on failure, trigger regular open event
             const authStatus = await this.getAuthorizationStatus()
-            this.handleRegularOpen(authStatus)
+            console.log('📱 [AttentivePush] Triggering regular open event after error')
+            handleRegularOpen(authStatus)
         }
     }
 
@@ -181,25 +214,9 @@ export class AttentivePushHelper {
 
         // Even on failure, trigger regular open event
         const authStatus = await this.getAuthorizationStatus()
-        this.handleRegularOpen(authStatus)
-    }
-
-    /**
-     * Handle regular/direct open event
-     * This is called after device token registration (success or failure)
-     * Equivalent to: handleRegularOpen(authorizationStatus:)
-     *
-     * Note: The native SDK's handleRegularOpen is not exposed to React Native.
-     * This is a placeholder that logs the event. For full functionality,
-     * implement push handling in AppDelegate.
-     *
-     * @param authStatus - Current authorization status
-     */
-    private handleRegularOpen(authStatus: PushAuthorizationStatus): void {
-        console.log('📱 [AttentivePush] Regular open event triggered')
-        console.log('   Authorization status:', authStatus)
-        console.log('   Note: handleRegularOpen is not exposed to React Native')
-        console.log('   For full functionality, implement in native AppDelegate')
+        console.log('📱 [AttentivePush] Triggering regular open event after registration error')
+        console.log('🌉 [AttentivePush] Calling native: handleRegularOpen()')
+        handleRegularOpen(authStatus)
     }
 
     /**
