@@ -6,6 +6,7 @@
 //
 
 #import "AttentiveReactNativeSdk.h"
+#import <UserNotifications/UserNotifications.h>
 
 #if __has_include(<AttentiveReactNativeSdk-Swift.h>)
 #import "AttentiveReactNativeSdk-Swift.h"
@@ -30,6 +31,9 @@ skipFatigueOnCreatives:(BOOL)skipFatigueOnCreatives
                                             mode:mode 
                          skipFatigueOnCreatives:skipFatigueOnCreatives 
                                   enableDebugger:enableDebugger];
+    
+    // Make SDK instance accessible from native code (e.g., AppDelegate)
+    [AttentiveSDKManager shared].sdk = _sdk;
 }
 
 - (void)identify:(NSString *)phone
@@ -118,6 +122,9 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
                                             mode:configuration[@"mode"] 
                          skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"] 
                                   enableDebugger:configuration[@"enableDebugger"]];
+    
+    // Make SDK instance accessible from native code (e.g., AppDelegate)
+    [AttentiveSDKManager shared].sdk = _sdk;
 }
 
 - (void)identify:(NSDictionary*)identifiers {

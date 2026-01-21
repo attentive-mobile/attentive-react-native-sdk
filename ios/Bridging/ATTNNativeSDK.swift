@@ -181,6 +181,49 @@ struct DebugEvent {
   }
 
   /**
+   * Register the device token with callback for use in AppDelegate.
+   * This method is intended to be called directly from the host app's AppDelegate,
+   * not from React Native JavaScript.
+   * 
+   * @param token The device token Data from APNs
+   * @param authorizationStatus Current push authorization status
+   * @param callback Completion handler called after registration attempt
+   */
+  @objc(registerDeviceTokenWithCallback:authorizationStatus:callback:)
+  public func registerDeviceToken(
+    _ token: Data,
+    authorizationStatus: UNAuthorizationStatus,
+    callback: @escaping (_ data: Data?, _ url: URL?, _ response: URLResponse?, _ error: Error?) -> Void
+  ) {
+    sdk.registerDeviceToken(token, authorizationStatus: authorizationStatus, callback: callback)
+
+    if debuggingEnabled {
+      let tokenString = token.map { String(format: "%02.2hhx", $0) }.joined()
+      showDebugInfo(event: "Device Token Registered (with callback)", data: [
+        "token": String(tokenString.prefix(16)) + "...",
+        "authorizationStatus": authorizationStatusToString(authorizationStatus)
+      ])
+    }
+  }
+
+  /**
+   * Handle a regular/direct app open event.
+   * This should be called after device token registration completes (success or failure).
+   * 
+   * @param authorizationStatus Current push authorization status
+   */
+  @objc(handleRegularOpen:)
+  public func handleRegularOpen(authorizationStatus: UNAuthorizationStatus) {
+    sdk.handleRegularOpen(authorizationStatus: authorizationStatus)
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Regular Open Event", data: [
+        "authorizationStatus": authorizationStatusToString(authorizationStatus)
+      ])
+    }
+  }
+
+  /**
    * Handle when a push notification is opened by the user.
    * Note: SDK 2.0.8 changed the API to require UNNotificationResponse instead of userInfo dictionary.
    * This method is kept for backward compatibility but has limited functionality.
@@ -278,6 +321,26 @@ struct DebugEvent {
       return .authorized
     default:
       return .notDetermined
+    }
+  }
+
+  private func authorizationStatusToString(_ status: UNAuthorizationStatus) -> String {
+    switch status {
+    case .authorized:
+      return "authorized"
+    case .denied:
+      return "denied"
+    case .notDetermined:
+      return "notDetermined"
+    case .provisional:
+      return "provisional"
+    case .ephemeral:
+      if #available(iOS 14.0, *) {
+        return "ephemeral"
+      }
+      return "authorized"
+    @unknown default:
+      return "notDetermined"
     }
   }
 
