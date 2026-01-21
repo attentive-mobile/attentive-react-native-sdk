@@ -23,7 +23,14 @@ import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/
 import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle } from '../constants/buttonStyles'
 import { useAttentiveUser } from '../hooks/useAttentiveUser'
 import { useAttentiveActions } from '../hooks/useAttentiveActions'
-import { updateDomain } from '@attentive-mobile/attentive-react-native-sdk'
+import {
+  updateDomain,
+  registerForPushNotifications,
+  registerDeviceToken,
+  handlePushOpened,
+  handleForegroundNotification,
+  clearUser as sdkClearUser,
+} from '@attentive-mobile/attentive-react-native-sdk'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import PushNotificationIOS from '@react-native-community/push-notification-ios'
 
@@ -188,54 +195,82 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   }, [triggerAttentiveCreative])
 
   const handleShowPushPermission = useCallback(() => {
-    // TODO: Implement via native bridge - SDK function: registerForPushNotifications()
+    // Use the SDK method to request push notification permissions
+    registerForPushNotifications()
+
+    // Also show permission status via iOS native API for user feedback
     if (Platform.OS === 'ios') {
       PushNotificationIOS.requestPermissions({
         alert: true,
         badge: true,
         sound: true,
       }).then((permissions) => {
-        Alert.alert(
-          'Push Permission',
-          `Permissions granted:\nAlert: ${permissions.alert}\nBadge: ${permissions.badge}\nSound: ${permissions.sound}`
-        )
+        if (displayAlerts) {
+          Alert.alert(
+            'Push Permission',
+            `Permissions granted:\nAlert: ${permissions.alert}\nBadge: ${permissions.badge}\nSound: ${permissions.sound}`
+          )
+        }
       })
     } else {
-      Alert.alert('Note', 'Push permissions are handled automatically on Android')
+      if (displayAlerts) {
+        Alert.alert('Note', 'Push permissions are handled automatically on Android')
+      }
     }
-  }, [])
+  }, [displayAlerts])
 
   const handleSendPushToken = useCallback(async () => {
-    // TODO: Implement via native bridge - SDK function: registerDeviceToken()
-    // For now, simulate the response modal like iOS
     try {
       const token = await AsyncStorage.getItem('deviceToken')
       if (!token) {
-        Alert.alert('Error', 'No device token found. Please enable push notifications first.')
+        if (displayAlerts) {
+          Alert.alert('Error', "No device token found. Press 'Show Push Permission' button to obtain one.")
+        }
         return
       }
 
-      // Simulate response data (in production, this would come from the native SDK)
-      const mockResponse = `URL: https://api.attentivemobile.com/v1/push/register
-Domain: games
-Status Code: 200
-Headers: {
-  "Content-Type": "application/json",
-  "X-Request-ID": "${Date.now()}"
-}
-Response Body: {
-  "success": true,
-  "deviceToken": "${token.substring(0, 20)}..."
-}
+      // Get authorization status and send token via SDK
+      if (Platform.OS === 'ios') {
+        PushNotificationIOS.checkPermissions((permissions) => {
+          // Determine authorization status based on permissions
+          let authStatus: 'authorized' | 'denied' | 'notDetermined' = 'notDetermined'
+          if (permissions.alert || permissions.badge || permissions.sound) {
+            authStatus = 'authorized'
+          }
 
-Note: This is a mock response. Implement native bridge to get actual response.`
+          // Call SDK method to register device token
+          registerDeviceToken(token, authStatus)
 
-      setResponseData(mockResponse)
-      setResponseModalVisible(true)
+          // Show response info
+          const responseInfo = `Push Token Registration
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Domain: ${attentiveDomain}
+Authorization Status: ${authStatus}
+
+Device Token:
+${token}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Token sent to Attentive SDK successfully.
+The SDK will handle the API request internally.`
+
+          setResponseData(responseInfo)
+          setResponseModalVisible(true)
+        })
+      } else {
+        // Android - just register the token
+        registerDeviceToken(token, 'authorized')
+        if (displayAlerts) {
+          Alert.alert('Success', 'Push token sent to SDK')
+        }
+      }
     } catch (error) {
-      Alert.alert('Error', 'Failed to send push token')
+      if (displayAlerts) {
+        Alert.alert('Error', 'Failed to send push token')
+      }
     }
-  }, [])
+  }, [displayAlerts, attentiveDomain])
 
   const handleSendAppOpenEvents = useCallback(() => {
     // TODO: Implement via native bridge - SDK function: registerAppEvents()
@@ -255,6 +290,11 @@ Note: This is a mock response. Implement native bridge to get actual response.`
 
   const handleSendLocalPushNotification = useCallback(() => {
     if (Platform.OS === 'ios') {
+      // Show toast first like iOS implementation
+      if (displayAlerts) {
+        Alert.alert('Success', 'Push shows up in 5 seconds. Minimize app now.')
+      }
+
       // Schedule local notification for 5 seconds
       const notification = {
         alertTitle: '🔔',
@@ -264,17 +304,50 @@ Note: This is a mock response. Implement native bridge to get actual response.`
       }
 
       PushNotificationIOS.scheduleLocalNotification(notification)
-      Alert.alert('Success', 'Push shows up in 5 seconds. Minimize app now.')
     } else {
-      Alert.alert('Note', 'Local push notifications require additional setup on Android')
+      if (displayAlerts) {
+        Alert.alert('Note', 'Local push notifications require additional setup on Android')
+      }
     }
-  }, [])
+  }, [displayAlerts])
+
+  const handleIdentifyUser = useCallback(() => {
+    // Show prompt to enter user identifier (like iOS implementation)
+    Alert.prompt(
+      'Identify User',
+      'Enter email or phone to identify the user',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Identify',
+          onPress: (value) => {
+            if (value) {
+              const isEmail = value.includes('@')
+              identifyUser(isEmail ? { email: value } : { phone: value })
+              setCurrentUser(value)
+              if (displayAlerts) {
+                Alert.alert('Success', `User identified: ${value}`)
+              }
+            }
+          },
+        },
+      ],
+      'plain-text'
+    )
+  }, [identifyUser, displayAlerts])
 
   const handleClearUser = useCallback(() => {
+    // Call SDK's clearUser method
+    sdkClearUser()
     clearUserIdentification()
     setCurrentUser('Guest')
-    Alert.alert('Success', 'User cleared!')
-  }, [clearUserIdentification])
+    if (displayAlerts) {
+      Alert.alert('Success', 'User cleared!')
+    }
+  }, [clearUserIdentification, displayAlerts])
 
   const handleClearCookies = useCallback(async () => {
     // TODO: Implement WebKit cookie clearing via native bridge
@@ -398,6 +471,15 @@ Note: This is a mock response. Implement native bridge to get actual response.`
           >
             {({ pressed }) => (
               <Text style={getSecondaryButtonTextStyle(pressed)}>🔔 Send Local Push Notification</Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            onPress={handleIdentifyUser}
+          >
+            {({ pressed }) => (
+              <Text style={getSecondaryButtonTextStyle(pressed)}>Identify User</Text>
             )}
           </Pressable>
 

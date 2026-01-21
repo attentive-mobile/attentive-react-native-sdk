@@ -4,14 +4,22 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { StatusBar, Platform } from 'react-native'
+import { StatusBar, Platform, AppState, AppStateStatus } from 'react-native'
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import {
   initialize,
+  identify,
+  registerForPushNotifications,
+  registerDeviceToken,
+  handlePushOpened,
+  handleForegroundNotification,
   type AttentiveSdkConfiguration,
+  type PushAuthorizationStatus,
 } from '@attentive-mobile/attentive-react-native-sdk'
+import PushNotificationIOS, { PushNotification } from '@react-native-community/push-notification-ios'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 
 import { CartProvider } from './src/models/CartContext'
 import CustomHeader from './src/components/CustomHeader'
@@ -52,6 +60,133 @@ function App(): React.JSX.Element {
       enableDebugger: true,
     }
     initialize(config)
+
+    // Identify user with sample identifiers (like iOS AppDelegate)
+    identify({
+      phone: '+15671230987',
+      email: 'someemail@email.com',
+      clientUserId: 'APP_USER_ID',
+      shopifyId: '207119551',
+      klaviyoId: '555555',
+      customIdentifiers: { customId: 'customIdValue' },
+    })
+
+    // Setup push notifications (iOS only for now)
+    if (Platform.OS === 'ios') {
+      setupPushNotifications()
+    }
+
+    return () => {
+      // Cleanup push notification listeners
+      if (Platform.OS === 'ios') {
+        PushNotificationIOS.removeEventListener('register')
+        PushNotificationIOS.removeEventListener('registrationError')
+        PushNotificationIOS.removeEventListener('notification')
+        PushNotificationIOS.removeEventListener('localNotification')
+      }
+    }
+  }, [])
+
+  /**
+   * Setup push notification handlers (mirrors iOS AppDelegate implementation)
+   */
+  const setupPushNotifications = useCallback(() => {
+    // Handle device token registration
+    PushNotificationIOS.addEventListener('register', async (deviceToken: string) => {
+      console.log('[Attentive] Device token received:', deviceToken.substring(0, 16) + '...')
+
+      // Store token for display in Settings screen
+      await AsyncStorage.setItem('deviceToken', deviceToken)
+      await AsyncStorage.setItem('deviceTokenForDisplay', deviceToken)
+
+      // Get authorization status and register with SDK
+      PushNotificationIOS.checkPermissions((permissions) => {
+        let authStatus: PushAuthorizationStatus = 'notDetermined'
+        if (permissions.alert || permissions.badge || permissions.sound) {
+          authStatus = 'authorized'
+        }
+
+        // Register device token with Attentive SDK
+        registerDeviceToken(deviceToken, authStatus)
+      })
+    })
+
+    // Handle registration errors
+    PushNotificationIOS.addEventListener('registrationError', (error) => {
+      console.error('[Attentive] Push registration error:', error)
+    })
+
+    // Handle push notifications received while app is in foreground
+    PushNotificationIOS.addEventListener('notification', (notification: PushNotification) => {
+      const userInfo = notification.getData()
+      console.log('[Attentive] Push notification received in foreground:', userInfo)
+
+      // Notify SDK about foreground notification
+      handleForegroundNotification(userInfo)
+
+      // Complete the notification
+      notification.finish(PushNotificationIOS.FetchResult.NoData)
+    })
+
+    // Handle local notifications
+    PushNotificationIOS.addEventListener('localNotification', (notification: PushNotification) => {
+      console.log('[Attentive] Local notification received:', notification.getMessage())
+      notification.finish(PushNotificationIOS.FetchResult.NoData)
+    })
+
+    // Request push notification permissions
+    registerForPushNotifications()
+
+    // Check for initial notification (app was launched from push notification)
+    PushNotificationIOS.getInitialNotification().then((notification) => {
+      if (notification) {
+        console.log('[Attentive] App launched from notification')
+        const userInfo = notification.getData()
+
+        PushNotificationIOS.checkPermissions((permissions) => {
+          let authStatus: PushAuthorizationStatus = 'notDetermined'
+          if (permissions.alert || permissions.badge || permissions.sound) {
+            authStatus = 'authorized'
+          }
+
+          // App was launched from notification, so it was in background/terminated
+          handlePushOpened(userInfo, 'background', authStatus)
+        })
+      }
+    })
+  }, [])
+
+  /**
+   * Handle notification open (called when app is opened from notification)
+   * This mirrors the iOS AppDelegate's userNotificationCenter:didReceive:
+   */
+  const handleNotificationOpen = useCallback((notification: PushNotification) => {
+    const userInfo = notification.getData()
+    console.log('[Attentive] Notification opened:', userInfo)
+
+    // Get current app state to determine how to handle
+    const appState = AppState.currentState
+
+    // Get authorization status
+    PushNotificationIOS.checkPermissions((permissions) => {
+      let authStatus: PushAuthorizationStatus = 'notDetermined'
+      if (permissions.alert || permissions.badge || permissions.sound) {
+        authStatus = 'authorized'
+      }
+
+      // Determine application state for SDK
+      let applicationState: 'active' | 'inactive' | 'background' = 'background'
+      if (appState === 'active') {
+        applicationState = 'active'
+      } else if (appState === 'inactive') {
+        applicationState = 'inactive'
+      }
+
+      // Notify SDK about push open
+      handlePushOpened(userInfo, applicationState, authStatus)
+    })
+
+    notification.finish(PushNotificationIOS.FetchResult.NoData)
   }, [])
 
   // Set initial status bar color for Login screen (initial route)

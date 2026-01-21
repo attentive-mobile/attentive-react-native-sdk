@@ -7,6 +7,10 @@ import type {
   AddToCart,
   CustomEvent,
   Item,
+  PushAuthorizationStatus,
+  ApplicationState,
+  PushNotificationUserInfo,
+  PushRegistrationResult,
 } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
@@ -144,6 +148,109 @@ function exportDebugLogs(): Promise<string> {
   return AttentiveReactNativeSdk.exportDebugLogs()
 }
 
+// =============================================================================
+// Push Notification Methods (iOS only - Android is no-op with TODO stubs)
+// =============================================================================
+
+/**
+ * Request push notification permission from the user.
+ * On iOS, this will trigger the system permission dialog.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @example
+ * ```typescript
+ * import { registerForPushNotifications } from 'attentive-react-native-sdk';
+ *
+ * // Request permission (typically called after user onboarding)
+ * registerForPushNotifications();
+ * ```
+ */
+function registerForPushNotifications(): void {
+  AttentiveReactNativeSdk.registerForPushNotifications()
+}
+
+/**
+ * Register the device token received from APNs/FCM with the Attentive backend.
+ * Call this from your AppDelegate's didRegisterForRemoteNotificationsWithDeviceToken.
+ *
+ * On iOS, the token should be the hex-encoded string representation of the device token Data.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param token - The device token as a hex-encoded string
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { registerDeviceToken } from 'attentive-react-native-sdk';
+ *
+ * // In your native module or push notification handler:
+ * registerDeviceToken('abc123...', 'authorized');
+ * ```
+ */
+function registerDeviceToken(
+  token: string,
+  authorizationStatus: PushAuthorizationStatus
+): void {
+  AttentiveReactNativeSdk.registerDeviceToken(token, authorizationStatus)
+}
+
+/**
+ * Handle when a push notification is opened by the user.
+ * Call this from your notification handler when the user taps a notification.
+ *
+ * On iOS, this will track the push open event and handle the notification appropriately
+ * based on whether the app was in the foreground, background, or not running.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param userInfo - The notification payload from the push notification
+ * @param applicationState - The app state when the notification was opened ('active', 'inactive', 'background')
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { handlePushOpened } from 'attentive-react-native-sdk';
+ *
+ * // In your notification handler:
+ * handlePushOpened(
+ *   notification.data,
+ *   'background',
+ *   'authorized'
+ * );
+ * ```
+ */
+function handlePushOpened(
+  userInfo: PushNotificationUserInfo,
+  applicationState: ApplicationState,
+  authorizationStatus: PushAuthorizationStatus
+): void {
+  AttentiveReactNativeSdk.handlePushOpened(
+    userInfo as Object,
+    applicationState,
+    authorizationStatus
+  )
+}
+
+/**
+ * Handle when a push notification arrives while the app is in the foreground.
+ * Call this from your notification handler when a notification is received while the app is active.
+ *
+ * On iOS, this allows the Attentive SDK to track the notification event.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param userInfo - The notification payload from the push notification
+ *
+ * @example
+ * ```typescript
+ * import { handleForegroundNotification } from 'attentive-react-native-sdk';
+ *
+ * // In your notification handler when app is in foreground:
+ * handleForegroundNotification(notification.data);
+ * ```
+ */
+function handleForegroundNotification(userInfo: PushNotificationUserInfo): void {
+  AttentiveReactNativeSdk.handleForegroundNotification(userInfo as Object)
+}
+
 export {
   initialize,
   triggerCreative,
@@ -157,6 +264,11 @@ export {
   recordCustomEvent,
   invokeAttentiveDebugHelper,
   exportDebugLogs,
+  // Push Notification Methods (iOS only)
+  registerForPushNotifications,
+  registerDeviceToken,
+  handlePushOpened,
+  handleForegroundNotification,
 }
 
 export type {
@@ -167,4 +279,9 @@ export type {
   AddToCart,
   CustomEvent,
   Item,
+  // Push Notification Types
+  PushAuthorizationStatus,
+  ApplicationState,
+  PushNotificationUserInfo,
+  PushRegistrationResult,
 }

@@ -168,3 +168,77 @@ Attentive.identify({phone: '+15556667777'};)
 //   email: 'theusersemail@gmail.com'
 //   phone: '+15556667777'
 ```
+
+### Push Notifications (iOS Only)
+
+The SDK supports push notification integration for iOS. Android support is planned for a future release.
+
+#### Request Push Permission
+
+```typescript
+import { registerForPushNotifications } from 'attentive-react-native-sdk';
+
+// Request permission to send push notifications
+// This will show the iOS system permission dialog
+registerForPushNotifications();
+```
+
+#### Register Device Token
+
+When your app receives a device token from APNs, register it with the Attentive backend:
+
+```typescript
+import { registerDeviceToken } from 'attentive-react-native-sdk';
+
+// In your AppDelegate or push notification handler:
+// Convert the device token Data to a hex string and pass the authorization status
+registerDeviceToken(hexEncodedToken, 'authorized');
+```
+
+The `authorizationStatus` parameter should be one of:
+- `'authorized'` - User has granted permission
+- `'denied'` - User has denied permission
+- `'notDetermined'` - User hasn't been asked yet
+- `'provisional'` - Provisional authorization (quiet notifications)
+- `'ephemeral'` - App Clip notifications
+
+#### Handle Push Notification Opens
+
+When a user taps on a push notification, track the event:
+
+```typescript
+import { handlePushOpened } from 'attentive-react-native-sdk';
+import type { ApplicationState, PushAuthorizationStatus } from 'attentive-react-native-sdk';
+
+// In your notification handler:
+handlePushOpened(
+  notificationPayload,    // The notification's userInfo/data
+  'background',           // App state: 'active', 'inactive', or 'background'
+  'authorized'            // Current authorization status
+);
+```
+
+#### Handle Foreground Notifications
+
+When a notification arrives while the app is in the foreground:
+
+```typescript
+import { handleForegroundNotification } from 'attentive-react-native-sdk';
+
+// In your foreground notification handler:
+handleForegroundNotification(notificationPayload);
+```
+
+#### iOS AppDelegate Integration Example
+
+For proper push notification integration, your iOS AppDelegate needs to:
+
+1. Request notification permissions via the SDK
+2. Implement `application:didRegisterForRemoteNotificationsWithDeviceToken:` to register the token
+3. Implement `UNUserNotificationCenterDelegate` methods to handle notification events
+
+See the [iOS Native SDK documentation](https://github.com/attentive-mobile/attentive-ios-sdk) for detailed AppDelegate integration examples.
+
+#### Android Support
+
+Android push notification support is not yet implemented. The push notification methods will be no-ops on Android. FCM (Firebase Cloud Messaging) integration is planned for a future release.
