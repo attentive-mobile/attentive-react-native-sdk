@@ -182,35 +182,29 @@ struct DebugEvent {
 
   /**
    * Handle when a push notification is opened by the user.
+   * Note: SDK 2.0.8 changed the API to require UNNotificationResponse instead of userInfo dictionary.
+   * This method is kept for backward compatibility but has limited functionality.
+   * For full functionality, handle push notifications natively in AppDelegate.
+   * 
    * @param userInfo The notification payload
    * @param applicationState The app state when notification was opened
    * @param authorizationStatus Current push authorization status
    */
   @objc(handlePushOpened:applicationState:authorizationStatus:)
   public func handlePushOpened(_ userInfo: [String: Any], applicationState: String, authorizationStatus: String) {
-    let status = mapAuthorizationStatus(authorizationStatus)
-
-    // Convert userInfo to [AnyHashable: Any] for the SDK
-    let convertedUserInfo: [AnyHashable: Any] = userInfo.reduce(into: [:]) { result, pair in
-      result[pair.key] = pair.value
-    }
-
-    switch applicationState {
-    case "active":
-      // App was in foreground when notification was tapped
-      sdk.handleForegroundPush(userInfo: convertedUserInfo, authorizationStatus: status)
-    case "inactive", "background":
-      // App was in background or not running when notification was tapped
-      sdk.handlePushOpen(userInfo: convertedUserInfo, authorizationStatus: status)
-    default:
-      sdk.handlePushOpen(userInfo: convertedUserInfo, authorizationStatus: status)
-    }
+    // Note: SDK 2.0.8 changed the API to require UNNotificationResponse
+    // Since React Native doesn't provide direct access to UNNotificationResponse,
+    // apps should handle push notifications natively in AppDelegate for full functionality
+    print("[AttentiveSDK] Warning: Push notification handling from React Native is limited in SDK 2.0.8")
+    print("[AttentiveSDK] The native SDK now requires UNNotificationResponse for push tracking")
+    print("[AttentiveSDK] Please implement push handling in AppDelegate for full functionality")
 
     if debuggingEnabled {
-      showDebugInfo(event: "Push Opened", data: [
+      showDebugInfo(event: "Push Opened (Limited)", data: [
         "applicationState": applicationState,
         "authorizationStatus": authorizationStatus,
-        "userInfo": userInfo
+        "userInfo": userInfo,
+        "warning": "SDK 2.0.8 requires native UNNotificationResponse handling in AppDelegate"
       ])
     }
   }
@@ -226,15 +220,16 @@ struct DebugEvent {
       result[pair.key] = pair.value
     }
 
-    // For foreground notifications, we just need to let the SDK know about it
-    // The completion handler behavior is handled by the app developer in their AppDelegate
-    sdk.handleForegroundNotification(convertedUserInfo) { options in
-      // Default: show alert, sound, and badge
-      // This is typically handled by the app, but we provide a sensible default
-    }
+    // Note: SDK 2.0.8 changed the API to require UNNotificationResponse
+    // Since React Native doesn't provide this, we'll log a warning
+    print("[AttentiveSDK] Warning: Foreground notification handling from React Native is limited in SDK 2.0.8")
+    print("[AttentiveSDK] Please handle foreground notifications natively in AppDelegate for full functionality")
 
     if debuggingEnabled {
-      showDebugInfo(event: "Foreground Notification", data: ["userInfo": userInfo])
+      showDebugInfo(event: "Foreground Notification", data: [
+        "userInfo": userInfo,
+        "warning": "SDK 2.0.8 requires native UNNotificationResponse handling"
+      ])
     }
   }
 
