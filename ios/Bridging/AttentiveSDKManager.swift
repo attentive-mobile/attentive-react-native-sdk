@@ -16,7 +16,20 @@ import UserNotifications
  *
  * Usage in AppDelegate:
  * ```swift
- * AttentiveSDKManager.shared.sdk?.registerDeviceToken(...)
+ * // In userNotificationCenter(_:didReceive:withCompletionHandler:)
+ * UNUserNotificationCenter.current().getNotificationSettings { settings in
+ *   let authStatus = settings.authorizationStatus
+ *   DispatchQueue.main.async {
+ *     switch UIApplication.shared.applicationState {
+ *     case .active:
+ *       AttentiveSDKManager.shared.handleForegroundPush(response: response, authorizationStatus: authStatus)
+ *     case .background, .inactive:
+ *       AttentiveSDKManager.shared.handlePushOpen(response: response, authorizationStatus: authStatus)
+ *     @unknown default:
+ *       AttentiveSDKManager.shared.handlePushOpen(response: response, authorizationStatus: authStatus)
+ *     }
+ *   }
+ * }
  * ```
  */
 @objc public class AttentiveSDKManager: NSObject {
@@ -40,5 +53,31 @@ import UserNotifications
     /// Helper method to set the SDK instance with proper type in Swift
     public func setNativeSDK(_ nativeSDK: ATTNNativeSDK?) {
         sdk = nativeSDK
+    }
+    
+    // MARK: - Push Notification Handlers (for AppDelegate)
+    
+    /**
+     * Handle a push notification when the app is in the foreground (active state).
+     * Call this from AppDelegate's userNotificationCenter(_:didReceive:withCompletionHandler:)
+     * when UIApplication.shared.applicationState == .active
+     *
+     * @param response The UNNotificationResponse from the notification center delegate
+     * @param authorizationStatus Current push authorization status from notification settings
+     */
+    @objc public func handleForegroundPush(response: UNNotificationResponse, authorizationStatus: UNAuthorizationStatus) {
+        nativeSDK?.handleForegroundPush(response: response, authorizationStatus: authorizationStatus)
+    }
+    
+    /**
+     * Handle when a push notification is opened by the user (app in background/inactive state).
+     * Call this from AppDelegate's userNotificationCenter(_:didReceive:withCompletionHandler:)
+     * when UIApplication.shared.applicationState == .background or .inactive
+     *
+     * @param response The UNNotificationResponse from the notification center delegate
+     * @param authorizationStatus Current push authorization status from notification settings
+     */
+    @objc public func handlePushOpen(response: UNNotificationResponse, authorizationStatus: UNAuthorizationStatus) {
+        nativeSDK?.handlePushOpen(response: response, authorizationStatus: authorizationStatus)
     }
 }

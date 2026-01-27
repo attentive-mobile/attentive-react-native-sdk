@@ -121,6 +121,24 @@ export interface Spec extends TurboModule {
    * @param userInfo - The notification payload
    */
   handleForegroundNotification: (userInfo: Object) => void;
+
+  /**
+   * Handle a push notification when the app is in the foreground (active state).
+   * This is the React Native equivalent of calling handleForegroundPush in native iOS.
+   * iOS only - Android is a no-op.
+   * @param userInfo - The notification payload
+   * @param authorizationStatus - Current push authorization status
+   */
+  handleForegroundPush: (userInfo: Object, authorizationStatus: string) => void;
+
+  /**
+   * Handle when a push notification is opened by the user (app in background/inactive state).
+   * This is the React Native equivalent of calling handlePushOpen in native iOS.
+   * iOS only - Android is a no-op.
+   * @param userInfo - The notification payload
+   * @param authorizationStatus - Current push authorization status
+   */
+  handlePushOpen: (userInfo: Object, authorizationStatus: string) => void;
 }
 
 // Try to load via TurboModule first (new architecture)

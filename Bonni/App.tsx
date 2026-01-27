@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { StatusBar, Platform, AppState, AppStateStatus } from 'react-native'
+import { StatusBar, Platform, AppState } from 'react-native'
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -14,8 +14,8 @@ import {
   registerForPushNotifications,
   registerDeviceTokenWithCallback,
   handleRegularOpen,
-  handlePushOpened,
-  handleForegroundNotification,
+  handleForegroundPush,
+  handlePushOpen,
   type AttentiveSdkConfiguration,
   type PushAuthorizationStatus,
 } from '@attentive-mobile/attentive-react-native-sdk'
@@ -97,6 +97,73 @@ function App(): React.JSX.Element {
         PushNotificationIOS.removeEventListener('localNotification')
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /**
+   * Handle notification open (called when app is opened from notification)
+   *
+   * This is the TypeScript equivalent of the native iOS AppDelegate method:
+   * ```swift
+   * func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+   *     UNUserNotificationCenter.current().getNotificationSettings { settings in
+   *       let authStatus = settings.authorizationStatus
+   *       DispatchQueue.main.async {
+   *         switch UIApplication.shared.applicationState {
+   *         case .active:
+   *           self.attentiveSdk?.handleForegroundPush(response: response, authorizationStatus: authStatus)
+   *         case .background, .inactive:
+   *           self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+   *         @unknown default:
+   *           self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+   *         }
+   *       }
+   *     }
+   *     completionHandler()
+   *   }
+   * ```
+   */
+  const handleNotificationOpen = useCallback((notification: PushNotification) => {
+    const userInfo = notification.getData()
+    console.log('[Attentive] Notification opened:', userInfo)
+
+    // Get current app state (equivalent to UIApplication.shared.applicationState)
+    const appState = AppState.currentState
+    console.log('[Attentive] Current app state:', appState)
+
+    // Get authorization status (equivalent to getNotificationSettings)
+    PushNotificationIOS.checkPermissions((permissions) => {
+      let authStatus: PushAuthorizationStatus = 'notDetermined'
+      if (permissions.alert || permissions.badge || permissions.sound) {
+        authStatus = 'authorized'
+      }
+      console.log('[Attentive] Authorization status:', authStatus)
+
+      // Determine which SDK method to call based on app state
+      // This matches the native iOS switch statement exactly
+      switch (appState) {
+        case 'active':
+          // App is in foreground - handle as foreground push
+          console.log('[Attentive] App state: active - calling handleForegroundPush')
+          handleForegroundPush(userInfo, authStatus)
+          break
+
+        case 'background':
+        case 'inactive':
+          // App is in background or inactive - handle as push open
+          console.log('[Attentive] App state: background/inactive - calling handlePushOpen')
+          handlePushOpen(userInfo, authStatus)
+          break
+
+        default:
+          // Unknown state - default to push open behavior (matches @unknown default in Swift)
+          console.log('[Attentive] App state: unknown - calling handlePushOpen')
+          handlePushOpen(userInfo, authStatus)
+          break
+      }
+    })
+
+    notification.finish(PushNotificationIOS.FetchResult.NoData)
   }, [])
 
   /**
@@ -175,18 +242,28 @@ function App(): React.JSX.Element {
       const userInfo = notification.getData()
       console.log('[Attentive] Push notification received in foreground:', userInfo)
 
-      // Notify SDK about foreground notification
-      handleForegroundNotification(userInfo)
+      // Get authorization status and call handleForegroundPush
+      // This provides better tracking than the legacy handleForegroundNotification
+      PushNotificationIOS.checkPermissions((permissions) => {
+        let authStatus: PushAuthorizationStatus = 'notDetermined'
+        if (permissions.alert || permissions.badge || permissions.sound) {
+          authStatus = 'authorized'
+        }
+
+        // Use handleForegroundPush for better tracking (matches native iOS pattern)
+        console.log('[Attentive] Calling handleForegroundPush for foreground notification')
+        handleForegroundPush(userInfo, authStatus)
+      })
 
       // Complete the notification
       notification.finish(PushNotificationIOS.FetchResult.NoData)
     })
 
-    // Handle local notifications
+    // Handle local notifications and notification taps
     console.log('📝 [Attentive] Adding "localNotification" event listener')
     PushNotificationIOS.addEventListener('localNotification', (notification: PushNotification) => {
       console.log('🔔 [Attentive] Local notification received:', notification.getMessage())
-      notification.finish(PushNotificationIOS.FetchResult.NoData)
+      handleNotificationOpen(notification)
     })
 
     // Request push notification permissions
@@ -198,52 +275,9 @@ function App(): React.JSX.Element {
     PushNotificationIOS.getInitialNotification().then((notification) => {
       if (notification) {
         console.log('[Attentive] App launched from notification')
-        const userInfo = notification.getData()
-
-        PushNotificationIOS.checkPermissions((permissions) => {
-          let authStatus: PushAuthorizationStatus = 'notDetermined'
-          if (permissions.alert || permissions.badge || permissions.sound) {
-            authStatus = 'authorized'
-          }
-
-          // App was launched from notification, so it was in background/terminated
-          handlePushOpened(userInfo, 'background', authStatus)
-        })
+        handleNotificationOpen(notification)
       }
     })
-  }, [])
-
-  /**
-   * Handle notification open (called when app is opened from notification)
-   * This mirrors the iOS AppDelegate's userNotificationCenter:didReceive:
-   */
-  const handleNotificationOpen = useCallback((notification: PushNotification) => {
-    const userInfo = notification.getData()
-    console.log('[Attentive] Notification opened:', userInfo)
-
-    // Get current app state to determine how to handle
-    const appState = AppState.currentState
-
-    // Get authorization status
-    PushNotificationIOS.checkPermissions((permissions) => {
-      let authStatus: PushAuthorizationStatus = 'notDetermined'
-      if (permissions.alert || permissions.badge || permissions.sound) {
-        authStatus = 'authorized'
-      }
-
-      // Determine application state for SDK
-      let applicationState: 'active' | 'inactive' | 'background' = 'background'
-      if (appState === 'active') {
-        applicationState = 'active'
-      } else if (appState === 'inactive') {
-        applicationState = 'inactive'
-      }
-
-      // Notify SDK about push open
-      handlePushOpened(userInfo, applicationState, authStatus)
-    })
-
-    notification.finish(PushNotificationIOS.FetchResult.NoData)
   }, [])
 
   // Set initial status bar color for Login screen (initial route)

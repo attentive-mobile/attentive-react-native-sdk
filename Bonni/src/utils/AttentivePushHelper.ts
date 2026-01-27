@@ -21,11 +21,12 @@ import PushNotificationIOS, { PushNotification } from '@react-native-community/p
 import {
     registerDeviceTokenWithCallback,
     registerForPushNotifications,
-    handleForegroundNotification,
-    handlePushOpened,
     handleRegularOpen,
+    handleForegroundPush,
+    handlePushOpen,
     type PushAuthorizationStatus,
-} from 'attentive-react-native-sdk'
+} from '@attentive-mobile/attentive-react-native-sdk'
+import { AppState } from 'react-native'
 
 /**
  * Helper class for managing Attentive push notifications
@@ -241,16 +242,21 @@ export class AttentivePushHelper {
      * Handle foreground notification
      * Equivalent to: willPresent notification
      *
+     * This now uses the new handleForegroundPush method for better tracking.
+     *
      * @param notification - The notification object
      */
-    private handleForegroundNotification(notification: PushNotification): void {
+    private async handleForegroundNotification(notification: PushNotification): Promise<void> {
         const userInfo = notification.getData()
         console.log('📬 [AttentivePush] Notification received in foreground')
         console.log('   User info:', JSON.stringify(userInfo, null, 2))
 
-        // Notify Attentive SDK
-        console.log('🌉 [AttentivePush] Calling native: handleForegroundNotification()')
-        handleForegroundNotification(userInfo)
+        // Get authorization status
+        const authStatus = await this.getAuthorizationStatus()
+
+        // Use handleForegroundPush for better tracking (matches native iOS pattern)
+        console.log('🌉 [AttentivePush] Calling native: handleForegroundPush()')
+        handleForegroundPush(userInfo, authStatus)
 
         // Complete the notification
         notification.finish(PushNotificationIOS.FetchResult.NoData)
@@ -260,6 +266,26 @@ export class AttentivePushHelper {
      * Handle notification tap
      * Equivalent to: didReceive response
      *
+     * This is the TypeScript equivalent of the native iOS AppDelegate method:
+     * ```swift
+     * func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+     *     UNUserNotificationCenter.current().getNotificationSettings { settings in
+     *       let authStatus = settings.authorizationStatus
+     *       DispatchQueue.main.async {
+     *         switch UIApplication.shared.applicationState {
+     *         case .active:
+     *           self.attentiveSdk?.handleForegroundPush(response: response, authorizationStatus: authStatus)
+     *         case .background, .inactive:
+     *           self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+     *         @unknown default:
+     *           self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+     *         }
+     *       }
+     *     }
+     *     completionHandler()
+     *   }
+     * ```
+     *
      * @param notification - The notification object
      */
     private async handleNotificationTap(notification: PushNotification): Promise<void> {
@@ -267,12 +293,36 @@ export class AttentivePushHelper {
         console.log('👆 [AttentivePush] Notification tapped by user')
         console.log('   User info:', JSON.stringify(userInfo, null, 2))
 
+        // Get current app state (equivalent to UIApplication.shared.applicationState)
+        const appState = AppState.currentState
+        console.log('   App state:', appState)
+
+        // Get authorization status (equivalent to getNotificationSettings)
         const authStatus = await this.getAuthorizationStatus()
         console.log('   Authorization status:', authStatus)
 
-        // Track push open event
-        console.log('🌉 [AttentivePush] Calling native: handlePushOpened()')
-        handlePushOpened(userInfo, 'inactive', authStatus)
+        // Determine which SDK method to call based on app state
+        // This matches the native iOS switch statement exactly
+        switch (appState) {
+            case 'active':
+                // App is in foreground - handle as foreground push
+                console.log('🌉 [AttentivePush] App state: active - calling handleForegroundPush()')
+                handleForegroundPush(userInfo, authStatus)
+                break
+
+            case 'background':
+            case 'inactive':
+                // App is in background or inactive - handle as push open
+                console.log('🌉 [AttentivePush] App state: background/inactive - calling handlePushOpen()')
+                handlePushOpen(userInfo, authStatus)
+                break
+
+            default:
+                // Unknown state - default to push open behavior (matches @unknown default in Swift)
+                console.log('🌉 [AttentivePush] App state: unknown - calling handlePushOpen()')
+                handlePushOpen(userInfo, authStatus)
+                break
+        }
 
         // Complete the notification
         notification.finish(PushNotificationIOS.FetchResult.NoData)

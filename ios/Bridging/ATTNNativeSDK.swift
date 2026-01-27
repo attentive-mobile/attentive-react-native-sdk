@@ -24,7 +24,7 @@ struct DebugEvent {
     self.eventType = eventType
     self.data = data
   }
-  
+
   /**
    * Formats the debug event as a human-readable string for export
    * @return A formatted string containing timestamp, event type, and data
@@ -33,17 +33,17 @@ struct DebugEvent {
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
     let timeString = formatter.string(from: timestamp)
-    
+
     var output = "[\(timeString)] \(eventType)\n"
-    
+
     // Add summary information if available
     let summary = getSummary()
     if !summary.isEmpty {
       output += "Summary: \(summary)\n"
     }
-    
+
     output += "Data:\n"
-    
+
     // Format data as JSON for better readability
     do {
       let jsonData = try JSONSerialization.data(withJSONObject: data, options: .prettyPrinted)
@@ -55,17 +55,17 @@ struct DebugEvent {
     } catch {
       output += "\(data)"
     }
-    
+
     return output + "\n" + String(repeating: "=", count: 50) + "\n"
   }
-  
+
   /**
    * Generates a summary of the debug event for quick overview
    * @return A brief summary string highlighting key information
    */
   private func getSummary() -> String {
     var summaryParts: [String] = []
-    
+
     if let itemsCount = data["items_count"] as? String {
       summaryParts.append("Items: \(itemsCount)")
     }
@@ -78,10 +78,10 @@ struct DebugEvent {
     if let eventType = data["event_type"] as? String {
       summaryParts.append("Type: \(eventType)")
     }
-    
+
     // Always show payload size info
     summaryParts.append("Payload: \(data.count) fields")
-    
+
     return summaryParts.joined(separator: " • ")
   }
 }
@@ -96,7 +96,7 @@ struct DebugEvent {
   public init(domain: String, mode: String, skipFatigueOnCreatives: Bool, enableDebugger: Bool) {
     self.sdk = ATTNSDK(domain: domain, mode: ATTNSDKMode(rawValue: mode) ?? .production)
     self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives ?? false
-    
+
     // Only enable debugging if both enableDebugger is true AND the app is running in debug mode
     let enableDebuggerFromConfig = enableDebugger ?? false
     #if DEBUG
@@ -105,7 +105,7 @@ struct DebugEvent {
     let isDebugBuild = false
     #endif
     self.debuggingEnabled = enableDebuggerFromConfig && isDebugBuild
-    
+
     ATTNEventTracker.setup(with: sdk)
   }
 
@@ -184,7 +184,7 @@ struct DebugEvent {
    * Register the device token with callback for use in AppDelegate.
    * This method is intended to be called directly from the host app's AppDelegate,
    * not from React Native JavaScript.
-   * 
+   *
    * @param token The device token Data from APNs
    * @param authorizationStatus Current push authorization status
    * @param callback Completion handler called after registration attempt
@@ -209,7 +209,7 @@ struct DebugEvent {
   /**
    * Handle a regular/direct app open event.
    * This should be called after device token registration completes (success or failure).
-   * 
+   *
    * @param authorizationStatus Current push authorization status
    */
   @objc(handleRegularOpen:)
@@ -228,7 +228,7 @@ struct DebugEvent {
    * Note: SDK 2.0.8 changed the API to require UNNotificationResponse instead of userInfo dictionary.
    * This method is kept for backward compatibility but has limited functionality.
    * For full functionality, handle push notifications natively in AppDelegate.
-   * 
+   *
    * @param userInfo The notification payload
    * @param applicationState The app state when notification was opened
    * @param authorizationStatus Current push authorization status
@@ -272,6 +272,116 @@ struct DebugEvent {
       showDebugInfo(event: "Foreground Notification", data: [
         "userInfo": userInfo,
         "warning": "SDK 2.0.8 requires native UNNotificationResponse handling"
+      ])
+    }
+  }
+
+  /**
+   * Handle a push notification when the app is in the foreground (active state).
+   * This is the native equivalent that should be called from AppDelegate when the app is active.
+   *
+   * Equivalent to Swift AppDelegate code:
+   * ```swift
+   * case .active:
+   *   self.attentiveSdk?.handleForegroundPush(response: response, authorizationStatus: authStatus)
+   * ```
+   *
+   * @param response The UNNotificationResponse from the notification center delegate
+   * @param authorizationStatus Current push authorization status
+   */
+  @objc(handleForegroundPush:authorizationStatus:)
+  public func handleForegroundPush(response: UNNotificationResponse, authorizationStatus: UNAuthorizationStatus) {
+    sdk.handleForegroundPush(response: response, authorizationStatus: authorizationStatus)
+
+    if debuggingEnabled {
+      let userInfo = response.notification.request.content.userInfo
+      showDebugInfo(event: "Foreground Push", data: [
+        "authorizationStatus": authorizationStatusToString(authorizationStatus),
+        "userInfo": userInfo as? [String: Any] ?? [:],
+        "actionIdentifier": response.actionIdentifier
+      ])
+    }
+  }
+
+  /**
+   * Handle when a push notification is opened by the user (app in background/inactive state).
+   * This is the native equivalent that should be called from AppDelegate when the app is background or inactive.
+   *
+   * Equivalent to Swift AppDelegate code:
+   * ```swift
+   * case .background, .inactive:
+   *   self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+   * ```
+   *
+   * @param response The UNNotificationResponse from the notification center delegate
+   * @param authorizationStatus Current push authorization status
+   */
+  @objc(handlePushOpen:authorizationStatus:)
+  public func handlePushOpen(response: UNNotificationResponse, authorizationStatus: UNAuthorizationStatus) {
+    sdk.handlePushOpen(response: response, authorizationStatus: authorizationStatus)
+
+    if debuggingEnabled {
+      let userInfo = response.notification.request.content.userInfo
+      showDebugInfo(event: "Push Open", data: [
+        "authorizationStatus": authorizationStatusToString(authorizationStatus),
+        "userInfo": userInfo as? [String: Any] ?? [:],
+        "actionIdentifier": response.actionIdentifier
+      ])
+    }
+  }
+
+  /**
+   * Handle a push notification when the app is in the foreground (active state) - React Native version.
+   * This method accepts userInfo dictionary instead of UNNotificationResponse, making it callable from React Native.
+   *
+   * Note: This is a limited version since we don't have access to the full UNNotificationResponse.
+   * For full functionality, use the native AppDelegate implementation.
+   *
+   * @param userInfo The notification payload dictionary
+   * @param authorizationStatus Current push authorization status string
+   */
+  @objc(handleForegroundPushFromRN:authorizationStatus:)
+  public func handleForegroundPushFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
+    let authStatus = mapAuthorizationStatus(authorizationStatus)
+
+    // Note: SDK 2.0.8 requires UNNotificationResponse, but we only have userInfo from React Native
+    // This is a workaround that logs the limitation
+    print("[AttentiveSDK] handleForegroundPush called from React Native (limited functionality)")
+    print("[AttentiveSDK] For full functionality, implement in native AppDelegate")
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Foreground Push (React Native)", data: [
+        "authorizationStatus": authorizationStatus,
+        "userInfo": userInfo,
+        "note": "Limited functionality - UNNotificationResponse not available from React Native"
+      ])
+    }
+  }
+
+  /**
+   * Handle when a push notification is opened by the user (app in background/inactive state) - React Native version.
+   * This method accepts userInfo dictionary instead of UNNotificationResponse, making it callable from React Native.
+   *
+   * Note: This is a limited version since we don't have access to the full UNNotificationResponse.
+   * For full functionality, use the native AppDelegate implementation.
+   *
+   * @param userInfo The notification payload dictionary
+   * @param authorizationStatus Current push authorization status string
+   */
+  @objc(handlePushOpenFromRN:authorizationStatus:)
+  public func handlePushOpenFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
+    let authStatus = mapAuthorizationStatus(authorizationStatus)
+
+    // Note: SDK 2.0.8 requires UNNotificationResponse, but we only have userInfo from React Native
+    // This is a workaround that logs the limitation
+    print("[AttentiveSDK] handlePushOpen called from React Native (limited functionality)")
+    print("[AttentiveSDK] For full functionality, implement in native AppDelegate")
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Push Open (React Native)", data: [
+        "authorizationStatus": authorizationStatus,
+        "userInfo": userInfo,
+        "note": "Limited functionality - UNNotificationResponse not available from React Native"
       ])
     }
   }
@@ -362,7 +472,7 @@ struct DebugEvent {
       }
     }
   }
-  
+
 }
 
 public extension ATTNNativeSDK {
@@ -375,36 +485,36 @@ public extension ATTNNativeSDK {
     guard debuggingEnabled else {
       return "Debug logging is not enabled. Please enable debugging to export logs."
     }
-    
+
     if debugHistory.isEmpty {
       return "No debug events recorded in this session."
     }
-    
+
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
     let exportDate = formatter.string(from: Date())
-    
+
     var exportContent = """
     Attentive React Native SDK - Debug Session Export
     Generated: \(exportDate)
     Total Events: \(debugHistory.count)
-    
+
     \(String(repeating: "=", count: 60))
-    
+
     """
-    
+
     // Add all events in chronological order (oldest first for better readability)
     for (index, event) in debugHistory.enumerated() {
       exportContent += "Event #\(index + 1)\n"
       exportContent += event.formatForExport()
       exportContent += "\n"
     }
-    
+
     exportContent += """
     \(String(repeating: "=", count: 60))
     End of Debug Session Export
     """
-    
+
     return exportContent
   }
 
@@ -585,7 +695,7 @@ class DebugOverlayViewController: UIViewController {
     shareButton.addTarget(self, action: #selector(shareButtonTapped), for: .touchUpInside)
     shareButton.translatesAutoresizingMaskIntoConstraints = false
     containerView.addSubview(shareButton)
-    
+
     // X Close button in top-right corner
     let closeButton = UIButton(type: .system)
     closeButton.setTitle("✕", for: .normal)
@@ -743,10 +853,10 @@ class DebugOverlayViewController: UIViewController {
   @objc private func shareButtonTapped() {
     // Generate export content for the current history
     let exportContent = generateExportContent()
-    
+
     // Create activity view controller for sharing
     let activityVC = UIActivityViewController(activityItems: [exportContent], applicationActivities: nil)
-    
+
     // For iPad - prevent crash by setting popover presentation controller
     if let popover = activityVC.popoverPresentationController {
       // Find the share button view to anchor the popover
@@ -758,10 +868,10 @@ class DebugOverlayViewController: UIViewController {
         popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
       }
     }
-    
+
     present(activityVC, animated: true)
   }
-  
+
   /**
    * Generates formatted export content for sharing
    * @return Formatted string containing all debug events
@@ -770,32 +880,32 @@ class DebugOverlayViewController: UIViewController {
     if history.isEmpty {
       return "No debug events recorded in this session."
     }
-    
+
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
     let exportDate = formatter.string(from: Date())
-    
+
     var exportContent = """
     Attentive React Native SDK - Debug Session Export
     Generated: \(exportDate)
     Total Events: \(history.count)
-    
+
     \(String(repeating: "=", count: 60))
-    
+
     """
-    
+
     // Add all events in chronological order (oldest first for better readability)
     for (index, event) in history.enumerated() {
       exportContent += "Event #\(index + 1)\n"
       exportContent += event.formatForExport()
       exportContent += "\n"
     }
-    
+
     exportContent += """
     \(String(repeating: "=", count: 60))
     End of Debug Session Export
     """
-    
+
     return exportContent
   }
 
@@ -977,7 +1087,7 @@ class EventDetailViewController: UIViewController {
     shareButton.addTarget(self, action: #selector(shareEventButtonTapped), for: .touchUpInside)
     shareButton.translatesAutoresizingMaskIntoConstraints = false
     containerView.addSubview(shareButton)
-    
+
     let closeButton = UIButton(type: .system)
     closeButton.setTitle("✕", for: .normal)
     closeButton.titleLabel?.font = UIFont.systemFont(ofSize: 18, weight: .medium)
@@ -1039,19 +1149,19 @@ class EventDetailViewController: UIViewController {
    */
   @objc private func shareEventButtonTapped() {
     let exportContent = generateSingleEventExport()
-    
+
     // Create activity view controller for sharing
     let activityVC = UIActivityViewController(activityItems: [exportContent], applicationActivities: nil)
-    
+
     // For iPad - prevent crash by setting popover presentation controller
     if let popover = activityVC.popoverPresentationController {
       popover.sourceView = view
       popover.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 0, height: 0)
     }
-    
+
     present(activityVC, animated: true)
   }
-  
+
   /**
    * Generates formatted export content for a single event
    * @return Formatted string containing the single debug event
@@ -1060,18 +1170,18 @@ class EventDetailViewController: UIViewController {
     let formatter = DateFormatter()
     formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
     let exportDate = formatter.string(from: Date())
-    
+
     let eventContent = """
     Attentive React Native SDK - Single Event Export
     Generated: \(exportDate)
-    
+
     \(String(repeating: "=", count: 60))
-    
+
     \(event.formatForExport())
     \(String(repeating: "=", count: 60))
     End of Single Event Export
     """
-    
+
     return eventContent
   }
 

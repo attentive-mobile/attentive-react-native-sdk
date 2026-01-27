@@ -320,6 +320,78 @@ function handleForegroundNotification(
   AttentiveReactNativeSdk.handleForegroundNotification(userInfo as Object)
 }
 
+/**
+ * Handle a push notification when the app is in the foreground (active state).
+ * This is the React Native equivalent of the native iOS handleForegroundPush method.
+ *
+ * Call this when you receive a notification response and the app state is 'active'.
+ * This is part of implementing the native iOS pattern:
+ * ```swift
+ * case .active:
+ *   self.attentiveSdk?.handleForegroundPush(response: response, authorizationStatus: authStatus)
+ * ```
+ *
+ * On iOS, this properly tracks foreground push notifications.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param userInfo - The notification payload from the push notification
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { handleForegroundPush } from 'attentive-react-native-sdk';
+ * import { AppState } from 'react-native';
+ *
+ * // In your notification handler:
+ * const appState = AppState.currentState;
+ * if (appState === 'active') {
+ *   handleForegroundPush(notification.data, 'authorized');
+ * }
+ * ```
+ */
+function handleForegroundPush(
+  userInfo: PushNotificationUserInfo,
+  authorizationStatus: PushAuthorizationStatus
+): void {
+  AttentiveReactNativeSdk.handleForegroundPush(userInfo as Object, authorizationStatus)
+}
+
+/**
+ * Handle when a push notification is opened by the user (app in background/inactive state).
+ * This is the React Native equivalent of the native iOS handlePushOpen method.
+ *
+ * Call this when you receive a notification response and the app state is 'background' or 'inactive'.
+ * This is part of implementing the native iOS pattern:
+ * ```swift
+ * case .background, .inactive:
+ *   self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+ * ```
+ *
+ * On iOS, this properly tracks push notification opens.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param userInfo - The notification payload from the push notification
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { handlePushOpen } from 'attentive-react-native-sdk';
+ * import { AppState } from 'react-native';
+ *
+ * // In your notification handler:
+ * const appState = AppState.currentState;
+ * if (appState === 'background' || appState === 'inactive') {
+ *   handlePushOpen(notification.data, 'authorized');
+ * }
+ * ```
+ */
+function handlePushOpen(
+  userInfo: PushNotificationUserInfo,
+  authorizationStatus: PushAuthorizationStatus
+): void {
+  AttentiveReactNativeSdk.handlePushOpen(userInfo as Object, authorizationStatus)
+}
+
 export {
   initialize,
   triggerCreative,
@@ -340,6 +412,8 @@ export {
   handleRegularOpen,
   handlePushOpened,
   handleForegroundNotification,
+  handleForegroundPush,
+  handlePushOpen,
 }
 
 export type {
