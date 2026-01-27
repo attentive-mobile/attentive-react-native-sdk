@@ -95,16 +95,15 @@ struct DebugEvent {
   @objc(initWithDomain:mode:skipFatigueOnCreatives:enableDebugger:)
   public init(domain: String, mode: String, skipFatigueOnCreatives: Bool, enableDebugger: Bool) {
     self.sdk = ATTNSDK(domain: domain, mode: ATTNSDKMode(rawValue: mode) ?? .production)
-    self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives ?? false
+    self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives
 
     // Only enable debugging if both enableDebugger is true AND the app is running in debug mode
-    let enableDebuggerFromConfig = enableDebugger ?? false
     #if DEBUG
     let isDebugBuild = true
     #else
     let isDebugBuild = false
     #endif
-    self.debuggingEnabled = enableDebuggerFromConfig && isDebugBuild
+    self.debuggingEnabled = enableDebugger && isDebugBuild
 
     ATTNEventTracker.setup(with: sdk)
   }
@@ -210,6 +209,21 @@ struct DebugEvent {
    * Handle a regular/direct app open event.
    * This should be called after device token registration completes (success or failure).
    *
+   * This is the TypeScript equivalent of the native iOS AppDelegate method:
+   * ```swift
+   * func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+   *   UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+   *     guard let self = self else { return }
+   *     let authStatus = settings.authorizationStatus
+   *     attentiveSdk?.registerDeviceToken(deviceToken, authorizationStatus: authStatus, callback: { data, url, response, error in
+   *       DispatchQueue.main.async {
+   *         self.attentiveSdk?.handleRegularOpen(authorizationStatus: authStatus)
+   *       }
+   *     })
+   *   }
+   * }
+   * ```
+   *
    * @param authorizationStatus Current push authorization status
    */
   @objc(handleRegularOpen:)
@@ -222,6 +236,7 @@ struct DebugEvent {
       ])
     }
   }
+
 
   /**
    * Handle when a push notification is opened by the user.
@@ -258,11 +273,6 @@ struct DebugEvent {
    */
   @objc(handleForegroundNotification:)
   public func handleForegroundNotification(_ userInfo: [String: Any]) {
-    // Convert userInfo to [AnyHashable: Any] for the SDK
-    let convertedUserInfo: [AnyHashable: Any] = userInfo.reduce(into: [:]) { result, pair in
-      result[pair.key] = pair.value
-    }
-
     // Note: SDK 2.0.8 changed the API to require UNNotificationResponse
     // Since React Native doesn't provide this, we'll log a warning
     print("[AttentiveSDK] Warning: Foreground notification handling from React Native is limited in SDK 2.0.8")
@@ -342,7 +352,7 @@ struct DebugEvent {
    */
   @objc(handleForegroundPushFromRN:authorizationStatus:)
   public func handleForegroundPushFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
-    let authStatus = mapAuthorizationStatus(authorizationStatus)
+    _ = mapAuthorizationStatus(authorizationStatus)
 
     // Note: SDK 2.0.8 requires UNNotificationResponse, but we only have userInfo from React Native
     // This is a workaround that logs the limitation
@@ -370,7 +380,7 @@ struct DebugEvent {
    */
   @objc(handlePushOpenFromRN:authorizationStatus:)
   public func handlePushOpenFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
-    let authStatus = mapAuthorizationStatus(authorizationStatus)
+    _ = mapAuthorizationStatus(authorizationStatus)
 
     // Note: SDK 2.0.8 requires UNNotificationResponse, but we only have userInfo from React Native
     // This is a workaround that logs the limitation

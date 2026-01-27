@@ -35,28 +35,28 @@ import UserNotifications
 @objc public class AttentiveSDKManager: NSObject {
     /// Shared singleton instance
     @objc public static let shared = AttentiveSDKManager()
-    
+
     /// The Attentive SDK instance as AnyObject for Objective-C compatibility
     /// This should be set when the SDK is initialized from React Native
     /// Cast to ATTNNativeSDK in Swift code
     @objc public var sdk: AnyObject?
-    
+
     private override init() {
         super.init()
     }
-    
+
     /// Helper method to get the SDK instance with proper type in Swift
     public var nativeSDK: ATTNNativeSDK? {
         return sdk as? ATTNNativeSDK
     }
-    
+
     /// Helper method to set the SDK instance with proper type in Swift
     public func setNativeSDK(_ nativeSDK: ATTNNativeSDK?) {
         sdk = nativeSDK
     }
-    
+
     // MARK: - Push Notification Handlers (for AppDelegate)
-    
+
     /**
      * Handle a push notification when the app is in the foreground (active state).
      * Call this from AppDelegate's userNotificationCenter(_:didReceive:withCompletionHandler:)
@@ -68,7 +68,7 @@ import UserNotifications
     @objc public func handleForegroundPush(response: UNNotificationResponse, authorizationStatus: UNAuthorizationStatus) {
         nativeSDK?.handleForegroundPush(response: response, authorizationStatus: authorizationStatus)
     }
-    
+
     /**
      * Handle when a push notification is opened by the user (app in background/inactive state).
      * Call this from AppDelegate's userNotificationCenter(_:didReceive:withCompletionHandler:)

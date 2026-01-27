@@ -243,6 +243,21 @@ function registerDeviceTokenWithCallback(
  * Handle regular/direct app open (not from a push notification).
  * This should be called after device token registration to track app opens.
  *
+ * This is the TypeScript equivalent of the native iOS AppDelegate method:
+ * ```swift
+ * func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+ *   UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+ *     guard let self = self else { return }
+ *     let authStatus = settings.authorizationStatus
+ *     attentiveSdk?.registerDeviceToken(deviceToken, authorizationStatus: authStatus, callback: { data, url, response, error in
+ *       DispatchQueue.main.async {
+ *         self.attentiveSdk?.handleRegularOpen(authorizationStatus: authStatus)
+ *       }
+ *     })
+ *   }
+ * }
+ * ```
+ *
  * On iOS, this will notify the Attentive SDK that the app was opened directly
  * (not from a push notification tap).
  * On Android, this is currently a no-op (TODO: implement FCM integration).
@@ -251,10 +266,27 @@ function registerDeviceTokenWithCallback(
  *
  * @example
  * ```typescript
- * import { handleRegularOpen } from 'attentive-react-native-sdk';
+ * import { registerDeviceTokenWithCallback, handleRegularOpen } from 'attentive-react-native-sdk';
+ * import PushNotificationIOS from '@react-native-community/push-notification-ios';
  *
- * // After device token registration:
- * handleRegularOpen('authorized');
+ * // In your device token registration handler:
+ * PushNotificationIOS.addEventListener('register', (deviceToken: string) => {
+ *   PushNotificationIOS.checkPermissions((permissions) => {
+ *     let authStatus: PushAuthorizationStatus = 'notDetermined'
+ *     if (permissions.alert || permissions.badge || permissions.sound) {
+ *       authStatus = 'authorized'
+ *     }
+ *
+ *     // Register device token with callback
+ *     registerDeviceTokenWithCallback(deviceToken, authStatus, (data, url, response, error) => {
+ *       if (error) {
+ *         console.error('Registration error:', error)
+ *       }
+ *       // After registration completes, trigger regular open event
+ *       handleRegularOpen(authStatus)
+ *     })
+ *   })
+ * })
  * ```
  */
 function handleRegularOpen(authorizationStatus: PushAuthorizationStatus): void {
