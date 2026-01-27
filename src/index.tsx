@@ -290,7 +290,15 @@ function registerDeviceTokenWithCallback(
  * ```
  */
 function handleRegularOpen(authorizationStatus: PushAuthorizationStatus): void {
+  console.log('[AttentiveSDK] 🌉 Calling handleRegularOpen from TypeScript')
+  console.log(`   Authorization Status: ${authorizationStatus}`)
+  console.log(
+    '   This should trigger: https://mobile.attentivemobile.com/mtctrl'
+  )
+
   AttentiveReactNativeSdk.handleRegularOpen(authorizationStatus)
+
+  console.log('[AttentiveSDK] ✅ handleRegularOpen call completed')
 }
 
 /**
@@ -385,7 +393,10 @@ function handleForegroundPush(
   userInfo: PushNotificationUserInfo,
   authorizationStatus: PushAuthorizationStatus
 ): void {
-  AttentiveReactNativeSdk.handleForegroundPush(userInfo as Object, authorizationStatus)
+  AttentiveReactNativeSdk.handleForegroundPush(
+    userInfo as Object,
+    authorizationStatus
+  )
 }
 
 /**
@@ -421,7 +432,10 @@ function handlePushOpen(
   userInfo: PushNotificationUserInfo,
   authorizationStatus: PushAuthorizationStatus
 ): void {
-  AttentiveReactNativeSdk.handlePushOpen(userInfo as Object, authorizationStatus)
+  AttentiveReactNativeSdk.handlePushOpen(
+    userInfo as Object,
+    authorizationStatus
+  )
 }
 
 export {

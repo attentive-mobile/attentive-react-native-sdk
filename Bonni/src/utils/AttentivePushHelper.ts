@@ -16,7 +16,7 @@
  * ```
  */
 
-import { Platform } from 'react-native'
+import { Platform, AppState } from 'react-native'
 import PushNotificationIOS, { PushNotification } from '@react-native-community/push-notification-ios'
 import {
     registerDeviceTokenWithCallback,
@@ -25,8 +25,7 @@ import {
     handleForegroundPush,
     handlePushOpen,
     type PushAuthorizationStatus,
-} from '@attentive-mobile/attentive-react-native-sdk'
-import { AppState } from 'react-native'
+} from '../../../src'
 
 /**
  * Helper class for managing Attentive push notifications
@@ -36,6 +35,7 @@ export class AttentivePushHelper {
     private static instance: AttentivePushHelper
     private deviceToken: string | null = null
     private isRegistered: boolean = false
+    private appStateSubscription: any = null
 
     private constructor() {}
 
@@ -72,8 +72,12 @@ export class AttentivePushHelper {
             console.log('📝 [AttentivePush] STEP 2: Setting up event listeners')
             this.setupEventListeners()
 
+            // Set up app state listener for app open tracking
+            console.log('📝 [AttentivePush] STEP 3: Setting up app state listener for app open tracking')
+            this.setupAppStateListener()
+
             // Request push notification permissions
-            console.log('🔐 [AttentivePush] STEP 3: Requesting push notification permissions')
+            console.log('🔐 [AttentivePush] STEP 4: Requesting push notification permissions')
             await this.requestPermissions()
 
             console.log('✅ [AttentivePush] Initialization complete')
@@ -89,6 +93,38 @@ export class AttentivePushHelper {
     private async requestPermissions(): Promise<void> {
         console.log('🌉 [AttentivePush] Calling native: registerForPushNotifications()')
         registerForPushNotifications()
+    }
+
+    /**
+     * Setup app state listener to track app opens
+     *
+     * When the app comes to the foreground (becomes active), we call handleRegularOpen
+     * to track the app open event. This is important for analytics and engagement tracking.
+     *
+     * Note: Since handleAppDidBecomeActive() is private in the Attentive SDK,
+     * we use handleRegularOpen() instead, which serves the same purpose of tracking
+     * when the app becomes active.
+     */
+    private setupAppStateListener(): void {
+        console.log('📱 [AttentivePush] Setting up AppState listener for app open tracking')
+
+        this.appStateSubscription = AppState.addEventListener('change', async (nextAppState) => {
+            console.log('[AttentivePush] AppState changed to:', nextAppState)
+
+            // When app becomes active (comes to foreground), track as app open
+            if (nextAppState === 'active') {
+                console.log('[AttentivePush] App became active - tracking app open event')
+
+                // Get current authorization status
+                const authStatus = await this.getAuthorizationStatus()
+                console.log('[AttentivePush] Authorization status:', authStatus)
+
+                // Track app open by calling handleRegularOpen
+                console.log('🌉 [AttentivePush] Calling native: handleRegularOpen() for app open tracking')
+                handleRegularOpen(authStatus)
+                console.log('✅ [AttentivePush] App open event tracked')
+            }
+        })
     }
 
     /**
@@ -353,6 +389,12 @@ export class AttentivePushHelper {
         PushNotificationIOS.removeEventListener('registrationError')
         PushNotificationIOS.removeEventListener('notification')
         PushNotificationIOS.removeEventListener('localNotification')
+
+        // Cleanup app state listener
+        if (this.appStateSubscription) {
+            this.appStateSubscription.remove()
+            this.appStateSubscription = null
+        }
     }
 }
 

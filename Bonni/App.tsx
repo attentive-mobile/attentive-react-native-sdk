@@ -18,7 +18,7 @@ import {
   handlePushOpen,
   type AttentiveSdkConfiguration,
   type PushAuthorizationStatus,
-} from '@attentive-mobile/attentive-react-native-sdk'
+} from '../src'
 import PushNotificationIOS, { PushNotification } from '@react-native-community/push-notification-ios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
@@ -88,6 +88,30 @@ function App(): React.JSX.Element {
       console.log('⚠️ [Attentive] Not iOS - skipping push notification setup')
     }
 
+    // Setup app state listener to track app opens
+    // When app comes to foreground, trigger handleRegularOpen to track the app open event
+    console.log('📱 [Attentive] Setting up AppState listener for app open tracking')
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('[Attentive] AppState changed to:', nextAppState)
+
+      // When app becomes active (comes to foreground), track as app open
+      if (nextAppState === 'active' && Platform.OS === 'ios') {
+        console.log('[Attentive] App became active - tracking app open event')
+
+        // Get current authorization status and trigger handleRegularOpen
+        PushNotificationIOS.checkPermissions((permissions) => {
+          let authStatus: PushAuthorizationStatus = 'notDetermined'
+          if (permissions.alert || permissions.badge || permissions.sound) {
+            authStatus = 'authorized'
+          }
+
+          console.log('[Attentive] Calling handleRegularOpen for app open tracking')
+          console.log('   Authorization status:', authStatus)
+          handleRegularOpen(authStatus)
+        })
+      }
+    })
+
     return () => {
       // Cleanup push notification listeners
       if (Platform.OS === 'ios') {
@@ -96,6 +120,9 @@ function App(): React.JSX.Element {
         PushNotificationIOS.removeEventListener('notification')
         PushNotificationIOS.removeEventListener('localNotification')
       }
+
+      // Cleanup app state listener
+      appStateSubscription.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -278,6 +305,7 @@ function App(): React.JSX.Element {
         handleNotificationOpen(notification)
       }
     })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Set initial status bar color for Login screen (initial route)

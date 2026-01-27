@@ -228,11 +228,20 @@ struct DebugEvent {
    */
   @objc(handleRegularOpen:)
   public func handleRegularOpen(authorizationStatus: UNAuthorizationStatus) {
+    print("🌉 [AttentiveSDK] handleRegularOpen called from React Native")
+    print("   Authorization Status: \(authorizationStatusToString(authorizationStatus))")
+    print("   Calling underlying iOS SDK handleRegularOpen...")
+
     sdk.handleRegularOpen(authorizationStatus: authorizationStatus)
+
+    print("✅ [AttentiveSDK] handleRegularOpen completed")
+    print("   This should trigger a network call to: https://mobile.attentivemobile.com/mtctrl")
 
     if debuggingEnabled {
       showDebugInfo(event: "Regular Open Event", data: [
-        "authorizationStatus": authorizationStatusToString(authorizationStatus)
+        "authorizationStatus": authorizationStatusToString(authorizationStatus),
+        "expectedEndpoint": "https://mobile.attentivemobile.com/mtctrl",
+        "note": "Check network logs to verify endpoint was called"
       ])
     }
   }
