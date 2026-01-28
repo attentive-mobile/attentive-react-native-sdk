@@ -76,8 +76,17 @@ export class AttentivePushHelper {
             console.log('📝 [AttentivePush] STEP 3: Setting up app state listener for app open tracking')
             this.setupAppStateListener()
 
+            // Call handleRegularOpen immediately (before requesting permissions)
+            // This matches native iOS behavior where handleRegularOpen is called regardless of permission status
+            // Call synchronously with 'notDetermined' to ensure it happens before permission dialog
+            console.log('🔐 [AttentivePush] STEP 4: Calling handleRegularOpen on initialization')
+            console.log('   Initial authorization status: notDetermined (before permission request)')
+            console.log('🌉 [AttentivePush] Calling native: handleRegularOpen() (hits /mtctrl endpoint)')
+            handleRegularOpen('notDetermined')
+            console.log('✅ [AttentivePush] Initial handleRegularOpen completed')
+
             // Request push notification permissions
-            console.log('🔐 [AttentivePush] STEP 4: Requesting push notification permissions')
+            console.log('🔐 [AttentivePush] STEP 5: Requesting push notification permissions')
             await this.requestPermissions()
 
             console.log('✅ [AttentivePush] Initialization complete')

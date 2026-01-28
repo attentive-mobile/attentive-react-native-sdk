@@ -11,7 +11,6 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 import {
   initialize,
   identify,
-  registerForPushNotifications,
   registerDeviceTokenWithCallback,
   handleRegularOpen,
   handleForegroundPush,
@@ -59,7 +58,7 @@ function App(): React.JSX.Element {
 
     // Initialize the Attentive SDK
     const config: AttentiveSdkConfiguration = {
-      attentiveDomain: 'games', // Replace with your Attentive domain
+      attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
       mode: 'production',
       enableDebugger: true,
     }
@@ -68,6 +67,8 @@ function App(): React.JSX.Element {
     console.log('✅ [Attentive] SDK initialized')
 
     // Identify user with sample identifiers (like iOS AppDelegate)
+    // IMPORTANT: Must identify user BEFORE calling handleRegularOpen
+    // The SDK needs user context to make network calls
     console.log('👤 [Attentive] Identifying user')
     identify({
       phone: '+15671230987',
@@ -82,8 +83,52 @@ function App(): React.JSX.Element {
     // Setup push notifications (iOS only for now)
     if (Platform.OS === 'ios') {
       console.log('📱 [Attentive] Setting up push notifications for iOS')
+
+      // Call handleRegularOpen immediately on app launch (regardless of permission status)
+      // This matches native iOS behavior where handleRegularOpen is called even without permissions
+      // IMPORTANT: Called AFTER identify() to ensure SDK has user context
+      // IMPORTANT: Called synchronously BEFORE permission dialog appears
+      console.log('📱 [Attentive] Calling handleRegularOpen on app launch (before permission request)')
+      console.log('   NOTE: This should hit /mtctrl endpoint regardless of permission status')
+      console.log('   Authorization status: notDetermined (first launch)')
+      console.log('🌉 [Attentive] Triggering initial handleRegularOpen (hits /mtctrl endpoint)')
+      console.log('   Domain:', config.attentiveDomain)
+      console.log('   Mode:', config.mode)
+
+      try {
+        // Call immediately with notDetermined status (before permission dialog)
+        handleRegularOpen('notDetermined')
+        console.log('✅ [Attentive] Initial handleRegularOpen call completed (network request sent)')
+        console.log('   Check your proxy debugger for POST to /mtctrl')
+      } catch (error) {
+        console.error('❌ [Attentive] Error calling handleRegularOpen:', error)
+      }
+
+      // Setup event listeners first (but don't request permissions yet)
       setupPushNotifications()
-      console.log('✅ [Attentive] Push notification setup complete')
+      console.log('✅ [Attentive] Push notification event listeners setup complete')
+
+      // Add a small delay before requesting permissions to ensure the /mtctrl network call completes first
+      // This prevents the permission dialog from appearing before the tracking endpoint is hit
+      console.log('⏳ [Attentive] Waiting 500ms before requesting permissions (to ensure /mtctrl call completes)')
+      setTimeout(() => {
+        console.log('📱 [Attentive] Checking for existing device token before requesting permissions')
+        PushNotificationIOS.checkPermissions((permissions) => {
+          console.log('🔍 [Attentive] Current permissions:', permissions)
+
+          // If we already have permissions, try to get the token
+          if (permissions.alert || permissions.badge || permissions.sound) {
+            console.log('✅ [Attentive] Permissions already granted, attempting to get token')
+            // Request token registration (this won't show a dialog if already granted)
+            PushNotificationIOS.requestPermissions()
+          } else {
+            console.log('ℹ️ [Attentive] No permissions yet, will request now')
+            // Request permissions (this will show the dialog)
+            console.log('🔐 [Attentive] Requesting push notification permissions')
+            PushNotificationIOS.requestPermissions()
+          }
+        })
+      }, 500)
     } else {
       console.log('⚠️ [Attentive] Not iOS - skipping push notification setup')
     }
@@ -103,6 +148,8 @@ function App(): React.JSX.Element {
           let authStatus: PushAuthorizationStatus = 'notDetermined'
           if (permissions.alert || permissions.badge || permissions.sound) {
             authStatus = 'authorized'
+          } else if (permissions.alert === false) {
+            authStatus = 'denied'
           }
 
           console.log('[Attentive] Calling handleRegularOpen for app open tracking')
@@ -293,10 +340,8 @@ function App(): React.JSX.Element {
       handleNotificationOpen(notification)
     })
 
-    // Request push notification permissions
-    console.log('🔐 [Attentive] Requesting push notification permissions via native bridge')
-    registerForPushNotifications()
-    console.log('✅ [Attentive] Permission request sent')
+    // NOTE: Permission request is now handled in the main useEffect with a delay
+    // to ensure handleRegularOpen completes before the permission dialog appears
 
     // Check for initial notification (app was launched from push notification)
     PushNotificationIOS.getInitialNotification().then((notification) => {

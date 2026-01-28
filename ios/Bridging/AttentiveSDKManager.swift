@@ -34,7 +34,7 @@ import UserNotifications
  */
 @objc public class AttentiveSDKManager: NSObject {
     /// Shared singleton instance
-    @objc public static let shared = AttentiveSDKManager()
+    @objc public static let shared: AttentiveSDKManager = AttentiveSDKManager()
 
     /// The Attentive SDK instance as AnyObject for Objective-C compatibility
     /// This should be set when the SDK is initialized from React Native

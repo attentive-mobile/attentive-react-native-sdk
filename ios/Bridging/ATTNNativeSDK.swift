@@ -131,7 +131,14 @@ struct DebugEvent {
 
   @objc(identify:)
   public func identify(_ identifiers: [String: Any]) {
+    print("👤 [AttentiveSDK] identify called from React Native")
+    print("   Identifiers: \(identifiers)")
+
     sdk.identify(identifiers)
+
+    print("✅ [AttentiveSDK] identify completed")
+    print("   User is now identified with the SDK")
+    print("   SDK can now make network calls")
   }
 
   @objc
@@ -232,10 +239,16 @@ struct DebugEvent {
     print("   Authorization Status: \(authorizationStatusToString(authorizationStatus))")
     print("   Calling underlying iOS SDK handleRegularOpen...")
 
+    // Call the underlying Attentive iOS SDK
     sdk.handleRegularOpen(authorizationStatus: authorizationStatus)
 
     print("✅ [AttentiveSDK] handleRegularOpen completed")
     print("   This should trigger a network call to: https://mobile.attentivemobile.com/mtctrl")
+    print("   If you don't see the network call:")
+    print("   1. Check that user is identified (call identify() before handleRegularOpen)")
+    print("   2. Check your proxy debugger is configured for mobile.attentivemobile.com")
+    print("   3. Verify SSL proxying is enabled")
+    print("   4. Check device has internet connection")
 
     if debuggingEnabled {
       showDebugInfo(event: "Regular Open Event", data: [
