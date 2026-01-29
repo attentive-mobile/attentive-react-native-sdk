@@ -5,3 +5,6 @@
 #import <React/RCTBridgeModule.h>
 #import <React/RCTViewManager.h>
 #import <React/RCTLog.h>
+
+// Import UserNotifications for push notification support
+@import UserNotifications;

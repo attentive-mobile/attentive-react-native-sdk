@@ -4,20 +4,20 @@
  */
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { StatusBar, Platform, AppState, AppStateStatus } from 'react-native'
+import { StatusBar, Platform, AppState } from 'react-native'
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import {
   initialize,
   identify,
-  registerForPushNotifications,
-  registerDeviceToken,
-  handlePushOpened,
-  handleForegroundNotification,
+  registerDeviceTokenWithCallback,
+  handleRegularOpen,
+  handleForegroundPush,
+  handlePushOpen,
   type AttentiveSdkConfiguration,
   type PushAuthorizationStatus,
-} from '@attentive-mobile/attentive-react-native-sdk'
+} from '../src'
 import PushNotificationIOS, { PushNotification } from '@react-native-community/push-notification-ios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
@@ -53,15 +53,23 @@ function App(): React.JSX.Element {
   const [statusBarBackgroundColor, setStatusBarBackgroundColor] = useState<string>('transparent')
 
   useEffect(() => {
+    console.log('🚀 [Attentive] App.tsx useEffect - Starting initialization')
+    console.log('   Platform:', Platform.OS)
+
     // Initialize the Attentive SDK
     const config: AttentiveSdkConfiguration = {
-      attentiveDomain: 'games', // Replace with your Attentive domain
+      attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
       mode: 'production',
       enableDebugger: true,
     }
+    console.log('📦 [Attentive] Initializing SDK with config:', config)
     initialize(config)
+    console.log('✅ [Attentive] SDK initialized')
 
     // Identify user with sample identifiers (like iOS AppDelegate)
+    // IMPORTANT: Must identify user BEFORE calling handleRegularOpen
+    // The SDK needs user context to make network calls
+    console.log('👤 [Attentive] Identifying user')
     identify({
       phone: '+15671230987',
       email: 'someemail@email.com',
@@ -70,11 +78,86 @@ function App(): React.JSX.Element {
       klaviyoId: '555555',
       customIdentifiers: { customId: 'customIdValue' },
     })
+    console.log('✅ [Attentive] User identified')
 
     // Setup push notifications (iOS only for now)
     if (Platform.OS === 'ios') {
+      console.log('📱 [Attentive] Setting up push notifications for iOS')
+
+      // Call handleRegularOpen immediately on app launch (regardless of permission status)
+      // This matches native iOS behavior where handleRegularOpen is called even without permissions
+      // IMPORTANT: Called AFTER identify() to ensure SDK has user context
+      // IMPORTANT: Called synchronously BEFORE permission dialog appears
+      console.log('📱 [Attentive] Calling handleRegularOpen on app launch (before permission request)')
+      console.log('   NOTE: This should hit /mtctrl endpoint regardless of permission status')
+      console.log('   Authorization status: notDetermined (first launch)')
+      console.log('🌉 [Attentive] Triggering initial handleRegularOpen (hits /mtctrl endpoint)')
+      console.log('   Domain:', config.attentiveDomain)
+      console.log('   Mode:', config.mode)
+
+      try {
+        // Call immediately with notDetermined status (before permission dialog)
+        handleRegularOpen('notDetermined')
+        console.log('✅ [Attentive] Initial handleRegularOpen call completed (network request sent)')
+        console.log('   Check your proxy debugger for POST to /mtctrl')
+      } catch (error) {
+        console.error('❌ [Attentive] Error calling handleRegularOpen:', error)
+      }
+
+      // Setup event listeners first (but don't request permissions yet)
       setupPushNotifications()
+      console.log('✅ [Attentive] Push notification event listeners setup complete')
+
+      // Add a small delay before requesting permissions to ensure the /mtctrl network call completes first
+      // This prevents the permission dialog from appearing before the tracking endpoint is hit
+      console.log('⏳ [Attentive] Waiting 500ms before requesting permissions (to ensure /mtctrl call completes)')
+      setTimeout(() => {
+        console.log('📱 [Attentive] Checking for existing device token before requesting permissions')
+        PushNotificationIOS.checkPermissions((permissions) => {
+          console.log('🔍 [Attentive] Current permissions:', permissions)
+
+          // If we already have permissions, try to get the token
+          if (permissions.alert || permissions.badge || permissions.sound) {
+            console.log('✅ [Attentive] Permissions already granted, attempting to get token')
+            // Request token registration (this won't show a dialog if already granted)
+            PushNotificationIOS.requestPermissions()
+          } else {
+            console.log('ℹ️ [Attentive] No permissions yet, will request now')
+            // Request permissions (this will show the dialog)
+            console.log('🔐 [Attentive] Requesting push notification permissions')
+            PushNotificationIOS.requestPermissions()
+          }
+        })
+      }, 500)
+    } else {
+      console.log('⚠️ [Attentive] Not iOS - skipping push notification setup')
     }
+
+    // Setup app state listener to track app opens
+    // When app comes to foreground, trigger handleRegularOpen to track the app open event
+    console.log('📱 [Attentive] Setting up AppState listener for app open tracking')
+    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('[Attentive] AppState changed to:', nextAppState)
+
+      // When app becomes active (comes to foreground), track as app open
+      if (nextAppState === 'active' && Platform.OS === 'ios') {
+        console.log('[Attentive] App became active - tracking app open event')
+
+        // Get current authorization status and trigger handleRegularOpen
+        PushNotificationIOS.checkPermissions((permissions) => {
+          let authStatus: PushAuthorizationStatus = 'notDetermined'
+          if (permissions.alert || permissions.badge || permissions.sound) {
+            authStatus = 'authorized'
+          } else if (permissions.alert === false) {
+            authStatus = 'denied'
+          }
+
+          console.log('[Attentive] Calling handleRegularOpen for app open tracking')
+          console.log('   Authorization status:', authStatus)
+          handleRegularOpen(authStatus)
+        })
+      }
+    })
 
     return () => {
       // Cleanup push notification listeners
@@ -84,109 +167,190 @@ function App(): React.JSX.Element {
         PushNotificationIOS.removeEventListener('notification')
         PushNotificationIOS.removeEventListener('localNotification')
       }
+
+      // Cleanup app state listener
+      appStateSubscription.remove()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  /**
+   * Handle notification open (called when app is opened from notification)
+   *
+   * This is the TypeScript equivalent of the native iOS AppDelegate method:
+   * ```swift
+   * func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+   *     UNUserNotificationCenter.current().getNotificationSettings { settings in
+   *       let authStatus = settings.authorizationStatus
+   *       DispatchQueue.main.async {
+   *         switch UIApplication.shared.applicationState {
+   *         case .active:
+   *           self.attentiveSdk?.handleForegroundPush(response: response, authorizationStatus: authStatus)
+   *         case .background, .inactive:
+   *           self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+   *         @unknown default:
+   *           self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+   *         }
+   *       }
+   *     }
+   *     completionHandler()
+   *   }
+   * ```
+   */
+  const handleNotificationOpen = useCallback((notification: PushNotification) => {
+    const userInfo = notification.getData()
+    console.log('[Attentive] Notification opened:', userInfo)
+
+    // Get current app state (equivalent to UIApplication.shared.applicationState)
+    const appState = AppState.currentState
+    console.log('[Attentive] Current app state:', appState)
+
+    // Get authorization status (equivalent to getNotificationSettings)
+    PushNotificationIOS.checkPermissions((permissions) => {
+      let authStatus: PushAuthorizationStatus = 'notDetermined'
+      if (permissions.alert || permissions.badge || permissions.sound) {
+        authStatus = 'authorized'
+      }
+      console.log('[Attentive] Authorization status:', authStatus)
+
+      // Determine which SDK method to call based on app state
+      // This matches the native iOS switch statement exactly
+      switch (appState) {
+        case 'active':
+          // App is in foreground - handle as foreground push
+          console.log('[Attentive] App state: active - calling handleForegroundPush')
+          handleForegroundPush(userInfo, authStatus)
+          break
+
+        case 'background':
+        case 'inactive':
+          // App is in background or inactive - handle as push open
+          console.log('[Attentive] App state: background/inactive - calling handlePushOpen')
+          handlePushOpen(userInfo, authStatus)
+          break
+
+        default:
+          // Unknown state - default to push open behavior (matches @unknown default in Swift)
+          console.log('[Attentive] App state: unknown - calling handlePushOpen')
+          handlePushOpen(userInfo, authStatus)
+          break
+      }
+    })
+
+    notification.finish(PushNotificationIOS.FetchResult.NoData)
   }, [])
 
   /**
    * Setup push notification handlers (mirrors iOS AppDelegate implementation)
+   * This is the TypeScript equivalent of:
+   * func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+   *     UNUserNotificationCenter.current().getNotificationSettings { settings in
+   *         let authStatus = settings.authorizationStatus
+   *         attentiveSdk?.registerDeviceToken(deviceToken, authorizationStatus: authStatus, callback: { data, url, response, error in
+   *             DispatchQueue.main.async {
+   *                 self.attentiveSdk?.handleRegularOpen(authorizationStatus: authStatus)
+   *             }
+   *         })
+   *     }
+   * }
    */
   const setupPushNotifications = useCallback(() => {
+    console.log('🔧 [Attentive] setupPushNotifications called')
+
     // Handle device token registration
+    console.log('📝 [Attentive] Adding "register" event listener')
     PushNotificationIOS.addEventListener('register', async (deviceToken: string) => {
-      console.log('[Attentive] Device token received:', deviceToken.substring(0, 16) + '...')
+      console.log('🎫 [Attentive] Device token received from APNs')
+      console.log('   Token (preview):', deviceToken.substring(0, 16) + '...')
+      console.log('   Token (full):', deviceToken)
+      console.log('   Token length:', deviceToken.length)
 
       // Store token for display in Settings screen
       await AsyncStorage.setItem('deviceToken', deviceToken)
       await AsyncStorage.setItem('deviceTokenForDisplay', deviceToken)
 
-      // Get authorization status and register with SDK
+      // Get authorization status and register with SDK (equivalent to getNotificationSettings)
       PushNotificationIOS.checkPermissions((permissions) => {
         let authStatus: PushAuthorizationStatus = 'notDetermined'
         if (permissions.alert || permissions.badge || permissions.sound) {
           authStatus = 'authorized'
         }
 
-        // Register device token with Attentive SDK
-        registerDeviceToken(deviceToken, authStatus)
+        console.log('✅ [Attentive] Authorization status:', authStatus)
+        console.log('📤 [Attentive] Registering device token with Attentive SDK (with callback)')
+
+        // Register device token with callback-based method (equivalent to Swift callback-based registration)
+        registerDeviceTokenWithCallback(
+          deviceToken,
+          authStatus,
+          (data?: Object, url?: string, response?: Object, error?: Object) => {
+            console.log('📥 [Attentive] Registration callback invoked')
+
+            if (error) {
+              console.error('❌ [Attentive] Registration callback returned error:', error)
+            } else {
+              console.log('✅ [Attentive] Device token registered successfully')
+              console.log('   Response URL:', url)
+              console.log('   Response:', response)
+              console.log('   Data:', data)
+            }
+
+            // Trigger regular open event (equivalent to DispatchQueue.main.async { handleRegularOpen })
+            console.log('📱 [Attentive] Triggering regular open event from callback')
+            handleRegularOpen(authStatus)
+            console.log('✅ [Attentive] Regular open event triggered successfully')
+          }
+        )
       })
     })
 
     // Handle registration errors
+    console.log('📝 [Attentive] Adding "registrationError" event listener')
     PushNotificationIOS.addEventListener('registrationError', (error) => {
-      console.error('[Attentive] Push registration error:', error)
+      console.error('❌ [Attentive] Push registration error:', error)
     })
 
     // Handle push notifications received while app is in foreground
+    console.log('📝 [Attentive] Adding "notification" event listener')
     PushNotificationIOS.addEventListener('notification', (notification: PushNotification) => {
       const userInfo = notification.getData()
       console.log('[Attentive] Push notification received in foreground:', userInfo)
 
-      // Notify SDK about foreground notification
-      handleForegroundNotification(userInfo)
+      // Get authorization status and call handleForegroundPush
+      // This provides better tracking than the legacy handleForegroundNotification
+      PushNotificationIOS.checkPermissions((permissions) => {
+        let authStatus: PushAuthorizationStatus = 'notDetermined'
+        if (permissions.alert || permissions.badge || permissions.sound) {
+          authStatus = 'authorized'
+        }
+
+        // Use handleForegroundPush for better tracking (matches native iOS pattern)
+        console.log('[Attentive] Calling handleForegroundPush for foreground notification')
+        handleForegroundPush(userInfo, authStatus)
+      })
 
       // Complete the notification
       notification.finish(PushNotificationIOS.FetchResult.NoData)
     })
 
-    // Handle local notifications
+    // Handle local notifications and notification taps
+    console.log('📝 [Attentive] Adding "localNotification" event listener')
     PushNotificationIOS.addEventListener('localNotification', (notification: PushNotification) => {
-      console.log('[Attentive] Local notification received:', notification.getMessage())
-      notification.finish(PushNotificationIOS.FetchResult.NoData)
+      console.log('🔔 [Attentive] Local notification received:', notification.getMessage())
+      handleNotificationOpen(notification)
     })
 
-    // Request push notification permissions
-    registerForPushNotifications()
+    // NOTE: Permission request is now handled in the main useEffect with a delay
+    // to ensure handleRegularOpen completes before the permission dialog appears
 
     // Check for initial notification (app was launched from push notification)
     PushNotificationIOS.getInitialNotification().then((notification) => {
       if (notification) {
         console.log('[Attentive] App launched from notification')
-        const userInfo = notification.getData()
-
-        PushNotificationIOS.checkPermissions((permissions) => {
-          let authStatus: PushAuthorizationStatus = 'notDetermined'
-          if (permissions.alert || permissions.badge || permissions.sound) {
-            authStatus = 'authorized'
-          }
-
-          // App was launched from notification, so it was in background/terminated
-          handlePushOpened(userInfo, 'background', authStatus)
-        })
+        handleNotificationOpen(notification)
       }
     })
-  }, [])
-
-  /**
-   * Handle notification open (called when app is opened from notification)
-   * This mirrors the iOS AppDelegate's userNotificationCenter:didReceive:
-   */
-  const handleNotificationOpen = useCallback((notification: PushNotification) => {
-    const userInfo = notification.getData()
-    console.log('[Attentive] Notification opened:', userInfo)
-
-    // Get current app state to determine how to handle
-    const appState = AppState.currentState
-
-    // Get authorization status
-    PushNotificationIOS.checkPermissions((permissions) => {
-      let authStatus: PushAuthorizationStatus = 'notDetermined'
-      if (permissions.alert || permissions.badge || permissions.sound) {
-        authStatus = 'authorized'
-      }
-
-      // Determine application state for SDK
-      let applicationState: 'active' | 'inactive' | 'background' = 'background'
-      if (appState === 'active') {
-        applicationState = 'active'
-      } else if (appState === 'inactive') {
-        applicationState = 'inactive'
-      }
-
-      // Notify SDK about push open
-      handlePushOpened(userInfo, applicationState, authStatus)
-    })
-
-    notification.finish(PushNotificationIOS.FetchResult.NoData)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Set initial status bar color for Login screen (initial route)

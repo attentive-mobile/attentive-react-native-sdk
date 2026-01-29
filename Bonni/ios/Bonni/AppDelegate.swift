@@ -76,11 +76,17 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
     completionHandler([.banner, .sound, .badge])
   }
 
-  /// Handle notification tap/interaction
+  /**
+   * Handle notification tap/interaction
+   * 
+   * Forward to React Native where the TypeScript code will handle the state-based routing.
+   * The TypeScript implementation in App.tsx checks AppState.currentState and calls
+   * either handleForegroundPush or handlePushOpen accordingly.
+   */
   func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
     print("[Attentive] Notification tapped/received response")
 
-    // Forward to React Native
+    // Forward to React Native - the TypeScript code will handle state-based routing
     RNCPushNotificationIOS.didReceive(response)
 
     completionHandler()

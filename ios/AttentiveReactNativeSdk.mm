@@ -6,6 +6,7 @@
 //
 
 #import "AttentiveReactNativeSdk.h"
+#import <UserNotifications/UserNotifications.h>
 
 #if __has_include(<AttentiveReactNativeSdk-Swift.h>)
 #import "AttentiveReactNativeSdk-Swift.h"
@@ -26,10 +27,13 @@ RCT_EXPORT_MODULE()
               mode:(NSString *)mode
 skipFatigueOnCreatives:(BOOL)skipFatigueOnCreatives
     enableDebugger:(BOOL)enableDebugger {
-    _sdk = [[ATTNNativeSDK alloc] initWithDomain:attentiveDomain 
-                                            mode:mode 
-                         skipFatigueOnCreatives:skipFatigueOnCreatives 
+    _sdk = [[ATTNNativeSDK alloc] initWithDomain:attentiveDomain
+                                            mode:mode
+                         skipFatigueOnCreatives:skipFatigueOnCreatives
                                   enableDebugger:enableDebugger];
+
+    // Make SDK instance accessible from native code (e.g., AppDelegate)
+    [AttentiveSDKManager shared].sdk = _sdk;
 }
 
 - (void)identify:(NSString *)phone
@@ -45,7 +49,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     if (shopifyId && ![shopifyId isEqual:[NSNull null]]) identifiers[@"shopifyId"] = shopifyId;
     if (clientUserId && ![clientUserId isEqual:[NSNull null]]) identifiers[@"clientUserId"] = clientUserId;
     if (customIdentifiers && ![customIdentifiers isEqual:[NSNull null]]) identifiers[@"customIdentifiers"] = customIdentifiers;
-    
+
     [_sdk identify:identifiers];
 }
 
@@ -95,6 +99,68 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
 }
 
+- (void)registerDeviceTokenWithCallback:(NSString *)token
+                   authorizationStatus:(NSString *)authorizationStatus
+                              callback:(RCTResponseSenderBlock)callback {
+    // Convert hex string token to Data
+    NSMutableData *tokenData = [[NSMutableData alloc] init];
+    unsigned char byte;
+    for (NSUInteger i = 0; i < token.length; i += 2) {
+        NSString *hex = [token substringWithRange:NSMakeRange(i, 2)];
+        if ([[NSScanner scannerWithString:hex] scanHexInt:(unsigned int *)&byte]) {
+            [tokenData appendBytes:&byte length:1];
+        }
+    }
+
+    // Convert string authorization status to UNAuthorizationStatus enum
+    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+
+    // Call the Swift method with callback (note: selector is registerDeviceTokenWithCallback:authorizationStatus:callback:)
+    [_sdk registerDeviceTokenWithCallback:tokenData
+                     authorizationStatus:authStatus
+                                callback:^(NSData * _Nullable data, NSURL * _Nullable url, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        // Convert response to JavaScript-compatible objects
+        NSDictionary *dataDict = nil;
+        if (data) {
+            NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+            if (dataString) {
+                dataDict = @{@"string": dataString, @"length": @(data.length)};
+            }
+        }
+
+        NSString *urlString = url ? [url absoluteString] : nil;
+
+        NSDictionary *responseDict = nil;
+        if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+            responseDict = @{
+                @"statusCode": @(httpResponse.statusCode),
+                @"headers": httpResponse.allHeaderFields ?: @{}
+            };
+        }
+
+        NSDictionary *errorDict = nil;
+        if (error) {
+            errorDict = @{
+                @"code": @(error.code),
+                @"domain": error.domain,
+                @"description": error.localizedDescription
+            };
+        }
+
+        // Invoke the callback with the results
+        callback(@[dataDict ?: [NSNull null],
+                   urlString ?: [NSNull null],
+                   responseDict ?: [NSNull null],
+                   errorDict ?: [NSNull null]]);
+    }];
+}
+
+- (void)handleRegularOpen:(NSString *)authorizationStatus {
+    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+    [_sdk handleRegularOpen:authStatus];
+}
+
 - (void)handlePushOpened:(NSDictionary *)userInfo
         applicationState:(NSString *)applicationState
     authorizationStatus:(NSString *)authorizationStatus {
@@ -103,6 +169,38 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
 - (void)handleForegroundNotification:(NSDictionary *)userInfo {
     [_sdk handleForegroundNotification:userInfo];
+}
+
+- (void)handleForegroundPush:(NSDictionary *)userInfo
+        authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk handleForegroundPushFromRN:userInfo authorizationStatus:authorizationStatus];
+}
+
+- (void)handlePushOpen:(NSDictionary *)userInfo
+   authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
+}
+
+// Helper method to convert string to UNAuthorizationStatus
+- (UNAuthorizationStatus)authorizationStatusFromString:(NSString *)statusString {
+    if ([statusString isEqualToString:@"authorized"]) {
+        return UNAuthorizationStatusAuthorized;
+    } else if ([statusString isEqualToString:@"denied"]) {
+        return UNAuthorizationStatusDenied;
+    } else if ([statusString isEqualToString:@"notDetermined"]) {
+        return UNAuthorizationStatusNotDetermined;
+    } else if ([statusString isEqualToString:@"provisional"]) {
+        if (@available(iOS 12.0, *)) {
+            return UNAuthorizationStatusProvisional;
+        }
+        return UNAuthorizationStatusNotDetermined;
+    } else if ([statusString isEqualToString:@"ephemeral"]) {
+        if (@available(iOS 14.0, *)) {
+            return UNAuthorizationStatusEphemeral;
+        }
+        return UNAuthorizationStatusNotDetermined;
+    }
+    return UNAuthorizationStatusNotDetermined;
 }
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
@@ -114,10 +212,13 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 #else
 // Old Architecture implementation with dictionary parameters
 - (void)initialize:(NSDictionary*)configuration {
-    _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"] 
-                                            mode:configuration[@"mode"] 
-                         skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"] 
+    _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"]
+                                            mode:configuration[@"mode"]
+                         skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"]
                                   enableDebugger:configuration[@"enableDebugger"]];
+
+    // Make SDK instance accessible from native code (e.g., AppDelegate)
+    [AttentiveSDKManager shared].sdk = _sdk;
 }
 
 - (void)identify:(NSDictionary*)identifiers {
@@ -150,6 +251,68 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
 }
 
+- (void)registerDeviceTokenWithCallback:(NSString *)token
+                   authorizationStatus:(NSString *)authorizationStatus
+                              callback:(RCTResponseSenderBlock)callback {
+    // Convert hex string token to Data
+    NSMutableData *tokenData = [[NSMutableData alloc] init];
+    unsigned char byte;
+    for (NSUInteger i = 0; i < token.length; i += 2) {
+        NSString *hex = [token substringWithRange:NSMakeRange(i, 2)];
+        if ([[NSScanner scannerWithString:hex] scanHexInt:(unsigned int *)&byte]) {
+            [tokenData appendBytes:&byte length:1];
+        }
+    }
+
+    // Convert string authorization status to UNAuthorizationStatus enum
+    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+
+    // Call the Swift method with callback (note: selector is registerDeviceTokenWithCallback:authorizationStatus:callback:)
+    [_sdk registerDeviceTokenWithCallback:tokenData
+                     authorizationStatus:authStatus
+                                callback:^(NSData * _Nullable data, NSURL * _Nullable url, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+        // Convert response to JavaScript-compatible objects
+        NSDictionary *dataDict = nil;
+        if (data) {
+            NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+            if (dataString) {
+                dataDict = @{@"string": dataString, @"length": @(data.length)};
+            }
+        }
+
+        NSString *urlString = url ? [url absoluteString] : nil;
+
+        NSDictionary *responseDict = nil;
+        if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+            responseDict = @{
+                @"statusCode": @(httpResponse.statusCode),
+                @"headers": httpResponse.allHeaderFields ?: @{}
+            };
+        }
+
+        NSDictionary *errorDict = nil;
+        if (error) {
+            errorDict = @{
+                @"code": @(error.code),
+                @"domain": error.domain,
+                @"description": error.localizedDescription
+            };
+        }
+
+        // Invoke the callback with the results
+        callback(@[dataDict ?: [NSNull null],
+                   urlString ?: [NSNull null],
+                   responseDict ?: [NSNull null],
+                   errorDict ?: [NSNull null]]);
+    }];
+}
+
+- (void)handleRegularOpen:(NSString *)authorizationStatus {
+    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+    [_sdk handleRegularOpen:authStatus];
+}
+
 - (void)handlePushOpened:(NSDictionary *)userInfo
         applicationState:(NSString *)applicationState
     authorizationStatus:(NSString *)authorizationStatus {
@@ -158,6 +321,16 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
 - (void)handleForegroundNotification:(NSDictionary *)userInfo {
     [_sdk handleForegroundNotification:userInfo];
+}
+
+- (void)handleForegroundPush:(NSDictionary *)userInfo
+        authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk handleForegroundPushFromRN:userInfo authorizationStatus:authorizationStatus];
+}
+
+- (void)handlePushOpen:(NSDictionary *)userInfo
+   authorizationStatus:(NSString *)authorizationStatus {
+    [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
 }
 #endif
 

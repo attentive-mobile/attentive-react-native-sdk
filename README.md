@@ -229,7 +229,7 @@ import { handleForegroundNotification } from 'attentive-react-native-sdk';
 handleForegroundNotification(notificationPayload);
 ```
 
-#### iOS AppDelegate Integration Example
+#### iOS AppDelegate Integration
 
 For proper push notification integration, your iOS AppDelegate needs to:
 
@@ -237,7 +237,53 @@ For proper push notification integration, your iOS AppDelegate needs to:
 2. Implement `application:didRegisterForRemoteNotificationsWithDeviceToken:` to register the token
 3. Implement `UNUserNotificationCenterDelegate` methods to handle notification events
 
-See the [iOS Native SDK documentation](https://github.com/attentive-mobile/attentive-ios-sdk) for detailed AppDelegate integration examples.
+##### Callback-Based Registration (Recommended)
+
+For more control over the registration flow, you can use the callback-based registration directly in your AppDelegate:
+
+```swift
+// In AppDelegate.swift
+import UserNotifications
+import attentive_react_native_sdk
+
+func application(
+    _ application: UIApplication,
+    didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data
+) {
+    UNUserNotificationCenter.current().getNotificationSettings { settings in
+        let authStatus = settings.authorizationStatus
+        
+        // Get SDK instance with proper type
+        guard let attentiveSdk = AttentiveSDKManager.shared.sdk as? ATTNNativeSDK else {
+            print("[Attentive] SDK not initialized")
+            return
+        }
+        
+        // Register device token with callback
+        attentiveSdk.registerDeviceToken(
+            deviceToken,
+            authorizationStatus: authStatus,
+            callback: { data, url, response, error in
+                DispatchQueue.main.async {
+                    // Handle registration result
+                    if let error = error {
+                        print("[Attentive] Registration failed: \(error.localizedDescription)")
+                    }
+                    
+                    // Trigger regular open event after registration
+                    attentiveSdk.handleRegularOpen(authorizationStatus: authStatus)
+                }
+            }
+        )
+    }
+}
+```
+
+**Documentation:**
+- [Push Token Registration Guide](./PUSH_TOKEN_REGISTRATION_GUIDE.md) - Detailed guide for callback-based registration
+- [AppDelegate Callback Example](./APPDELEGATE_CALLBACK_EXAMPLE.md) - Complete AppDelegate implementation
+- [Push Notifications Setup](./PUSH_NOTIFICATIONS_SETUP.md) - General push notification setup
+- [iOS Native SDK documentation](https://github.com/attentive-mobile/attentive-ios-sdk) - Native SDK reference
 
 #### Android Support
 

@@ -195,6 +195,113 @@ function registerDeviceToken(
 }
 
 /**
+ * Register the device token received from APNs with a callback.
+ * This is the callback-based version that allows you to handle the response from the Attentive API.
+ *
+ * On iOS, this will register the device token with the Attentive SDK and invoke the callback
+ * after the registration completes (success or failure).
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param token - The hex-encoded device token string from APNs
+ * @param authorizationStatus - Current push authorization status
+ * @param callback - Callback function invoked after registration completes
+ *
+ * @example
+ * ```typescript
+ * import { registerDeviceTokenWithCallback, handleRegularOpen } from 'attentive-react-native-sdk';
+ *
+ * // In your AppDelegate equivalent (TypeScript):
+ * registerDeviceTokenWithCallback(
+ *   deviceToken,
+ *   'authorized',
+ *   (data, url, response, error) => {
+ *     console.log('Registration complete:', { data, url, response, error });
+ *     // After registration, trigger regular open event
+ *     handleRegularOpen('authorized');
+ *   }
+ * );
+ * ```
+ */
+function registerDeviceTokenWithCallback(
+  token: string,
+  authorizationStatus: PushAuthorizationStatus,
+  callback: (
+    data?: Object,
+    url?: string,
+    response?: Object,
+    error?: Object
+  ) => void
+): void {
+  AttentiveReactNativeSdk.registerDeviceTokenWithCallback(
+    token,
+    authorizationStatus,
+    callback
+  )
+}
+
+/**
+ * Handle regular/direct app open (not from a push notification).
+ * This should be called after device token registration to track app opens.
+ *
+ * This is the TypeScript equivalent of the native iOS AppDelegate method:
+ * ```swift
+ * func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+ *   UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
+ *     guard let self = self else { return }
+ *     let authStatus = settings.authorizationStatus
+ *     attentiveSdk?.registerDeviceToken(deviceToken, authorizationStatus: authStatus, callback: { data, url, response, error in
+ *       DispatchQueue.main.async {
+ *         self.attentiveSdk?.handleRegularOpen(authorizationStatus: authStatus)
+ *       }
+ *     })
+ *   }
+ * }
+ * ```
+ *
+ * On iOS, this will notify the Attentive SDK that the app was opened directly
+ * (not from a push notification tap).
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { registerDeviceTokenWithCallback, handleRegularOpen } from 'attentive-react-native-sdk';
+ * import PushNotificationIOS from '@react-native-community/push-notification-ios';
+ *
+ * // In your device token registration handler:
+ * PushNotificationIOS.addEventListener('register', (deviceToken: string) => {
+ *   PushNotificationIOS.checkPermissions((permissions) => {
+ *     let authStatus: PushAuthorizationStatus = 'notDetermined'
+ *     if (permissions.alert || permissions.badge || permissions.sound) {
+ *       authStatus = 'authorized'
+ *     }
+ *
+ *     // Register device token with callback
+ *     registerDeviceTokenWithCallback(deviceToken, authStatus, (data, url, response, error) => {
+ *       if (error) {
+ *         console.error('Registration error:', error)
+ *       }
+ *       // After registration completes, trigger regular open event
+ *       handleRegularOpen(authStatus)
+ *     })
+ *   })
+ * })
+ * ```
+ */
+function handleRegularOpen(authorizationStatus: PushAuthorizationStatus): void {
+  console.log('[AttentiveSDK] 🌉 Calling handleRegularOpen from TypeScript')
+  console.log(`   Authorization Status: ${authorizationStatus}`)
+  console.log(
+    '   This should trigger: https://mobile.attentivemobile.com/mtctrl'
+  )
+
+  AttentiveReactNativeSdk.handleRegularOpen(authorizationStatus)
+
+  console.log('[AttentiveSDK] ✅ handleRegularOpen call completed')
+}
+
+/**
  * Handle when a push notification is opened by the user.
  * Call this from your notification handler when the user taps a notification.
  *
@@ -247,8 +354,88 @@ function handlePushOpened(
  * handleForegroundNotification(notification.data);
  * ```
  */
-function handleForegroundNotification(userInfo: PushNotificationUserInfo): void {
+function handleForegroundNotification(
+  userInfo: PushNotificationUserInfo
+): void {
   AttentiveReactNativeSdk.handleForegroundNotification(userInfo as Object)
+}
+
+/**
+ * Handle a push notification when the app is in the foreground (active state).
+ * This is the React Native equivalent of the native iOS handleForegroundPush method.
+ *
+ * Call this when you receive a notification response and the app state is 'active'.
+ * This is part of implementing the native iOS pattern:
+ * ```swift
+ * case .active:
+ *   self.attentiveSdk?.handleForegroundPush(response: response, authorizationStatus: authStatus)
+ * ```
+ *
+ * On iOS, this properly tracks foreground push notifications.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param userInfo - The notification payload from the push notification
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { handleForegroundPush } from 'attentive-react-native-sdk';
+ * import { AppState } from 'react-native';
+ *
+ * // In your notification handler:
+ * const appState = AppState.currentState;
+ * if (appState === 'active') {
+ *   handleForegroundPush(notification.data, 'authorized');
+ * }
+ * ```
+ */
+function handleForegroundPush(
+  userInfo: PushNotificationUserInfo,
+  authorizationStatus: PushAuthorizationStatus
+): void {
+  AttentiveReactNativeSdk.handleForegroundPush(
+    userInfo as Object,
+    authorizationStatus
+  )
+}
+
+/**
+ * Handle when a push notification is opened by the user (app in background/inactive state).
+ * This is the React Native equivalent of the native iOS handlePushOpen method.
+ *
+ * Call this when you receive a notification response and the app state is 'background' or 'inactive'.
+ * This is part of implementing the native iOS pattern:
+ * ```swift
+ * case .background, .inactive:
+ *   self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
+ * ```
+ *
+ * On iOS, this properly tracks push notification opens.
+ * On Android, this is currently a no-op (TODO: implement FCM integration).
+ *
+ * @param userInfo - The notification payload from the push notification
+ * @param authorizationStatus - Current push authorization status
+ *
+ * @example
+ * ```typescript
+ * import { handlePushOpen } from 'attentive-react-native-sdk';
+ * import { AppState } from 'react-native';
+ *
+ * // In your notification handler:
+ * const appState = AppState.currentState;
+ * if (appState === 'background' || appState === 'inactive') {
+ *   handlePushOpen(notification.data, 'authorized');
+ * }
+ * ```
+ */
+function handlePushOpen(
+  userInfo: PushNotificationUserInfo,
+  authorizationStatus: PushAuthorizationStatus
+): void {
+  AttentiveReactNativeSdk.handlePushOpen(
+    userInfo as Object,
+    authorizationStatus
+  )
 }
 
 export {
@@ -267,8 +454,12 @@ export {
   // Push Notification Methods (iOS only)
   registerForPushNotifications,
   registerDeviceToken,
+  registerDeviceTokenWithCallback,
+  handleRegularOpen,
   handlePushOpened,
   handleForegroundNotification,
+  handleForegroundPush,
+  handlePushOpen,
 }
 
 export type {
