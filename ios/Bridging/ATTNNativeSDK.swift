@@ -558,7 +558,35 @@ public extension ATTNNativeSDK {
     ATTNEventTracker.sharedInstance()?.record(event: event)
 
     if debuggingEnabled {
-      showDebugInfo(event: "Add To Cart Event", data: ["items_count": "\(items.count)", "deeplink": deeplink, "payload": attributes])
+      // Enhanced debug data to show parsed item details
+      var debugData: [String: Any] = [
+        "items_count": "\(items.count)",
+        "deeplink": deeplink,
+        "payload": attributes
+      ]
+
+      // Add item details to debug output
+      if let firstItem = items.first {
+        var itemDetails: [String: Any] = [
+          "productId": firstItem.productId,
+          "productVariantId": firstItem.productVariantId
+        ]
+        if let name = firstItem.name {
+          itemDetails["name"] = name
+        }
+        if let productImage = firstItem.productImage {
+          itemDetails["productImage"] = productImage
+        }
+        if let category = firstItem.category {
+          itemDetails["category"] = category
+        }
+        if let quantity = firstItem.quantity {
+          itemDetails["quantity"] = quantity
+        }
+        debugData["first_item"] = itemDetails
+      }
+
+      showDebugInfo(event: "Add To Cart Event", data: debugData)
     }
   }
 
@@ -570,7 +598,35 @@ public extension ATTNNativeSDK {
     ATTNEventTracker.sharedInstance()?.record(event: event)
 
     if debuggingEnabled {
-      showDebugInfo(event: "Product View Event", data: ["items_count": "\(items.count)", "deeplink": deeplink, "payload": attributes])
+      // Enhanced debug data to show parsed item details
+      var debugData: [String: Any] = [
+        "items_count": "\(items.count)",
+        "deeplink": deeplink,
+        "payload": attributes
+      ]
+
+      // Add item details to debug output
+      if let firstItem = items.first {
+        var itemDetails: [String: Any] = [
+          "productId": firstItem.productId,
+          "productVariantId": firstItem.productVariantId
+        ]
+        if let name = firstItem.name {
+          itemDetails["name"] = name
+        }
+        if let productImage = firstItem.productImage {
+          itemDetails["productImage"] = productImage
+        }
+        if let category = firstItem.category {
+          itemDetails["category"] = category
+        }
+        if let quantity = firstItem.quantity {
+          itemDetails["quantity"] = quantity
+        }
+        debugData["first_item"] = itemDetails
+      }
+
+      showDebugInfo(event: "Product View Event", data: debugData)
     }
   }
 
@@ -584,7 +640,35 @@ public extension ATTNNativeSDK {
     ATTNEventTracker.sharedInstance()?.record(event: event)
 
     if debuggingEnabled {
-      showDebugInfo(event: "Purchase Event", data: ["items_count": "\(items.count)", "order_id": orderId, "payload": attributes])
+      // Enhanced debug data to show parsed item details
+      var debugData: [String: Any] = [
+        "items_count": "\(items.count)",
+        "order_id": orderId,
+        "payload": attributes
+      ]
+
+      // Add item details to debug output
+      if let firstItem = items.first {
+        var itemDetails: [String: Any] = [
+          "productId": firstItem.productId,
+          "productVariantId": firstItem.productVariantId
+        ]
+        if let name = firstItem.name {
+          itemDetails["name"] = name
+        }
+        if let productImage = firstItem.productImage {
+          itemDetails["productImage"] = productImage
+        }
+        if let category = firstItem.category {
+          itemDetails["category"] = category
+        }
+        if let quantity = firstItem.quantity {
+          itemDetails["quantity"] = quantity
+        }
+        debugData["first_item"] = itemDetails
+      }
+
+      showDebugInfo(event: "Purchase Event", data: debugData)
     }
   }
 
@@ -606,21 +690,37 @@ private extension ATTNNativeSDK {
     var itemsToReturn: [ATTNItem] = []
 
     for rawItem in rawItems {
-      if let rawPrice = rawItem["price"] as? [String: Any],
-         let priceString = rawPrice["price"] as? String,
-         let currency = rawPrice["currency"] as? String {
-
-        let price = NSDecimalNumber(string: priceString)
-
-        let attnPrice = ATTNPrice(price: price, currency: currency)
-
-        if let productId = rawItem["productId"] as? String,
-           let productVariantId = rawItem["productVariantId"] as? String {
-
-          let item = ATTNItem(productId: productId, productVariantId: productVariantId, price: attnPrice)
-          itemsToReturn.append(item)
-        }
+      // Parse price - flattened structure (not nested)
+      guard let priceString = rawItem["price"] as? String,
+            let currency = rawItem["currency"] as? String,
+            let productId = rawItem["productId"] as? String,
+            let productVariantId = rawItem["productVariantId"] as? String else {
+        continue
       }
+
+      let price = NSDecimalNumber(string: priceString)
+      let attnPrice = ATTNPrice(price: price, currency: currency)
+
+      let item = ATTNItem(productId: productId, productVariantId: productVariantId, price: attnPrice)
+
+      // Parse optional fields to match Android implementation
+      if let productImage = rawItem["productImage"] as? String {
+        item.productImage = productImage
+      }
+
+      if let name = rawItem["name"] as? String {
+        item.name = name
+      }
+
+      if let quantity = rawItem["quantity"] as? Int {
+        item.quantity = NSNumber(value: quantity)
+      }
+
+      if let category = rawItem["category"] as? String {
+        item.category = category
+      }
+
+      itemsToReturn.append(item)
     }
 
     return itemsToReturn

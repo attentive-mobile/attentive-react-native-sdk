@@ -19,15 +19,26 @@ import { Product, CartItem } from '../models/Product'
  * @returns Item formatted for Attentive SDK
  */
 function productToItem(product: Product, quantity: number = 1): Item {
-  return {
+  const item: Item = {
     productId: product.id,
     productVariantId: product.id,
     price: product.price.toString(),
     currency: 'USD',
     name: product.name,
-    category: product.category,
     quantity,
   }
+
+  // Add optional category if present
+  if (product.category) {
+    item.category = product.category
+  }
+
+  // Add optional product image if we have a URL
+  // Note: For local assets, we'd need to convert require() to a URL
+  // For now, we could use a placeholder or skip this field
+  // item.productImage = 'https://example.com/images/' + product.id + '.png'
+
+  return item
 }
 
 /**
