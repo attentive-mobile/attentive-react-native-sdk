@@ -712,8 +712,9 @@ private extension ATTNNativeSDK {
         item.name = name
       }
 
-      if let quantity = rawItem["quantity"] as? Int {
-        item.quantity = NSNumber(value: quantity)
+      // React Native bridges JS numbers as NSNumber, so accept NSNumber directly
+      if let quantity = rawItem["quantity"] as? NSNumber {
+        item.quantity = quantity
       }
 
       if let category = rawItem["category"] as? String {
