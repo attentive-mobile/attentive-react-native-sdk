@@ -580,9 +580,7 @@ public extension ATTNNativeSDK {
         if let category = firstItem.category {
           itemDetails["category"] = category
         }
-        if let quantity = firstItem.quantity {
-          itemDetails["quantity"] = quantity
-        }
+        itemDetails["quantity"] = firstItem.quantity
         debugData["first_item"] = itemDetails
       }
 
@@ -620,9 +618,7 @@ public extension ATTNNativeSDK {
         if let category = firstItem.category {
           itemDetails["category"] = category
         }
-        if let quantity = firstItem.quantity {
-          itemDetails["quantity"] = quantity
-        }
+        itemDetails["quantity"] = firstItem.quantity
         debugData["first_item"] = itemDetails
       }
 
@@ -662,9 +658,7 @@ public extension ATTNNativeSDK {
         if let category = firstItem.category {
           itemDetails["category"] = category
         }
-        if let quantity = firstItem.quantity {
-          itemDetails["quantity"] = quantity
-        }
+        itemDetails["quantity"] = firstItem.quantity
         debugData["first_item"] = itemDetails
       }
 
@@ -714,7 +708,7 @@ private extension ATTNNativeSDK {
 
       // React Native bridges JS numbers as NSNumber, so accept NSNumber directly
       if let quantity = rawItem["quantity"] as? NSNumber {
-        item.quantity = quantity
+        item.quantity = quantity.intValue
       }
 
       if let category = rawItem["category"] as? String {
