@@ -181,27 +181,6 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
 }
 
-// Helper method to convert string to UNAuthorizationStatus
-- (UNAuthorizationStatus)authorizationStatusFromString:(NSString *)statusString {
-    if ([statusString isEqualToString:@"authorized"]) {
-        return UNAuthorizationStatusAuthorized;
-    } else if ([statusString isEqualToString:@"denied"]) {
-        return UNAuthorizationStatusDenied;
-    } else if ([statusString isEqualToString:@"notDetermined"]) {
-        return UNAuthorizationStatusNotDetermined;
-    } else if ([statusString isEqualToString:@"provisional"]) {
-        if (@available(iOS 12.0, *)) {
-            return UNAuthorizationStatusProvisional;
-        }
-        return UNAuthorizationStatusNotDetermined;
-    } else if ([statusString isEqualToString:@"ephemeral"]) {
-        if (@available(iOS 14.0, *)) {
-            return UNAuthorizationStatusEphemeral;
-        }
-        return UNAuthorizationStatusNotDetermined;
-    }
-    return UNAuthorizationStatusNotDetermined;
-}
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
@@ -334,6 +313,28 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 #endif
 
+
+// Helper method to convert string to UNAuthorizationStatus
+- (UNAuthorizationStatus)authorizationStatusFromString:(NSString *)statusString {
+    if ([statusString isEqualToString:@"authorized"]) {
+        return UNAuthorizationStatusAuthorized;
+    } else if ([statusString isEqualToString:@"denied"]) {
+        return UNAuthorizationStatusDenied;
+    } else if ([statusString isEqualToString:@"notDetermined"]) {
+        return UNAuthorizationStatusNotDetermined;
+    } else if ([statusString isEqualToString:@"provisional"]) {
+        if (@available(iOS 12.0, *)) {
+            return UNAuthorizationStatusProvisional;
+        }
+        return UNAuthorizationStatusNotDetermined;
+    } else if ([statusString isEqualToString:@"ephemeral"]) {
+        if (@available(iOS 14.0, *)) {
+            return UNAuthorizationStatusEphemeral;
+        }
+        return UNAuthorizationStatusNotDetermined;
+    }
+    return UNAuthorizationStatusNotDetermined;
+}
 - (void)triggerCreative:(NSString *)creativeId {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];

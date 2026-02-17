@@ -8,7 +8,9 @@
 
 /* Begin PBXBuildFile section */
 		58F287A429D7860100C7DF09 /* AttentiveReactNativeSdk.mm in Sources */ = {isa = PBXBuildFile; fileRef = 58F2879D29D7860000C7DF09 /* AttentiveReactNativeSdk.mm */; };
+		7FC30FA61B6E0426001A4BCC /* libPods-AttentiveReactNativeSdk.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 6CABAEF39FD802FFF9317045 /* libPods-AttentiveReactNativeSdk.a */; };
 		FBED3EEA2C2F3F3900E7D5EB /* ATTNNativeSDK.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBED3EE92C2F3F3900E7D5EB /* ATTNNativeSDK.swift */; };
+		5C622475A2F0B4C034C942DD /* AttentiveSDKManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68A0D5612CE7FA50664CB37B /* AttentiveSDKManager.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -25,11 +27,15 @@
 
 /* Begin PBXFileReference section */
 		134814201AA4EA6300B7C361 /* libAttentiveReactNativeSdk.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libAttentiveReactNativeSdk.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		33355F3FC1852AA82C07D693 /* Pods-AttentiveReactNativeSdk.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AttentiveReactNativeSdk.debug.xcconfig"; path = "Target Support Files/Pods-AttentiveReactNativeSdk/Pods-AttentiveReactNativeSdk.debug.xcconfig"; sourceTree = "<group>"; };
 		58F2879C29D7860000C7DF09 /* attentive-sdk-umbrella.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "attentive-sdk-umbrella.h"; sourceTree = "<group>"; };
 		58F2879D29D7860000C7DF09 /* AttentiveReactNativeSdk.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AttentiveReactNativeSdk.mm; sourceTree = "<group>"; };
+		6CABAEF39FD802FFF9317045 /* libPods-AttentiveReactNativeSdk.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-AttentiveReactNativeSdk.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		949D2E1F5D8BA4C00733B1FD /* Pods-AttentiveReactNativeSdk.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-AttentiveReactNativeSdk.release.xcconfig"; path = "Target Support Files/Pods-AttentiveReactNativeSdk/Pods-AttentiveReactNativeSdk.release.xcconfig"; sourceTree = "<group>"; };
 		B3E7B5881CC2AC0600A0062D /* AttentiveReactNativeSdk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AttentiveReactNativeSdk.h; sourceTree = "<group>"; };
 		FBED3EE82C2F3F3900E7D5EB /* AttentiveReactNativeSdk-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "AttentiveReactNativeSdk-Bridging-Header.h"; sourceTree = "<group>"; };
 		FBED3EE92C2F3F3900E7D5EB /* ATTNNativeSDK.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ATTNNativeSDK.swift; sourceTree = "<group>"; };
+		68A0D5612CE7FA50664CB37B /* AttentiveSDKManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AttentiveSDKManager.swift; sourceTree = "<group>"; };
 		FBED3EEB2C2F413D00E7D5EB /* attentive-react-native-sdk.podspec */ = {isa = PBXFileReference; lastKnownFileType = text; name = "attentive-react-native-sdk.podspec"; path = "../attentive-react-native-sdk.podspec"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -38,6 +44,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7FC30FA61B6E0426001A4BCC /* libPods-AttentiveReactNativeSdk.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,6 +59,14 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		45BE13C5EF781B9439E0E17D /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6CABAEF39FD802FFF9317045 /* libPods-AttentiveReactNativeSdk.a */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		58B511D21A9E6C8500147676 = {
 			isa = PBXGroup;
 			children = (
@@ -62,12 +77,15 @@
 				58F2879D29D7860000C7DF09 /* AttentiveReactNativeSdk.mm */,
 				134814211AA4EA7D00B7C361 /* Products */,
 				5F65DBE5DB1751003CF3E431 /* Pods */,
+				45BE13C5EF781B9439E0E17D /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
 		5F65DBE5DB1751003CF3E431 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
+				33355F3FC1852AA82C07D693 /* Pods-AttentiveReactNativeSdk.debug.xcconfig */,
+				949D2E1F5D8BA4C00733B1FD /* Pods-AttentiveReactNativeSdk.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -76,6 +94,7 @@
 			isa = PBXGroup;
 			children = (
 				FBED3EE92C2F3F3900E7D5EB /* ATTNNativeSDK.swift */,
+				68A0D5612CE7FA50664CB37B /* AttentiveSDKManager.swift */,
 				FBED3EE82C2F3F3900E7D5EB /* AttentiveReactNativeSdk-Bridging-Header.h */,
 			);
 			path = Bridging;
@@ -88,6 +107,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 58B511EF1A9E6C8500147676 /* Build configuration list for PBXNativeTarget "AttentiveReactNativeSdk" */;
 			buildPhases = (
+				75E06E153E35C6A0B50E809C /* [CP] Check Pods Manifest.lock */,
 				58B511D71A9E6C8500147676 /* Sources */,
 				58B511D81A9E6C8500147676 /* Frameworks */,
 				58B511D91A9E6C8500147676 /* CopyFiles */,
@@ -134,12 +154,38 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		75E06E153E35C6A0B50E809C /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-AttentiveReactNativeSdk-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		58B511D71A9E6C8500147676 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				FBED3EEA2C2F3F3900E7D5EB /* ATTNNativeSDK.swift in Sources */,
+				5C622475A2F0B4C034C942DD /* AttentiveSDKManager.swift in Sources */,
 				58F287A429D7860100C7DF09 /* AttentiveReactNativeSdk.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -151,7 +197,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				CC = "";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -173,6 +220,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
+				CXX = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				"EXCLUDED_ARCHS[sdk=*]" = arm64;
@@ -194,6 +242,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD = "";
+				LDPLUSPLUS = "";
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
@@ -202,6 +252,8 @@
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) DEBUG";
+				USE_HERMES = true;
 			};
 			name = Debug;
 		};
@@ -209,7 +261,8 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CLANG_CXX_LANGUAGE_STANDARD = "c++17";
+				CC = "";
+				CLANG_CXX_LANGUAGE_STANDARD = "c++20";
 				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
@@ -231,6 +284,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = YES;
+				CXX = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				"EXCLUDED_ARCHS[sdk=*]" = arm64;
@@ -248,6 +302,8 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD = "";
+				LDPLUSPLUS = "";
 				MTL_ENABLE_DEBUG_INFO = NO;
 				OTHER_LDFLAGS = (
 					"$(inherited)",
@@ -255,12 +311,14 @@
 				);
 				REACT_NATIVE_PATH = "${PODS_ROOT}/../../node_modules/react-native";
 				SDKROOT = iphoneos;
+				USE_HERMES = true;
 				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
 		58B511F01A9E6C8500147676 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 33355F3FC1852AA82C07D693 /* Pods-AttentiveReactNativeSdk.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CLANG_ENABLE_MODULES = YES;
@@ -284,6 +342,7 @@
 		};
 		58B511F11A9E6C8500147676 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 949D2E1F5D8BA4C00733B1FD /* Pods-AttentiveReactNativeSdk.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				CLANG_ENABLE_MODULES = YES;
