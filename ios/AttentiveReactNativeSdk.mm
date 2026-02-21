@@ -350,6 +350,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 - (void)destroyCreative {
   dispatch_async(dispatch_get_main_queue(), ^{
 //    [self->_sdk closeCreative]
+    [self->_sdk notifyCreativeDestroyed];
   });
 }
 

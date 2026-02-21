@@ -124,9 +124,20 @@ struct DebugEvent {
     }
   }
 
+  /// Called from the native bridge when destroyCreative is invoked; shows debug overlay when debug mode is on.
+  @objc
+  public func notifyCreativeDestroyed() {
+    if debuggingEnabled {
+      showDebugInfo(event: "Creative Destroyed", data: ["action": "destroyCreative"])
+    }
+  }
+
   @objc(updateDomain:)
   public func updateDomain(domain: String) {
     sdk.update(domain:domain)
+    if debuggingEnabled {
+      showDebugInfo(event: "Domain Updated", data: ["domain": domain])
+    }
   }
 
   @objc(identify:)
@@ -136,6 +147,10 @@ struct DebugEvent {
 
     sdk.identify(identifiers)
 
+    if debuggingEnabled {
+      showDebugInfo(event: "User Identified", data: ["identifiers": identifiers])
+    }
+
     print("✅ [AttentiveSDK] identify completed")
     print("   User is now identified with the SDK")
     print("   SDK can now make network calls")
@@ -144,6 +159,9 @@ struct DebugEvent {
   @objc
   public func clearUser() {
     sdk.clearUser()
+    if debuggingEnabled {
+      showDebugInfo(event: "User Cleared", data: ["action": "clearUser"])
+    }
   }
 
   // MARK: - Push Notification Methods
@@ -628,13 +646,19 @@ public extension ATTNNativeSDK {
 
   @objc
   func recordPurchaseEvent(_ attributes: [String: Any]) {
-    let attrOrder = attributes["order"] as? [String: String] ?? [:]
-    guard let orderId = attrOrder["id"] else { return }
+    // React Native bridge sends top-level "orderId"; legacy format used "order"["id"]
+    let orderId = (attributes["orderId"] as? String)
+      ?? (attributes["order"] as? [String: String])?["id"]
+    guard let orderId = orderId else { return }
     let order = ATTNOrder(orderId: orderId)
     let items = parseItems(attributes["items"] as? [[String : Any]] ?? [])
     let event = ATTNPurchaseEvent(items: items, order: order)
+    
+    #if DEBUG
+    print("[Attentive]", event.debugDescription)
+    #endif
     ATTNEventTracker.sharedInstance()?.record(event: event)
-
+    
     if debuggingEnabled {
       // Enhanced debug data to show parsed item details
       var debugData: [String: Any] = [
@@ -727,18 +751,35 @@ private extension ATTNNativeSDK {
     debugHistory.append(debugEvent)
 
     DispatchQueue.main.async {
-      // Create debug overlay with history
       guard let keyWindow = UIApplication.shared.connectedScenes
         .compactMap({ $0 as? UIWindowScene })
         .first?.windows
-        .first(where: { $0.isKeyWindow }) else { return }
+        .first(where: { $0.isKeyWindow }),
+        let rootVC = keyWindow.rootViewController else { return }
+
+      // Present from the topmost view controller so the debug window always appears on top
+      let topmost = self.topmostViewController(from: rootVC)
 
       let debugVC = DebugOverlayViewController(currentEvent: event, currentData: data, history: self.debugHistory)
       debugVC.modalPresentationStyle = .overFullScreen
       debugVC.modalTransitionStyle = .crossDissolve
 
-      keyWindow.rootViewController?.present(debugVC, animated: true)
+      topmost.present(debugVC, animated: true)
     }
+  }
+
+  /// Returns the topmost view controller so the debug overlay is presented on top of any existing modals.
+  func topmostViewController(from base: UIViewController) -> UIViewController {
+    if let presented = base.presentedViewController {
+      return topmostViewController(from: presented)
+    }
+    if let nav = base as? UINavigationController, let visible = nav.visibleViewController {
+      return topmostViewController(from: visible)
+    }
+    if let tab = base as? UITabBarController, let selected = tab.selectedViewController {
+      return topmostViewController(from: selected)
+    }
+    return base
   }
 }
 

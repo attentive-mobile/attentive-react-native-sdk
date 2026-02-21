@@ -284,7 +284,7 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = SP5WN9647Z;
+				DEVELOPMENT_TEAM = AQUE4FE98B;
 				ENABLE_BITCODE = NO;
 				INFOPLIST_FILE = Bonni/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -299,7 +299,7 @@
 					"-lc++",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "org.reactjs.native.example.$(PRODUCT_NAME:rfc1034identifier)";
-				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = com.attentive.rn.example.Bonni;
+				"PRODUCT_BUNDLE_IDENTIFIER[sdk=iphoneos*]" = io.zheref.rn.example.Bonni;
 				PRODUCT_NAME = Bonni;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_OBJC_BRIDGING_HEADER = "$(SRCROOT)/Bonni/Bonni-Bridging-Header.h";
