@@ -241,7 +241,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     // ==========================================================================
     //
     // These methods provide Android push notification support.
-    // 
+    //
     // IMPORTANT NOTE: The Attentive Android SDK version 1.0.1 has limited push notification
     // support compared to version 2.x. These methods provide logging and debugging infrastructure
     // but may require SDK upgrade or custom implementation for full functionality.
@@ -292,7 +292,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             // Note: Attentive Android SDK 1.0.1 may not have direct push token registration
             // For SDK version 2.x, use: AttentiveConfig.setDeviceToken() or similar
             // For now, we log the token and make it available for custom implementation
-            
+
             Log.i(TAG, "⚠️  [AttentiveSDK] Push token registration requires manual implementation")
             Log.i(TAG, "   FCM token available: ${token.take(16)}...")
             Log.i(TAG, "   Store this token and register it with Attentive backend manually")
@@ -405,22 +405,29 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         try {
             // Attentive Android SDK 1.0.1 doesn't have a built-in handleRegularOpen method
             // We can track this as a custom event or use AttentiveEventTracker
-            
+
             // Option 1: Track as custom event
+
+            Log.i(TAG, "   Tracking regular open as custom event 'app_open' with properties")
+
             val properties = mapOf(
                 "event_type" to "app_open",
                 "authorization_status" to authorizationStatus,
                 "platform" to "Android"
             )
-            
+
             try {
+                Log.i(TAG, "   Attempting to track custom event for regular app open")
+
                 val customEvent = com.attentive.androidsdk.events.CustomEvent.Builder(
                     "app_open",
                     properties
                 ).build()
-                
+
+                Log.i(TAG, "   Custom event built successfully, recording event...")
+
                 AttentiveEventTracker.getInstance().recordEvent(customEvent)
-                
+
                 Log.i(TAG, "✅ [AttentiveSDK] handleRegularOpen completed (tracked as custom event)")
                 Log.i(TAG, "   Event sent to Attentive backend")
             } catch (e: Exception) {
@@ -472,7 +479,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             properties["event_type"] = "push_open"
             properties["authorization_status"] = authorizationStatus
             properties["platform"] = "Android"
-            
+
             // Add notification payload to properties (converting to strings)
             payload.forEach { (key, value) ->
                 properties["notification_$key"] = value?.toString() ?: "null"
@@ -483,9 +490,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                     "push_open",
                     properties
                 ).build()
-                
+
                 AttentiveEventTracker.getInstance().recordEvent(customEvent)
-                
+
                 Log.i(TAG, "✅ [AttentiveSDK] handlePushOpen completed (tracked as custom event)")
                 Log.i(TAG, "   Push open event sent to Attentive backend")
             } catch (e: Exception) {
@@ -538,7 +545,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             properties["event_type"] = "foreground_push"
             properties["authorization_status"] = authorizationStatus
             properties["platform"] = "Android"
-            
+
             // Add notification payload to properties (converting to strings)
             payload.forEach { (key, value) ->
                 properties["notification_$key"] = value?.toString() ?: "null"
@@ -549,9 +556,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                     "foreground_push",
                     properties
                 ).build()
-                
+
                 AttentiveEventTracker.getInstance().recordEvent(customEvent)
-                
+
                 Log.i(TAG, "✅ [AttentiveSDK] handleForegroundPush completed (tracked as custom event)")
                 Log.i(TAG, "   Foreground push event sent to Attentive backend")
             } catch (e: Exception) {

@@ -136,28 +136,52 @@ function App(): React.JSX.Element {
     // Setup app state listener to track app opens
     // When app comes to foreground, trigger handleRegularOpen to track the app open event
     console.log('📱 [Attentive] Setting up AppState listener for app open tracking')
-    const appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
-      console.log('[Attentive] AppState changed to:', nextAppState)
+    const appStateSubscription = AppState.addEventListener(
+      'change',
+      (nextAppState: string) => {
+        console.log('[Attentive] AppState changed to:', nextAppState)
 
-      // When app becomes active (comes to foreground), track as app open
-      if (nextAppState === 'active' && Platform.OS === 'ios') {
-        console.log('[Attentive] App became active - tracking app open event')
+        // When app becomes active (comes to foreground), track as app open
+        if (nextAppState === 'active') {
+          if (Platform.OS === 'ios') {
+            console.log(
+              '[Attentive] App became active - tracking app open event',
+            )
 
-        // Get current authorization status and trigger handleRegularOpen
-        PushNotificationIOS.checkPermissions((permissions) => {
-          let authStatus: PushAuthorizationStatus = 'notDetermined'
-          if (permissions.alert || permissions.badge || permissions.sound) {
-            authStatus = 'authorized'
-          } else if (permissions.alert === false) {
-            authStatus = 'denied'
+            // Get the current authorization status and trigger handleRegularOpen
+            PushNotificationIOS.checkPermissions(
+              (permissions: {alert: boolean; badge: any; sound: any}) => {
+                let authStatus: PushAuthorizationStatus = 'notDetermined'
+                if (
+                  permissions.alert ||
+                  permissions.badge ||
+                  permissions.sound
+                ) {
+                  authStatus = 'authorized'
+                } else if (!permissions.alert) {
+                  authStatus = 'denied'
+                }
+
+                console.log(
+                  '[Attentive] Calling handleRegularOpen for app open tracking',
+                )
+                console.log('   Authorization status:', authStatus)
+                handleRegularOpen(authStatus)
+              },
+            )
+          } else if (Platform.OS === 'android') {
+            console.log(
+              '[Attentive] App became active on Android - tracking app open event',
+            )
+            // For Android, we can call handleRegularOpen without checking
+            // permissions since Android doesn't have the same permission model.
+            // Android does not have push notification permissions, so we can
+            // call handleRegularOpen without status.
+            handleRegularOpen('authorized') // Pass 'authorized' since Android doesn't have permission states
           }
-
-          console.log('[Attentive] Calling handleRegularOpen for app open tracking')
-          console.log('   Authorization status:', authStatus)
-          handleRegularOpen(authStatus)
-        })
-      }
-    })
+        }
+      },
+    )
 
     return () => {
       // Cleanup push notification listeners
