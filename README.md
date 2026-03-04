@@ -169,11 +169,148 @@ Attentive.identify({phone: '+15556667777'};)
 //   phone: '+15556667777'
 ```
 
-### Push Notifications (iOS Only)
+### Push Notifications (iOS and Android)
 
-The SDK supports push notification integration for iOS. Android support is planned for a future release.
+The SDK supports push notification integration on both iOS (APNs) and Android (runtime permission + optional FCM). The following sections cover iOS-specific flows and a full **App events on Android** implementation that mirrors the behavior of the [Bonni](https://github.com/attentive-mobile/attentive-react-native-sdk/tree/main/Bonni) example app.
 
-#### Request Push Permission
+---
+
+### App Events on Android
+
+This section describes how to implement Attentive app events on Android so they behave like the iOS flow: **regular app opens** (launch and resume from background) and **notification permission** are handled using the SDK’s native Android APIs. You can add FCM token registration and push open handling when your app uses Firebase Cloud Messaging.
+
+| SDK method | Purpose on Android |
+|------------|--------------------|
+| `getPushAuthorizationStatus()` | Returns `authorized`, `denied`, or `notDetermined` (uses `POST_NOTIFICATIONS` on API 33+). Use before `handleRegularOpen` so tracking uses the correct status. |
+| `registerForPushNotifications()` | Requests `POST_NOTIFICATIONS` on Android 13+; no-op on older versions. |
+| `handleRegularOpen(authStatus)` | Tracks a regular app open (launch or return to foreground). Call after `identify()` and pass the result of `getPushAuthorizationStatus()`. |
+| `registerDeviceToken` / `registerDeviceTokenWithCallback` | Optional. Register your FCM token when using Firebase Cloud Messaging. |
+| `handlePushOpen` / `handleForegroundPush` | Optional. Call when the user opens a notification or receives one in the foreground. |
+
+#### Overview
+
+- **Regular app open** – Call `handleRegularOpen(authorizationStatus)` when the app is opened (launch or returning to foreground). The SDK uses this for tracking and the `/mtctrl` endpoint.
+- **Permission status** – On Android 13+ (API 33+), notification permission is `POST_NOTIFICATIONS`. The SDK exposes `getPushAuthorizationStatus()` so you can pass the correct status into `handleRegularOpen`.
+- **Requesting permission** – Call `registerForPushNotifications()` to trigger the system permission dialog on Android 13+; it is a no-op on older versions.
+- **Order of operations** – Always call `identify()` before any `handleRegularOpen()` so the SDK has user context for network requests.
+
+#### Prerequisites
+
+1. **AndroidManifest** – Declare the notification permission for Android 13+:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- other permissions -->
+</manifest>
+```
+
+2. **Initialize and identify first** – In your app entry (e.g. root component `useEffect`), call `initialize(config)` and `identify(identifiers)` before any push or app-event logic.
+
+#### 1. On app launch (Android)
+
+Right after `identify()`, do the following for the Android path:
+
+1. Get the current notification authorization status with `getPushAuthorizationStatus()`.
+2. Call `handleRegularOpen(authStatus)` with that status.
+3. Optionally call `registerForPushNotifications()` to prompt for permission (Android 13+).
+
+```typescript
+import { Platform } from 'react-native';
+import {
+  initialize,
+  identify,
+  getPushAuthorizationStatus,
+  registerForPushNotifications,
+  handleRegularOpen,
+  type AttentiveSdkConfiguration,
+  type PushAuthorizationStatus,
+} from 'attentive-react-native-sdk';
+
+// Inside your root component (e.g. App.tsx useEffect):
+initialize(config);
+identify({ email: 'user@example.com', clientUserId: 'id-123' });
+
+if (Platform.OS === 'android') {
+  getPushAuthorizationStatus()
+    .then((authStatus: PushAuthorizationStatus) => {
+      handleRegularOpen(authStatus);
+    })
+    .catch(() => {
+      handleRegularOpen('authorized'); // fallback
+    });
+  registerForPushNotifications(); // Shows permission dialog on Android 13+
+}
+```
+
+#### 2. When app returns to foreground (Android)
+
+Subscribe to `AppState` and, when the app becomes `active`, get the current status and call `handleRegularOpen` again:
+
+```typescript
+import { AppState } from 'react-native';
+import { getPushAuthorizationStatus, handleRegularOpen } from 'attentive-react-native-sdk';
+import type { PushAuthorizationStatus } from 'attentive-react-native-sdk';
+
+const subscription = AppState.addEventListener('change', (nextAppState) => {
+  if (nextAppState === 'active' && Platform.OS === 'android') {
+    getPushAuthorizationStatus()
+      .then((authStatus: PushAuthorizationStatus) => {
+        handleRegularOpen(authStatus);
+      })
+      .catch(() => {
+        handleRegularOpen('authorized');
+      });
+  }
+});
+
+// Cleanup on unmount:
+return () => subscription.remove();
+```
+
+#### 3. Optional: Register FCM token (Android)
+
+If your app uses Firebase Cloud Messaging and you have an FCM token, register it with the Attentive backend and then call `handleRegularOpen` in the callback (same pattern as iOS):
+
+```typescript
+import { registerDeviceTokenWithCallback, handleRegularOpen } from 'attentive-react-native-sdk';
+
+// When you receive the FCM token (e.g. from Firebase Messaging):
+getPushAuthorizationStatus().then((authStatus) => {
+  registerDeviceTokenWithCallback(
+    fcmToken,
+    authStatus,
+    (data, url, response, error) => {
+      if (error) {
+        console.error('Attentive token registration failed', error);
+      }
+      handleRegularOpen(authStatus);
+    }
+  );
+});
+```
+
+#### 4. Optional: Handle notification opens and foreground (Android)
+
+If you handle FCM messages (e.g. with `@react-native-firebase/messaging`), you can report notification opens and foreground receives the same way as on iOS:
+
+- **User opened notification (background/inactive):** `handlePushOpen(payload, authorizationStatus)`
+- **Notification received while app in foreground:** `handleForegroundPush(payload, authorizationStatus)`
+
+Get `authorizationStatus` via `getPushAuthorizationStatus()` when handling the event.
+
+#### Complete Android flow (reference)
+
+The [Bonni](https://github.com/attentive-mobile/attentive-react-native-sdk/tree/main/Bonni) example app ([App.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/Bonni/App.tsx)) implements the full flow:
+
+1. **Launch:** `initialize` → `identify` → (Android) `getPushAuthorizationStatus()` → `handleRegularOpen(authStatus)` → `registerForPushNotifications()`.
+2. **Foreground:** `AppState.addEventListener('change', …)` → when `active` and Android → `getPushAuthorizationStatus()` → `handleRegularOpen(authStatus)`.
+3. **Optional:** When FCM token is available → `registerDeviceTokenWithCallback(token, authStatus, callback)` → in callback call `handleRegularOpen(authStatus)`.
+4. **Optional:** When user opens a notification or receives one in foreground → `handlePushOpen` / `handleForegroundPush` with payload and status from `getPushAuthorizationStatus()`.
+
+---
+
+#### Request Push Permission (iOS)
 
 ```typescript
 import { registerForPushNotifications } from 'attentive-react-native-sdk';
@@ -183,9 +320,9 @@ import { registerForPushNotifications } from 'attentive-react-native-sdk';
 registerForPushNotifications();
 ```
 
-#### Register Device Token
+#### Register Device Token (iOS: APNs / Android: FCM)
 
-When your app receives a device token from APNs, register it with the Attentive backend:
+When your app receives a device token (APNs on iOS, FCM on Android), register it with the Attentive backend:
 
 ```typescript
 import { registerDeviceToken } from 'attentive-react-native-sdk';
@@ -202,7 +339,7 @@ The `authorizationStatus` parameter should be one of:
 - `'provisional'` - Provisional authorization (quiet notifications)
 - `'ephemeral'` - App Clip notifications
 
-#### Handle Push Notification Opens
+#### Handle Push Notification Opens (iOS and Android)
 
 When a user taps on a push notification, track the event:
 
@@ -218,7 +355,7 @@ handlePushOpened(
 );
 ```
 
-#### Handle Foreground Notifications
+#### Handle Foreground Notifications (iOS and Android)
 
 When a notification arrives while the app is in the foreground:
 
@@ -285,6 +422,4 @@ func application(
 - [Push Notifications Setup](./PUSH_NOTIFICATIONS_SETUP.md) - General push notification setup
 - [iOS Native SDK documentation](https://github.com/attentive-mobile/attentive-ios-sdk) - Native SDK reference
 
-#### Android Support
-
-Android push notification support is not yet implemented. The push notification methods will be no-ops on Android. FCM (Firebase Cloud Messaging) integration is planned for a future release.
+For a full Android implementation (app launch, foreground, permission, and optional FCM), see the **[App Events on Android](#app-events-on-android)** section above.
