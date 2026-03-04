@@ -335,6 +335,38 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     }
     return UNAuthorizationStatusNotDetermined;
 }
+
+// Helper to convert UNAuthorizationStatus to string for getPushAuthorizationStatus
+- (NSString *)authorizationStatusToRNString:(UNAuthorizationStatus)status {
+    switch (status) {
+        case UNAuthorizationStatusAuthorized:
+            return @"authorized";
+        case UNAuthorizationStatusDenied:
+            return @"denied";
+        case UNAuthorizationStatusNotDetermined:
+            return @"notDetermined";
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000
+        case UNAuthorizationStatusProvisional:
+            return @"provisional";
+#endif
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
+        case UNAuthorizationStatusEphemeral:
+            return @"ephemeral";
+#endif
+        default:
+            return @"notDetermined";
+    }
+}
+
+- (void)getPushAuthorizationStatus:(RCTPromiseResolveBlock)resolve
+                            reject:(RCTPromiseRejectBlock)reject {
+    UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+    [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings * _Nonnull settings) {
+        NSString *status = [self authorizationStatusToRNString:settings.authorizationStatus];
+        resolve(status);
+    }];
+}
+
 - (void)triggerCreative:(NSString *)creativeId {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];

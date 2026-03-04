@@ -65,12 +65,21 @@ export interface Spec extends TurboModule {
   invokeAttentiveDebugHelper: () => void;
   exportDebugLogs: () => Promise<string>;
 
-  // Push Notification Methods (iOS only)
+  // Push Notification Methods
   /**
    * Request push notification permission from the user.
-   * iOS only - Android is a no-op.
+   * On iOS, triggers the system permission dialog.
+   * On Android 13+, requests POST_NOTIFICATIONS; on older versions, no-op.
    */
   registerForPushNotifications: () => void;
+
+  /**
+   * Get the current push notification authorization status.
+   * On Android, uses POST_NOTIFICATIONS (API 33+); on older versions returns 'authorized'.
+   * On iOS, use PushNotificationIOS.checkPermissions instead; this method is for Android parity.
+   * @returns Promise resolving to 'authorized' | 'denied' | 'notDetermined'
+   */
+  getPushAuthorizationStatus: () => Promise<string>;
 
   /**
    * Register the device token received from APNs (simple version without callback).

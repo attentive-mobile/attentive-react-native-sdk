@@ -149,13 +149,13 @@ function exportDebugLogs(): Promise<string> {
 }
 
 // =============================================================================
-// Push Notification Methods (iOS only - Android is no-op with TODO stubs)
+// Push Notification Methods (iOS and Android)
 // =============================================================================
 
 /**
  * Request push notification permission from the user.
  * On iOS, this will trigger the system permission dialog.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android 13+, this requests POST_NOTIFICATIONS; on older versions, no-op.
  *
  * @example
  * ```typescript
@@ -170,11 +170,29 @@ function registerForPushNotifications(): void {
 }
 
 /**
+ * Get the current push notification authorization status.
+ * On Android, uses the SDK's native check (POST_NOTIFICATIONS on API 33+).
+ * On iOS, uses UNUserNotificationCenter notification settings.
+ *
+ * @returns Promise resolving to 'authorized' | 'denied' | 'notDetermined' (and on iOS possibly 'provisional' | 'ephemeral')
+ *
+ * @example
+ * ```typescript
+ * import { getPushAuthorizationStatus, handleRegularOpen } from 'attentive-react-native-sdk';
+ *
+ * getPushAuthorizationStatus().then((status) => handleRegularOpen(status));
+ * ```
+ */
+function getPushAuthorizationStatus(): Promise<PushAuthorizationStatus> {
+  return AttentiveReactNativeSdk.getPushAuthorizationStatus() as Promise<PushAuthorizationStatus>
+}
+
+/**
  * Register the device token received from APNs/FCM with the Attentive backend.
  * Call this from your AppDelegate's didRegisterForRemoteNotificationsWithDeviceToken.
  *
  * On iOS, the token should be the hex-encoded string representation of the device token Data.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param token - The device token as a hex-encoded string
  * @param authorizationStatus - Current push authorization status
@@ -200,7 +218,7 @@ function registerDeviceToken(
  *
  * On iOS, this will register the device token with the Attentive SDK and invoke the callback
  * after the registration completes (success or failure).
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param token - The hex-encoded device token string from APNs
  * @param authorizationStatus - Current push authorization status
@@ -260,7 +278,7 @@ function registerDeviceTokenWithCallback(
  *
  * On iOS, this will notify the Attentive SDK that the app was opened directly
  * (not from a push notification tap).
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param authorizationStatus - Current push authorization status
  *
@@ -307,7 +325,7 @@ function handleRegularOpen(authorizationStatus: PushAuthorizationStatus): void {
  *
  * On iOS, this will track the push open event and handle the notification appropriately
  * based on whether the app was in the foreground, background, or not running.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  * @param applicationState - The app state when the notification was opened ('active', 'inactive', 'background')
@@ -342,7 +360,7 @@ function handlePushOpened(
  * Call this from your notification handler when a notification is received while the app is active.
  *
  * On iOS, this allows the Attentive SDK to track the notification event.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  *
@@ -372,7 +390,7 @@ function handleForegroundNotification(
  * ```
  *
  * On iOS, this properly tracks foreground push notifications.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  * @param authorizationStatus - Current push authorization status
@@ -411,7 +429,7 @@ function handleForegroundPush(
  * ```
  *
  * On iOS, this properly tracks push notification opens.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  * @param authorizationStatus - Current push authorization status
@@ -451,8 +469,9 @@ export {
   recordCustomEvent,
   invokeAttentiveDebugHelper,
   exportDebugLogs,
-  // Push Notification Methods (iOS only)
+  // Push Notification Methods
   registerForPushNotifications,
+  getPushAuthorizationStatus,
   registerDeviceToken,
   registerDeviceTokenWithCallback,
   handleRegularOpen,

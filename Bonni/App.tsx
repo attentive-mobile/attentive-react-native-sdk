@@ -15,6 +15,8 @@ import {
   handleRegularOpen,
   handleForegroundPush,
   handlePushOpen,
+  getPushAuthorizationStatus,
+  registerForPushNotifications,
   type AttentiveSdkConfiguration,
   type PushAuthorizationStatus,
 } from '../src'
@@ -80,7 +82,7 @@ function App(): React.JSX.Element {
     })
     console.log('✅ [Attentive] User identified')
 
-    // Setup push notifications (iOS only for now)
+    // Setup push notifications: iOS (APNs) and Android (POST_NOTIFICATIONS + FCM token from app)
     if (Platform.OS === 'ios') {
       console.log('📱 [Attentive] Setting up push notifications for iOS')
 
@@ -129,8 +131,23 @@ function App(): React.JSX.Element {
           }
         })
       }, 500)
-    } else {
-      console.log('⚠️ [Attentive] Not iOS - skipping push notification setup')
+    } else if (Platform.OS === 'android') {
+      console.log('📱 [Attentive] Setting up push notifications for Android')
+      // Android: use SDK's native permission status and handleRegularOpen
+      // Call handleRegularOpen on launch with current status (from SDK wrapper)
+      getPushAuthorizationStatus()
+        .then((authStatus: PushAuthorizationStatus) => {
+          console.log('🌉 [Attentive] Initial handleRegularOpen (Android), status:', authStatus)
+          handleRegularOpen(authStatus)
+          console.log('✅ [Attentive] Initial handleRegularOpen completed (Android)')
+        })
+        .catch((err) => {
+          console.warn('[Attentive] getPushAuthorizationStatus failed:', err)
+          handleRegularOpen('authorized')
+        })
+      // Request notification permission (Android 13+); no-op on older versions
+      registerForPushNotifications()
+      console.log('✅ [Attentive] Android push setup complete')
     }
 
     // Setup app state listener to track app opens
@@ -173,11 +190,16 @@ function App(): React.JSX.Element {
             console.log(
               '[Attentive] App became active on Android - tracking app open event',
             )
-            // For Android, we can call handleRegularOpen without checking
-            // permissions since Android doesn't have the same permission model.
-            // Android does not have push notification permissions, so we can
-            // call handleRegularOpen without status.
-            handleRegularOpen('authorized') // Pass 'authorized' since Android doesn't have permission states
+            // Use SDK's native getPushAuthorizationStatus (POST_NOTIFICATIONS on API 33+)
+            getPushAuthorizationStatus()
+              .then((authStatus: PushAuthorizationStatus) => {
+                console.log('[Attentive] Calling handleRegularOpen for app open (Android), status:', authStatus)
+                handleRegularOpen(authStatus)
+              })
+              .catch((err) => {
+                console.warn('[Attentive] getPushAuthorizationStatus failed:', err)
+                handleRegularOpen('authorized')
+              })
           }
         }
       },

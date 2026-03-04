@@ -35,6 +35,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     companion object {
         const val NAME = "AttentiveReactNativeSdk"
         private const val TAG = NAME
+        private const val PUSH_PERMISSION_REQUEST_CODE = 3901
     }
 
     private var attentiveConfig: AttentiveConfig? = null
@@ -252,24 +253,42 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /**
      * Request push notification permission from the user.
      *
-     * Note: For Android 13+ (API 33+), you need to request POST_NOTIFICATIONS permission
-     * in your app's AndroidManifest.xml and request it at runtime.
-     * For older versions, permissions are granted at install time.
-     *
-     * This method is currently a logging placeholder for parity with iOS.
-     * Actual permission handling should be done in the host app.
+     * On Android 13+ (API 33+), requests [android.permission.POST_NOTIFICATIONS] via the
+     * system dialog. On older versions, no-op (notifications allowed by default).
+     * Uses [AttentivePushHelper] for the actual request.
      */
     override fun registerForPushNotifications() {
         Log.i(TAG, "📱 [AttentiveSDK] registerForPushNotifications called (Android)")
-        Log.i(TAG, "   Note: Push notification permissions should be requested in your host app")
-        Log.i(TAG, "   For Android 13+, request POST_NOTIFICATIONS permission at runtime")
 
-        if (debugHelper.isDebuggingEnabled()) {
-            val debugData = mutableMapOf<String, Any>()
-            debugData["platform"] = "Android"
-            debugData["sdk_version"] = "1.0.1"
-            debugData["note"] = "Permission handling should be done in host app"
-            debugHelper.showDebugInfo("Push Registration Requested", debugData)
+        UiThreadUtil.runOnUiThread {
+            val activity = reactApplicationContext.currentActivity
+            val requested = AttentivePushHelper.requestPermissionIfNeeded(activity, PUSH_PERMISSION_REQUEST_CODE)
+            if (!requested && activity == null) {
+                Log.w(TAG, "   Current activity is null; permission request deferred. Call again when app is in foreground.")
+            }
+            if (debugHelper.isDebuggingEnabled()) {
+                val debugData = mutableMapOf<String, Any>()
+                debugData["platform"] = "Android"
+                debugData["request_started"] = requested
+                debugHelper.showDebugInfo("Push Registration Requested", debugData)
+            }
+        }
+    }
+
+    /**
+     * Returns the current push notification authorization status for Android.
+     *
+     * On API 33+: returns "authorized" if POST_NOTIFICATIONS is granted, else "notDetermined".
+     * On API < 33: returns "authorized" (no runtime permission required).
+     */
+    override fun getPushAuthorizationStatus(promise: Promise) {
+        try {
+            val status = AttentivePushHelper.getAuthorizationStatus(reactApplicationContext)
+            Log.d(TAG, "getPushAuthorizationStatus: $status")
+            promise.resolve(status)
+        } catch (e: Exception) {
+            Log.e(TAG, "getPushAuthorizationStatus error: ${e.message}", e)
+            promise.reject("GET_STATUS_ERROR", e.message ?: "Unknown error", e)
         }
     }
 

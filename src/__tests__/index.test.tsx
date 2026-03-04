@@ -14,9 +14,14 @@ const mockNativeModule = {
   exportDebugLogs: jest.fn().mockResolvedValue('debug logs'),
   // Push Notification Methods
   registerForPushNotifications: jest.fn(),
+  getPushAuthorizationStatus: jest.fn().mockResolvedValue('authorized'),
   registerDeviceToken: jest.fn(),
+  registerDeviceTokenWithCallback: jest.fn(),
+  handleRegularOpen: jest.fn(),
   handlePushOpened: jest.fn(),
   handleForegroundNotification: jest.fn(),
+  handleForegroundPush: jest.fn(),
+  handlePushOpen: jest.fn(),
 };
 
 jest.mock('../NativeAttentiveReactNativeSdk', () => ({
@@ -45,9 +50,14 @@ import {
   exportDebugLogs,
   // Push Notification Methods
   registerForPushNotifications,
+  getPushAuthorizationStatus,
   registerDeviceToken,
+  registerDeviceTokenWithCallback,
+  handleRegularOpen,
   handlePushOpened,
   handleForegroundNotification,
+  handleForegroundPush,
+  handlePushOpen,
 } from '../index';
 import type { AttentiveSdkConfiguration } from '../index';
 
@@ -250,6 +260,13 @@ describe('Attentive SDK', () => {
       expect(mockNativeModule.registerForPushNotifications).toHaveBeenCalled();
     });
 
+    it('should get push authorization status', async () => {
+      const status = await getPushAuthorizationStatus();
+
+      expect(mockNativeModule.getPushAuthorizationStatus).toHaveBeenCalled();
+      expect(status).toBe('authorized');
+    });
+
     it('should register device token', () => {
       registerDeviceToken('abc123def456', 'authorized');
 
@@ -279,6 +296,12 @@ describe('Attentive SDK', () => {
       expect(mockNativeModule.handleForegroundNotification).toHaveBeenCalledWith(
         userInfo
       );
+    });
+
+    it('should handle regular open', () => {
+      handleRegularOpen('authorized');
+
+      expect(mockNativeModule.handleRegularOpen).toHaveBeenCalledWith('authorized');
     });
   });
 });
