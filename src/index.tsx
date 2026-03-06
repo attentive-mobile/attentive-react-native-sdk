@@ -39,7 +39,12 @@ const AttentiveReactNativeSdk = (
 ) as Spec
 
 /**
- * Initialize the Attentive SDK with the provided configuration
+ * Initialize the Attentive SDK with the provided configuration.
+ * This is the only supported entry point: the app (e.g. Bonni) must call this from TypeScript
+ * once at startup; the call is forwarded to the native module on each platform (iOS/Android),
+ * which then initializes the platform Attentive SDK. Native code must not initialize the SDK
+ * on its own (e.g. in Application onCreate or AppDelegate).
+ *
  * @param configuration - Configuration object for the Attentive SDK
  */
 function initialize(configuration: AttentiveSdkConfiguration) {
