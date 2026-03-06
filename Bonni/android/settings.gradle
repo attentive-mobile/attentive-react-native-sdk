@@ -1,6 +1,12 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
-extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+// Build a real Java String path (not GString) to avoid arraycopy type mismatch
+def rnCliPath = new File(rootDir, "../node_modules/.bin/rnc-cli").canonicalPath
+extensions.configure(com.facebook.react.ReactSettingsExtension){ ex ->
+    // Use local node_modules CLI directly instead of the default
+    // `npx @react-native-community/cli config` which times out due to npx resolution overhead.
+    ex.autolinkLibrariesFromCommand(Arrays.asList("node", rnCliPath, "config"))
+}
 rootProject.name = 'Bonni'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')

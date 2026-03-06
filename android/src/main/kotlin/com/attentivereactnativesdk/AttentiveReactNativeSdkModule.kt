@@ -1,21 +1,24 @@
 package com.attentivereactnativesdk
 
 import android.app.Activity
+import android.app.Application
 import android.util.Log
 import android.view.ViewGroup
 import androidx.annotation.NonNull
 import androidx.annotation.Nullable
 import com.attentive.androidsdk.AttentiveConfig
-import com.attentive.androidsdk.AttentiveEventTracker
+import com.attentive.androidsdk.AttentiveSdk
 import com.attentive.androidsdk.UserIdentifiers
 import com.attentive.androidsdk.creatives.Creative
 import com.attentive.androidsdk.events.AddToCartEvent
+import com.attentive.androidsdk.events.Cart
 import com.attentive.androidsdk.events.CustomEvent
 import com.attentive.androidsdk.events.Item
 import com.attentive.androidsdk.events.Order
 import com.attentive.androidsdk.events.Price
 import com.attentive.androidsdk.events.ProductViewEvent
 import com.attentive.androidsdk.events.PurchaseEvent
+import com.attentive.androidsdk.push.TokenFetchResult
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
@@ -50,6 +53,10 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         return NAME
     }
 
+    /**
+     * Initialize the Attentive SDK. Called only from the TypeScript layer (e.g. Bonni App.tsx);
+     * this module must not auto-initialize in Application.onCreate or elsewhere.
+     */
     override fun initialize(
         attentiveDomain: String,
         mode: String,
@@ -59,13 +66,20 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         // Initialize debug helper
         debugHelper.initialize(enableDebugger)
 
-        attentiveConfig = AttentiveConfig.Builder()
-            .context(reactApplicationContext)
+        val appContext = reactApplicationContext.applicationContext as? Application
+            ?: throw IllegalStateException("Application context is required for Attentive SDK")
+        val config = AttentiveConfig.Builder()
+            .applicationContext(appContext)
             .domain(attentiveDomain)
             .mode(AttentiveConfig.Mode.valueOf(mode.uppercase(Locale.ROOT)))
             .skipFatigueOnCreatives(skipFatigueOnCreatives)
             .build()
-        AttentiveEventTracker.getInstance().initialize(attentiveConfig)
+        attentiveConfig = config
+        // AttentiveSdk.initialize internally registers a LifecycleObserver (AppLaunchTracker)
+        // which requires being called on the main thread.
+        UiThreadUtil.runOnUiThread {
+            AttentiveSdk.initialize(config)
+        }
     }
 
     override fun triggerCreative(creativeId: String?) {
@@ -77,7 +91,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                     currentActivity.window.decorView.rootView as ViewGroup
                 // The following calls edit the view hierarchy so they must run on the UI thread
                 UiThreadUtil.runOnUiThread {
-                    creative = Creative(attentiveConfig, rootView)
+                    creative = Creative(attentiveConfig!!, rootView, currentActivity)
                     creative?.trigger(null, creativeId)
                     if (debugHelper.isDebuggingEnabled()) {
                         val debugData = mutableMapOf<String, Any>()
@@ -154,9 +168,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         Log.i(TAG, "Sending product viewed event")
 
         val itemsList = buildItems(items)
-        val productViewEvent = ProductViewEvent.Builder(itemsList).deeplink(deeplink).build()
+        val productViewEvent = ProductViewEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        AttentiveEventTracker.getInstance().recordEvent(productViewEvent)
+        AttentiveSdk.recordEvent(productViewEvent)
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -173,12 +187,15 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         cartCoupon: String?
     ) {
         Log.i(TAG, "Sending purchase event")
-        val order = Order.Builder(orderId).build()
-
+        val order = Order.Builder().orderId(orderId).build()
         val itemsList = buildItems(items)
-        val purchaseEvent = PurchaseEvent.Builder(itemsList, order).build()
+        val purchaseBuilder = PurchaseEvent.Builder(itemsList, order)
+        if (!cartId.isNullOrEmpty()) {
+            purchaseBuilder.cart(Cart.Builder().cartId(cartId).cartCoupon(cartCoupon).build())
+        }
+        val purchaseEvent = purchaseBuilder.build()
 
-        AttentiveEventTracker.getInstance().recordEvent(purchaseEvent)
+        AttentiveSdk.recordEvent(purchaseEvent)
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -194,9 +211,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         Log.i(TAG, "Sending add to cart event")
 
         val itemsList = buildItems(items)
-        val addToCartEvent = AddToCartEvent.Builder(itemsList).deeplink(deeplink).build()
+        val addToCartEvent = AddToCartEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        AttentiveEventTracker.getInstance().recordEvent(addToCartEvent)
+        AttentiveSdk.recordEvent(addToCartEvent)
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -212,9 +229,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             throw IllegalArgumentException("The CustomEvent 'properties' field cannot be null.")
         }
         val propertiesMap = convertToStringMap(properties.toHashMap())
-        val customEvent = CustomEvent.Builder(type, propertiesMap).build()
+        val customEvent = CustomEvent.Builder().type(type).properties(propertiesMap).build()
 
-        AttentiveEventTracker.getInstance().recordEvent(customEvent)
+        AttentiveSdk.recordEvent(customEvent)
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -243,37 +260,55 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     //
     // These methods provide Android push notification support.
     //
-    // IMPORTANT NOTE: The Attentive Android SDK version 1.0.1 has limited push notification
-    // support compared to version 2.x. These methods provide logging and debugging infrastructure
-    // but may require SDK upgrade or custom implementation for full functionality.
-    //
-    // The iOS implementation uses APNs; Android uses Firebase Cloud Messaging (FCM).
+    // Push: Uses AttentiveSdk.getPushTokenWithCallback (SDK 2.1.x) to fetch FCM token and register with Attentive.
+    // See: https://github.com/attentive-mobile/attentive-android-sdk/blob/main/README.md
     // ==========================================================================
 
     /**
-     * Request push notification permission from the user.
+     * Request push notification permission and fetch the FCM token via the Attentive SDK.
      *
-     * On Android 13+ (API 33+), requests [android.permission.POST_NOTIFICATIONS] via the
-     * system dialog. On older versions, no-op (notifications allowed by default).
-     * Uses [AttentivePushHelper] for the actual request.
+     * Uses [AttentiveSdk.getPushTokenWithCallback] so the SDK requests permission (when
+     * requestPermission = true) and registers the token with Attentive.
      */
     override fun registerForPushNotifications() {
         Log.i(TAG, "📱 [AttentiveSDK] registerForPushNotifications called (Android)")
 
-        UiThreadUtil.runOnUiThread {
-            val activity = reactApplicationContext.currentActivity
-            val requested = AttentivePushHelper.requestPermissionIfNeeded(activity, PUSH_PERMISSION_REQUEST_CODE)
-            if (!requested && activity == null) {
-                Log.w(TAG, "   Current activity is null; permission request deferred. Call again when app is in foreground.")
+        val application = reactApplicationContext.applicationContext as? Application
+        if (application == null) {
+            Log.w(TAG, "   Application context is null; cannot fetch push token.")
+            return
+        }
+
+        AttentiveSdk.getPushTokenWithCallback(application, true, createPushTokenCallback())
+    }
+
+    private fun createPushTokenCallback(): AttentiveSdk.PushTokenCallback =
+        object : AttentiveSdk.PushTokenCallback {
+            override fun onSuccess(result: TokenFetchResult) {
+                UiThreadUtil.runOnUiThread {
+                    val token = result.token
+                    Log.i(TAG, "🎫 [AttentiveSDK] Push token fetched successfully (preview): ${token.take(16)}...")
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf<String, Any>()
+                        debugData["platform"] = "Android"
+                        debugData["token_preview"] = "${token.take(16)}..."
+                        debugData["has_token"] = token.isNotEmpty()
+                        debugData["permission_granted"] = result.permissionGranted
+                        debugHelper.showDebugInfo("Push Token (AttentiveSdk)", debugData)
+                    }
+                }
             }
-            if (debugHelper.isDebuggingEnabled()) {
-                val debugData = mutableMapOf<String, Any>()
-                debugData["platform"] = "Android"
-                debugData["request_started"] = requested
-                debugHelper.showDebugInfo("Push Registration Requested", debugData)
+            override fun onFailure(exception: Exception) {
+                UiThreadUtil.runOnUiThread {
+                    Log.e(TAG, "❌ [AttentiveSDK] getPushTokenWithCallback failed: ${exception.message}", exception)
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf<String, Any>()
+                        debugData["error"] = exception.message ?: "Unknown error"
+                        debugHelper.showDebugInfo("Push Token Error", debugData)
+                    }
+                }
             }
         }
-    }
 
     /**
      * Returns the current push notification authorization status for Android.
@@ -308,22 +343,15 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         Log.i(TAG, "   Authorization status: $authorizationStatus")
 
         try {
-            // Note: Attentive Android SDK 1.0.1 may not have direct push token registration
-            // For SDK version 2.x, use: AttentiveConfig.setDeviceToken() or similar
-            // For now, we log the token and make it available for custom implementation
-
-            Log.i(TAG, "⚠️  [AttentiveSDK] Push token registration requires manual implementation")
-            Log.i(TAG, "   FCM token available: ${token.take(16)}...")
-            Log.i(TAG, "   Store this token and register it with Attentive backend manually")
-            Log.i(TAG, "   Or upgrade to Attentive Android SDK 2.x for built-in support")
+            // Token registration with Attentive is also done via registerForPushNotifications() -> getPushTokenWithCallback.
+            // This method is for apps that obtain the FCM token elsewhere and pass it explicitly.
+            Log.i(TAG, "   FCM token received (preview): ${token.take(16)}...")
 
             if (debugHelper.isDebuggingEnabled()) {
                 val debugData = mutableMapOf<String, Any>()
                 debugData["token_preview"] = "${token.take(16)}..."
                 debugData["token_length"] = token.length.toString()
                 debugData["authorization_status"] = authorizationStatus
-                debugData["sdk_version"] = "1.0.1"
-                debugData["implementation_status"] = "manual_required"
                 debugHelper.showDebugInfo("Device Token (Android)", debugData)
             }
         } catch (e: Exception) {
@@ -367,8 +395,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 "success" to true,
                 "token" to "${token.take(16)}...",
                 "platform" to "Android",
-                "sdk_version" to "1.0.1",
-                "note" to "Manual push token registration required"
+                "sdk_version" to "2.1.1"
             )
 
             // Invoke callback with: data, url, response, error
@@ -423,7 +450,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
 
         try {
             // Attentive Android SDK 1.0.1 doesn't have a built-in handleRegularOpen method
-            // We can track this as a custom event or use AttentiveEventTracker
+            // Track app open as custom event
 
             // Option 1: Track as custom event
 
@@ -438,14 +465,14 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             try {
                 Log.i(TAG, "   Attempting to track custom event for regular app open")
 
-                val customEvent = com.attentive.androidsdk.events.CustomEvent.Builder(
-                    "app_open",
-                    properties
-                ).build()
+                val customEvent = CustomEvent.Builder()
+                    .type("app_open")
+                    .properties(properties)
+                    .build()
 
                 Log.i(TAG, "   Custom event built successfully, recording event...")
 
-                AttentiveEventTracker.getInstance().recordEvent(customEvent)
+                AttentiveSdk.recordEvent(customEvent)
 
                 Log.i(TAG, "✅ [AttentiveSDK] handleRegularOpen completed (tracked as custom event)")
                 Log.i(TAG, "   Event sent to Attentive backend")
@@ -459,7 +486,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 debugData["authorization_status"] = authorizationStatus
                 debugData["event_type"] = "regular_open"
                 debugData["platform"] = "Android"
-                debugData["sdk_version"] = "1.0.1"
+                debugData["sdk_version"] = "2.1.1"
                 debugHelper.showDebugInfo("Regular Open Event", debugData)
             }
         } catch (e: Exception) {
@@ -505,12 +532,12 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             }
 
             try {
-                val customEvent = com.attentive.androidsdk.events.CustomEvent.Builder(
-                    "push_open",
-                    properties
-                ).build()
+                val customEvent = CustomEvent.Builder()
+                    .type("push_open")
+                    .properties(properties)
+                    .build()
 
-                AttentiveEventTracker.getInstance().recordEvent(customEvent)
+                AttentiveSdk.recordEvent(customEvent)
 
                 Log.i(TAG, "✅ [AttentiveSDK] handlePushOpen completed (tracked as custom event)")
                 Log.i(TAG, "   Push open event sent to Attentive backend")
@@ -525,7 +552,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 debugData["event_type"] = "push_open"
                 debugData["platform"] = "Android"
                 debugData["payload_keys"] = payload.keys.joinToString(", ")
-                debugData["sdk_version"] = "1.0.1"
+                debugData["sdk_version"] = "2.1.1"
                 debugHelper.showDebugInfo("Push Open Event", debugData)
             }
         } catch (e: Exception) {
@@ -571,12 +598,12 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             }
 
             try {
-                val customEvent = com.attentive.androidsdk.events.CustomEvent.Builder(
-                    "foreground_push",
-                    properties
-                ).build()
+                val customEvent = CustomEvent.Builder()
+                    .type("foreground_push")
+                    .properties(properties)
+                    .build()
 
-                AttentiveEventTracker.getInstance().recordEvent(customEvent)
+                AttentiveSdk.recordEvent(customEvent)
 
                 Log.i(TAG, "✅ [AttentiveSDK] handleForegroundPush completed (tracked as custom event)")
                 Log.i(TAG, "   Foreground push event sent to Attentive backend")
@@ -591,7 +618,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 debugData["event_type"] = "foreground_push"
                 debugData["platform"] = "Android"
                 debugData["payload_keys"] = payload.keys.joinToString(", ")
-                debugData["sdk_version"] = "1.0.1"
+                debugData["sdk_version"] = "2.1.1"
                 debugHelper.showDebugInfo("Foreground Push Event", debugData)
             }
         } catch (e: Exception) {
@@ -679,11 +706,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             val rawItem = rawItems.getMap(i) ?: continue
 
             // Price and currency are now flattened, not nested
-            val priceValue = rawItem.getString("price")
-            val currencyCode = rawItem.getString("currency")
-            val price = Price.Builder(BigDecimal(priceValue), Currency.getInstance(currencyCode)).build()
+            val priceValue = rawItem.getString("price") ?: continue
+            val currencyCode = rawItem.getString("currency") ?: continue
+            val price = Price.Builder()
+                .price(BigDecimal(priceValue))
+                .currency(Currency.getInstance(currencyCode))
+                .build()
 
-            val builder = Item.Builder(rawItem.getString("productId"), rawItem.getString("productVariantId"), price)
+            val productId = rawItem.getString("productId") ?: continue
+            val productVariantId = rawItem.getString("productVariantId") ?: continue
+            val builder = Item.Builder(productId, productVariantId, price)
 
             if (rawItem.hasKey("productImage")) {
                 builder.productImage(rawItem.getString("productImage"))

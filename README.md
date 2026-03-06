@@ -270,12 +270,13 @@ return () => subscription.remove();
 
 #### 3. Optional: Register FCM token (Android)
 
-If your app uses Firebase Cloud Messaging and you have an FCM token, register it with the Attentive backend and then call `handleRegularOpen` in the callback (same pattern as iOS):
+**Recommended:** This React Native SDK’s Android native module depends on Attentive Android SDK **2.1.1**, which exposes `AttentiveSdk.getPushTokenWithCallback`. Calling `registerForPushNotifications()` from JS triggers that API: the SDK requests permission (when needed), fetches the FCM token, and registers it with Attentive. No separate native code is required.
+
+**Alternative (token from JS):** If you obtain the FCM token elsewhere (e.g. Firebase Messaging), use `registerDeviceTokenWithCallback` and then call `handleRegularOpen` in the callback:
 
 ```typescript
 import { registerDeviceTokenWithCallback, handleRegularOpen } from 'attentive-react-native-sdk';
 
-// When you receive the FCM token (e.g. from Firebase Messaging):
 getPushAuthorizationStatus().then((authStatus) => {
   registerDeviceTokenWithCallback(
     fcmToken,

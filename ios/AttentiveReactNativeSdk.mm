@@ -22,7 +22,8 @@
 RCT_EXPORT_MODULE()
 
 #ifdef RCT_NEW_ARCH_ENABLED
-// New Architecture implementation with flattened parameters
+// New Architecture implementation with flattened parameters.
+// Initialize is invoked only from TypeScript (e.g. Bonni App); native must not auto-initialize.
 - (void)initialize:(NSString *)attentiveDomain
               mode:(NSString *)mode
 skipFatigueOnCreatives:(BOOL)skipFatigueOnCreatives
@@ -189,7 +190,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 #else
-// Old Architecture implementation with dictionary parameters
+// Old Architecture implementation with dictionary parameters.
+// Initialize is invoked only from TypeScript (e.g. Bonni App); native must not auto-initialize.
 - (void)initialize:(NSDictionary*)configuration {
     _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"]
                                             mode:configuration[@"mode"]

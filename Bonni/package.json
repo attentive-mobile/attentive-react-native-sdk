@@ -3,6 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "android-pure": "cd android && ./gradlew app:installDebug -PreactNativeDevServerPort=8081 && adb shell am start -n com.attentive.bonni/com.bonni.MainActivity",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
@@ -15,6 +16,7 @@
     "@attentive-mobile/attentive-react-native-sdk": "file:..",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/push-notification-ios": "^1.11.0",
+    "@react-navigation/core": "^7.13.0",
     "@react-navigation/native": "^7.1.18",
     "@react-navigation/native-stack": "^7.3.28",
     "react": "18.3.1",

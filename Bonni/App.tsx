@@ -70,7 +70,7 @@ function App(): React.JSX.Element {
 
     // Identify user with sample identifiers (like iOS AppDelegate)
     // IMPORTANT: Must identify user BEFORE calling handleRegularOpen
-    // The SDK needs user context to make network calls
+    // The SDK needs user context to make network calls to mobile.attentivemobile.com
     console.log('👤 [Attentive] Identifying user')
     identify({
       phone: '+15671230987',
@@ -82,37 +82,33 @@ function App(): React.JSX.Element {
     })
     console.log('✅ [Attentive] User identified')
 
-    // Setup push notifications: iOS (APNs) and Android (POST_NOTIFICATIONS + FCM token from app)
-    if (Platform.OS === 'ios') {
-      console.log('📱 [Attentive] Setting up push notifications for iOS')
-
-      // Call handleRegularOpen immediately on app launch (regardless of permission status)
-      // This matches native iOS behavior where handleRegularOpen is called even without permissions
-      // IMPORTANT: Called AFTER identify() to ensure SDK has user context
-      // IMPORTANT: Called synchronously BEFORE permission dialog appears
-      console.log('📱 [Attentive] Calling handleRegularOpen on app launch (before permission request)')
-      console.log('   NOTE: This should hit /mtctrl endpoint regardless of permission status')
-      console.log('   Authorization status: notDetermined (first launch)')
-      console.log('🌉 [Attentive] Triggering initial handleRegularOpen (hits /mtctrl endpoint)')
-      console.log('   Domain:', config.attentiveDomain)
-      console.log('   Mode:', config.mode)
-
+    // Defer first app open event so native SDK has time to apply identity and send to mobile.attentivemobile.com.
+    // Without this delay, handleRegularOpen can run before identify() is processed and no request may be sent.
+    const INITIAL_APP_OPEN_DELAY_MS = 300
+    const initialAuthStatus: PushAuthorizationStatus =
+      Platform.OS === 'ios' ? 'notDetermined' : 'authorized'
+    console.log('⏳ [Attentive] Scheduling initial handleRegularOpen in', INITIAL_APP_OPEN_DELAY_MS, 'ms')
+    const initialOpenTimer = setTimeout(() => {
+      console.log('🌉 [Attentive] Triggering initial handleRegularOpen (app open / mtctrl)')
       try {
-        // Call immediately with notDetermined status (before permission dialog)
-        handleRegularOpen('notDetermined')
-        console.log('✅ [Attentive] Initial handleRegularOpen call completed (network request sent)')
-        console.log('   Check your proxy debugger for POST to /mtctrl')
+        handleRegularOpen(initialAuthStatus)
+        console.log('✅ [Attentive] Initial handleRegularOpen completed')
+        console.log('   Check proxy for requests to mobile.attentivemobile.com (mtctrl, push registration)')
       } catch (error) {
         console.error('❌ [Attentive] Error calling handleRegularOpen:', error)
       }
+    }, INITIAL_APP_OPEN_DELAY_MS)
+
+    // Setup push notifications: iOS (APNs) and Android (POST_NOTIFICATIONS + FCM token from app)
+    if (Platform.OS === 'ios') {
+      console.log('📱 [Attentive] Setting up push notifications for iOS')
 
       // Setup event listeners first (but don't request permissions yet)
       setupPushNotifications()
       console.log('✅ [Attentive] Push notification event listeners setup complete')
 
-      // Add a small delay before requesting permissions to ensure the /mtctrl network call completes first
-      // This prevents the permission dialog from appearing before the tracking endpoint is hit
-      console.log('⏳ [Attentive] Waiting 500ms before requesting permissions (to ensure /mtctrl call completes)')
+      // Request permissions after a delay so the initial handleRegularOpen (above) can complete first
+      console.log('⏳ [Attentive] Waiting 500ms before requesting permissions')
       setTimeout(() => {
         console.log('📱 [Attentive] Checking for existing device token before requesting permissions')
         PushNotificationIOS.checkPermissions((permissions) => {
@@ -121,11 +117,9 @@ function App(): React.JSX.Element {
           // If we already have permissions, try to get the token
           if (permissions.alert || permissions.badge || permissions.sound) {
             console.log('✅ [Attentive] Permissions already granted, attempting to get token')
-            // Request token registration (this won't show a dialog if already granted)
             PushNotificationIOS.requestPermissions()
           } else {
             console.log('ℹ️ [Attentive] No permissions yet, will request now')
-            // Request permissions (this will show the dialog)
             console.log('🔐 [Attentive] Requesting push notification permissions')
             PushNotificationIOS.requestPermissions()
           }
@@ -133,19 +127,15 @@ function App(): React.JSX.Element {
       }, 500)
     } else if (Platform.OS === 'android') {
       console.log('📱 [Attentive] Setting up push notifications for Android')
-      // Android: use SDK's native permission status and handleRegularOpen
-      // Call handleRegularOpen on launch with current status (from SDK wrapper)
+
       getPushAuthorizationStatus()
         .then((authStatus: PushAuthorizationStatus) => {
-          console.log('🌉 [Attentive] Initial handleRegularOpen (Android), status:', authStatus)
-          handleRegularOpen(authStatus)
-          console.log('✅ [Attentive] Initial handleRegularOpen completed (Android)')
+          console.log('📱 [Attentive] Android push auth status:', authStatus)
         })
         .catch((err) => {
           console.warn('[Attentive] getPushAuthorizationStatus failed:', err)
-          handleRegularOpen('authorized')
         })
-      // Request notification permission (Android 13+); no-op on older versions
+
       registerForPushNotifications()
       console.log('✅ [Attentive] Android push setup complete')
     }
@@ -206,15 +196,13 @@ function App(): React.JSX.Element {
     )
 
     return () => {
-      // Cleanup push notification listeners
+      clearTimeout(initialOpenTimer)
       if (Platform.OS === 'ios') {
         PushNotificationIOS.removeEventListener('register')
         PushNotificationIOS.removeEventListener('registrationError')
         PushNotificationIOS.removeEventListener('notification')
         PushNotificationIOS.removeEventListener('localNotification')
       }
-
-      // Cleanup app state listener
       appStateSubscription.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
