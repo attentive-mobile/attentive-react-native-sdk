@@ -318,7 +318,10 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      */
     override fun getPushAuthorizationStatus(promise: Promise) {
         try {
-            val status = AttentivePushHelper.getAuthorizationStatus(reactApplicationContext)
+            val status = AttentivePushHelper.getAuthorizationStatus(
+                reactApplicationContext,
+                reactApplicationContext.currentActivity
+            )
             Log.d(TAG, "getPushAuthorizationStatus: $status")
             promise.resolve(status)
         } catch (e: Exception) {

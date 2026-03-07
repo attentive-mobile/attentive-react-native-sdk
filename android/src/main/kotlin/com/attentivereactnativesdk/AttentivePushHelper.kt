@@ -26,8 +26,8 @@ object AttentivePushHelper {
     /**
      * Authorization status values aligned with iOS push authorization for use in handleRegularOpen etc.
      * - "authorized" – user has granted notification permission (or API < 33)
-     * - "denied" – user denied or permission not granted
-     * - "notDetermined" – not yet requested (API 33+ only)
+     * - "denied" – user was asked and denied (API 33+, when determinable via activity)
+     * - "notDetermined" – not yet requested, or unable to distinguish (API 33+ only)
      */
     const val STATUS_AUTHORIZED = "authorized"
     const val STATUS_DENIED = "denied"
@@ -36,14 +36,18 @@ object AttentivePushHelper {
     /**
      * Returns the current push notification authorization status.
      *
-     * On API 33+: uses [android.permission.POST_NOTIFICATIONS].
+     * On API 33+: uses [android.permission.POST_NOTIFICATIONS]. When permission is not granted,
+     * uses [activity] (when provided) and [ActivityCompat.shouldShowRequestPermissionRationale]
+     * to distinguish "denied" (user was asked and declined) from "notDetermined" (not yet asked).
      * On API < 33: returns [STATUS_AUTHORIZED] (no runtime permission required).
      *
      * @param context Application or Activity context
+     * @param activity Current activity, or null. When non-null on API 33+, used to detect
+     *   "denied" vs "notDetermined" so downstream logic and analytics are correct for denied users.
      * @return One of [STATUS_AUTHORIZED], [STATUS_DENIED], or [STATUS_NOT_DETERMINED]
      */
     @JvmStatic
-    fun getAuthorizationStatus(context: Context): String {
+    fun getAuthorizationStatus(context: Context, activity: Activity? = null): String {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
             // API 32 and below: notification permission not required at runtime
             return STATUS_AUTHORIZED
@@ -51,9 +55,13 @@ object AttentivePushHelper {
         return when (ContextCompat.checkSelfPermission(context, android.Manifest.permission.POST_NOTIFICATIONS)) {
             PackageManager.PERMISSION_GRANTED -> STATUS_AUTHORIZED
             else -> {
-                // Not granted. Without an Activity we cannot distinguish "denied" vs "not yet asked".
-                // Return notDetermined so the app can call registerForPushNotifications to request.
-                STATUS_NOT_DETERMINED
+                // Not granted. Use shouldShowRequestPermissionRationale when we have an Activity
+                // so we do not report "denied" users as "notDetermined" (fixes prompt-gating and analytics).
+                if (activity != null && ActivityCompat.shouldShowRequestPermissionRationale(activity, android.Manifest.permission.POST_NOTIFICATIONS)) {
+                    STATUS_DENIED
+                } else {
+                    STATUS_NOT_DETERMINED
+                }
             }
         }
     }
