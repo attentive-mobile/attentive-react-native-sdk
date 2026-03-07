@@ -6,7 +6,7 @@
     "android-pure": "cd android && ./gradlew app:installDebug -PreactNativeDevServerPort=8081 && adb shell am start -n com.attentive.bonni/com.bonni.MainActivity",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
-    "gen-apk": "cd android && ./gradlew assembleDebug && cd ..",
+    "gen-apk": "cd android && ./gradlew :app:assembleDebug --rerun-tasks && find app/build/outputs/apk -type f -name \"*.apk\" -print0 | xargs -0 ls -lt | head -n 5 && cd ..",
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",

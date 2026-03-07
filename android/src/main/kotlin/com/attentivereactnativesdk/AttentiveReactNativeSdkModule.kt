@@ -330,10 +330,13 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /**
      * Register the device token (FCM token) with the Attentive backend.
      *
-     * This method attempts to register the FCM push token with the Attentive SDK.
-     * Note: The exact API for push token registration may vary by SDK version.
+     * The Attentive Android SDK does not expose an API that accepts a token string; it registers
+     * by fetching the FCM token from Firebase and sending it to Attentive. When the app passes
+     * its own FCM token (e.g. from Firebase Messaging in JS), that token matches the one the SDK
+     * will fetch. This method therefore triggers [AttentiveSdk.updatePushPermissionStatus], which
+     * fetches the current FCM token and registers it with Attentive, so push targeting works.
      *
-     * @param token The FCM registration token from Firebase
+     * @param token The FCM registration token from Firebase (used for logging; registration uses SDK fetch)
      * @param authorizationStatus Push authorization status (used for consistency with iOS)
      */
     override fun registerDeviceToken(token: String, authorizationStatus: String) {
@@ -343,15 +346,22 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         Log.i(TAG, "   Authorization status: $authorizationStatus")
 
         try {
-            // Token registration with Attentive is also done via registerForPushNotifications() -> getPushTokenWithCallback.
-            // This method is for apps that obtain the FCM token elsewhere and pass it explicitly.
-            Log.i(TAG, "   FCM token received (preview): ${token.take(16)}...")
+            val application = reactApplicationContext.applicationContext
+            if (application == null) {
+                Log.w(TAG, "   Application context is null; cannot register push token with Attentive.")
+                return
+            }
+            // Forward registration to the Attentive SDK. It will fetch the FCM token (same as app-provided
+            // token when the app gets it from Firebase) and register it with the Attentive backend.
+            AttentiveSdk.updatePushPermissionStatus(application)
+            Log.i(TAG, "   Attentive SDK updatePushPermissionStatus invoked (token will be fetched and registered)")
 
             if (debugHelper.isDebuggingEnabled()) {
                 val debugData = mutableMapOf<String, Any>()
                 debugData["token_preview"] = "${token.take(16)}..."
                 debugData["token_length"] = token.length.toString()
                 debugData["authorization_status"] = authorizationStatus
+                debugData["registration_triggered"] = true
                 debugHelper.showDebugInfo("Device Token (Android)", debugData)
             }
         } catch (e: Exception) {
@@ -367,15 +377,17 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Register the device token with callback for network response tracking.
+     * Register the device token with callback for flow consistency with iOS.
      *
-     * Note: The Android SDK version 1.0.1 doesn't provide a callback mechanism for
-     * push token registration. This method logs the token and invokes the callback
-     * immediately for consistency with the iOS API.
+     * Triggers the same registration as [registerDeviceToken] via [AttentiveSdk.updatePushPermissionStatus].
+     * The Attentive Android SDK does not expose a registration API with a completion callback, so this
+     * callback is invoked after registration has been triggered (token is fetched by the SDK and sent
+     * to Attentive). Success here means the registration request was triggered, not that the backend
+     * responded successfully.
      *
      * @param token The FCM registration token
      * @param authorizationStatus Push authorization status
-     * @param callback Callback invoked after registration attempt
+     * @param callback Callback invoked after registration has been triggered
      */
     override fun registerDeviceTokenWithCallback(
         token: String,
@@ -387,18 +399,18 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         Log.i(TAG, "   Authorization status: $authorizationStatus")
 
         try {
-            // Register using the standard method (which logs the token)
+            // Trigger real registration (SDK fetches FCM token and registers with Attentive)
             registerDeviceToken(token, authorizationStatus)
 
-            // Invoke callback immediately with success response
+            // Callback is invoked after triggering registration; Android SDK does not provide backend result
             val responseData = mapOf(
                 "success" to true,
                 "token" to "${token.take(16)}...",
                 "platform" to "Android",
-                "sdk_version" to "2.1.1"
+                "sdk_version" to "2.1.1",
+                "registration_triggered" to true
             )
 
-            // Invoke callback with: data, url, response, error
             callback.invoke(
                 responseData, // data
                 null, // url (not available in Android SDK)
@@ -406,7 +418,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 null // error
             )
 
-            Log.i(TAG, "📥 [AttentiveSDK] Callback invoked with success response")
+            Log.i(TAG, "📥 [AttentiveSDK] Callback invoked after registration triggered")
 
             if (debugHelper.isDebuggingEnabled()) {
                 val debugData = mutableMapOf<String, Any>()
