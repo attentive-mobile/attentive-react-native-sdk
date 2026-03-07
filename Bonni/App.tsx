@@ -3,7 +3,7 @@
  * React Native example app demonstrating Attentive SDK integration
  */
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { StatusBar, Platform, AppState } from 'react-native'
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
@@ -53,6 +53,144 @@ function App(): React.JSX.Element {
   const navigationRef = useNavigationContainerRef<RootStackParamList>()
   // Initialize with transparent since Login is the initial route
   const [statusBarBackgroundColor, setStatusBarBackgroundColor] = useState<string>('transparent')
+  const appStateRef = useRef<string>(AppState.currentState)
+  const lastKnownAndroidAuthStatusRef = useRef<PushAuthorizationStatus | null>(null)
+  const androidPermissionPollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const hasTriggeredAndroidPostPromptRegistrationRef = useRef<boolean>(false)
+
+  const getIosAuthorizationStatus = useCallback((): Promise<PushAuthorizationStatus> => {
+    return new Promise((resolve) => {
+      PushNotificationIOS.checkPermissions(
+        (permissions) => {
+          if (permissions.alert || permissions.badge || permissions.sound) {
+            resolve('authorized')
+            return
+          }
+
+          // checkPermissions does not expose "notDetermined" vs "denied", keep the current
+          // app behavior and treat no enabled notification permissions as denied.
+          resolve('denied')
+        },
+      )
+    })
+  }, [])
+
+  const getCurrentAuthorizationStatus = useCallback(async (): Promise<PushAuthorizationStatus> => {
+    if (Platform.OS === 'ios') {
+      return getIosAuthorizationStatus()
+    }
+
+    try {
+      return await getPushAuthorizationStatus()
+    } catch (error) {
+      console.warn('[Attentive] getPushAuthorizationStatus failed:', error)
+      return 'authorized'
+    }
+  }, [getIosAuthorizationStatus])
+
+  const trackRegularOpen = useCallback(async () => {
+    const authStatus: PushAuthorizationStatus = await getCurrentAuthorizationStatus()
+    console.log('[Attentive] Calling handleRegularOpen for app open tracking')
+    console.log('   Authorization status:', authStatus)
+    handleRegularOpen(authStatus)
+  }, [getCurrentAuthorizationStatus])
+
+  const triggerAndroidPostPromptTokenRegistration = useCallback(() => {
+    if (hasTriggeredAndroidPostPromptRegistrationRef.current) {
+      return
+    }
+
+    hasTriggeredAndroidPostPromptRegistrationRef.current = true
+    console.log(
+      '[Attentive] Android push permission transitioned to authorized - re-registering token',
+    )
+    registerForPushNotifications()
+  }, [])
+
+  const clearAndroidPermissionPoll = useCallback(() => {
+    if (!androidPermissionPollIntervalRef.current) {
+      return
+    }
+
+    clearInterval(androidPermissionPollIntervalRef.current)
+    androidPermissionPollIntervalRef.current = null
+  }, [])
+
+  const watchAndroidPermissionPromptResolution = useCallback(async () => {
+    if (Platform.OS !== 'android') {
+      return
+    }
+    if (androidPermissionPollIntervalRef.current) {
+      return
+    }
+
+    const initialStatus: PushAuthorizationStatus = await getCurrentAuthorizationStatus()
+    if (initialStatus === 'authorized') {
+      return
+    }
+
+    console.log('[Attentive] Watching Android push permission result after prompt')
+    let attempts: number = 0
+    const MAX_ATTEMPTS: number = 30
+    const POLL_INTERVAL_MS: number = 500
+
+    androidPermissionPollIntervalRef.current = setInterval(() => {
+      attempts += 1
+
+      getCurrentAuthorizationStatus()
+        .then((currentStatus: PushAuthorizationStatus) => {
+          lastKnownAndroidAuthStatusRef.current = currentStatus
+
+          if (currentStatus === 'authorized') {
+            clearAndroidPermissionPoll()
+            triggerAndroidPostPromptTokenRegistration()
+            return
+          }
+
+          if (attempts >= MAX_ATTEMPTS) {
+            console.log('[Attentive] Android permission watch timed out without authorization')
+            clearAndroidPermissionPoll()
+          }
+        })
+        .catch((error) => {
+          console.error('[Attentive] Android permission watch failed:', error)
+          if (attempts >= MAX_ATTEMPTS) {
+            clearAndroidPermissionPoll()
+          }
+        })
+    }, POLL_INTERVAL_MS)
+  }, [
+    clearAndroidPermissionPoll,
+    getCurrentAuthorizationStatus,
+    triggerAndroidPostPromptTokenRegistration,
+  ])
+
+  const registerPushAndTrackRegularOpen = useCallback(async () => {
+    if (Platform.OS === 'ios') {
+      console.log('📱 [Attentive] Checking for existing device token before requesting permissions')
+      PushNotificationIOS.checkPermissions((permissions) => {
+        console.log('🔍 [Attentive] Current permissions:', permissions)
+
+        if (permissions.alert || permissions.badge || permissions.sound) {
+          console.log('✅ [Attentive] Permissions already granted, attempting to get token')
+          PushNotificationIOS.requestPermissions()
+          return
+        }
+
+        console.log('ℹ️ [Attentive] No permissions yet, will request now')
+        console.log('🔐 [Attentive] Requesting push notification permissions')
+        PushNotificationIOS.requestPermissions()
+      })
+      return
+    }
+
+    console.log('📱 [Attentive] Registering Android push token via native SDK')
+    const currentAuthStatus: PushAuthorizationStatus = await getCurrentAuthorizationStatus()
+    lastKnownAndroidAuthStatusRef.current = currentAuthStatus
+    registerForPushNotifications()
+    await watchAndroidPermissionPromptResolution()
+    console.log('✅ [Attentive] Android push setup complete')
+  }, [getCurrentAuthorizationStatus, watchAndroidPermissionPromptResolution])
 
   useEffect(() => {
     console.log('🚀 [Attentive] App.tsx useEffect - Starting initialization')
@@ -85,13 +223,11 @@ function App(): React.JSX.Element {
     // Defer first app open event so native SDK has time to apply identity and send to mobile.attentivemobile.com.
     // Without this delay, handleRegularOpen can run before identify() is processed and no request may be sent.
     const INITIAL_APP_OPEN_DELAY_MS = 300
-    const initialAuthStatus: PushAuthorizationStatus =
-      Platform.OS === 'ios' ? 'notDetermined' : 'authorized'
     console.log('⏳ [Attentive] Scheduling initial handleRegularOpen in', INITIAL_APP_OPEN_DELAY_MS, 'ms')
-    const initialOpenTimer = setTimeout(() => {
+    const initialOpenTimer = setTimeout(async () => {
       console.log('🌉 [Attentive] Triggering initial handleRegularOpen (app open / mtctrl)')
       try {
-        handleRegularOpen(initialAuthStatus)
+        await trackRegularOpen()
         console.log('✅ [Attentive] Initial handleRegularOpen completed')
         console.log('   Check proxy for requests to mobile.attentivemobile.com (mtctrl, push registration)')
       } catch (error) {
@@ -110,34 +246,15 @@ function App(): React.JSX.Element {
       // Request permissions after a delay so the initial handleRegularOpen (above) can complete first
       console.log('⏳ [Attentive] Waiting 500ms before requesting permissions')
       setTimeout(() => {
-        console.log('📱 [Attentive] Checking for existing device token before requesting permissions')
-        PushNotificationIOS.checkPermissions((permissions) => {
-          console.log('🔍 [Attentive] Current permissions:', permissions)
-
-          // If we already have permissions, try to get the token
-          if (permissions.alert || permissions.badge || permissions.sound) {
-            console.log('✅ [Attentive] Permissions already granted, attempting to get token')
-            PushNotificationIOS.requestPermissions()
-          } else {
-            console.log('ℹ️ [Attentive] No permissions yet, will request now')
-            console.log('🔐 [Attentive] Requesting push notification permissions')
-            PushNotificationIOS.requestPermissions()
-          }
+        registerPushAndTrackRegularOpen().catch((error) => {
+          console.error('❌ [Attentive] iOS push registration flow failed:', error)
         })
       }, 500)
     } else if (Platform.OS === 'android') {
       console.log('📱 [Attentive] Setting up push notifications for Android')
-
-      getPushAuthorizationStatus()
-        .then((authStatus: PushAuthorizationStatus) => {
-          console.log('📱 [Attentive] Android push auth status:', authStatus)
-        })
-        .catch((err) => {
-          console.warn('[Attentive] getPushAuthorizationStatus failed:', err)
-        })
-
-      registerForPushNotifications()
-      console.log('✅ [Attentive] Android push setup complete')
+      registerPushAndTrackRegularOpen().catch((error) => {
+        console.error('❌ [Attentive] Android push registration flow failed:', error)
+      })
     }
 
     // Setup app state listener to track app opens
@@ -147,48 +264,39 @@ function App(): React.JSX.Element {
       'change',
       (nextAppState: string) => {
         console.log('[Attentive] AppState changed to:', nextAppState)
+        const previousAppState: string = appStateRef.current
+        appStateRef.current = nextAppState
 
-        // When app becomes active (comes to foreground), track as app open
-        if (nextAppState === 'active') {
-          if (Platform.OS === 'ios') {
-            console.log(
-              '[Attentive] App became active - tracking app open event',
-            )
+        // Track regular app open only on real foreground transitions, not initial launch.
+        if (
+          nextAppState === 'active' &&
+          (previousAppState === 'background' || previousAppState === 'inactive')
+        ) {
+          console.log('[Attentive] App became active - tracking app open event')
+          trackRegularOpen().catch((error) => {
+            console.error('❌ [Attentive] AppState regular open tracking failed:', error)
+          })
 
-            // Get the current authorization status and trigger handleRegularOpen
-            PushNotificationIOS.checkPermissions(
-              (permissions: {alert: boolean; badge: any; sound: any}) => {
-                let authStatus: PushAuthorizationStatus = 'notDetermined'
+          // Re-register push token only when Android permission just transitioned to authorized.
+          if (Platform.OS === 'android') {
+            getCurrentAuthorizationStatus()
+              .then((currentAuthStatus: PushAuthorizationStatus) => {
+                const previousAuthStatus: PushAuthorizationStatus | null =
+                  lastKnownAndroidAuthStatusRef.current
+                lastKnownAndroidAuthStatusRef.current = currentAuthStatus
+
                 if (
-                  permissions.alert ||
-                  permissions.badge ||
-                  permissions.sound
+                  previousAuthStatus !== 'authorized' &&
+                  currentAuthStatus === 'authorized'
                 ) {
-                  authStatus = 'authorized'
-                } else if (!permissions.alert) {
-                  authStatus = 'denied'
+                  triggerAndroidPostPromptTokenRegistration()
                 }
-
-                console.log(
-                  '[Attentive] Calling handleRegularOpen for app open tracking',
-                )
-                console.log('   Authorization status:', authStatus)
-                handleRegularOpen(authStatus)
-              },
-            )
-          } else if (Platform.OS === 'android') {
-            console.log(
-              '[Attentive] App became active on Android - tracking app open event',
-            )
-            // Use SDK's native getPushAuthorizationStatus (POST_NOTIFICATIONS on API 33+)
-            getPushAuthorizationStatus()
-              .then((authStatus: PushAuthorizationStatus) => {
-                console.log('[Attentive] Calling handleRegularOpen for app open (Android), status:', authStatus)
-                handleRegularOpen(authStatus)
               })
-              .catch((err) => {
-                console.warn('[Attentive] getPushAuthorizationStatus failed:', err)
-                handleRegularOpen('authorized')
+              .catch((error) => {
+                console.error(
+                  '❌ [Attentive] Failed to refresh Android push auth status on foreground:',
+                  error,
+                )
               })
           }
         }
@@ -197,6 +305,7 @@ function App(): React.JSX.Element {
 
     return () => {
       clearTimeout(initialOpenTimer)
+      clearAndroidPermissionPoll()
       if (Platform.OS === 'ios') {
         PushNotificationIOS.removeEventListener('register')
         PushNotificationIOS.removeEventListener('registrationError')
