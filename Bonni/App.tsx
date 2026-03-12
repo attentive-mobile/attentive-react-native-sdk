@@ -278,11 +278,24 @@ function App(): React.JSX.Element {
 
     // Android: listen for foreground push events emitted by AttentiveFirebaseMessagingService
     // and background-tap events emitted by MainActivity.onNewIntent.
+    let androidDeviceTokenSubscription: { remove: () => void } | null = null
     let androidForegroundPushSubscription: { remove: () => void } | null = null
     let androidPushOpenedSubscription: { remove: () => void } | null = null
 
     if (Platform.OS === 'android') {
       const attentiveEmitter = new NativeEventEmitter(NativeModules.AttentiveReactNativeSdk)
+
+      // Persist the FCM token so the Settings screen can display and copy it,
+      // mirroring the iOS flow where APNs delivers the token via the 'register' event.
+      androidDeviceTokenSubscription = attentiveEmitter.addListener(
+        'AttentiveDeviceToken',
+        (token: string) => {
+          console.log('🎫 [Attentive] Android FCM token received:', token.substring(0, 16) + '...')
+          AsyncStorage.setItem('deviceToken', token)
+            .then(() => console.log('✅ [Attentive] Android device token stored in AsyncStorage'))
+            .catch((err) => console.error('❌ [Attentive] Failed to store Android device token:', err))
+        },
+      )
 
       androidForegroundPushSubscription = attentiveEmitter.addListener(
         'AttentiveForegroundPush',
@@ -366,6 +379,7 @@ function App(): React.JSX.Element {
         PushNotificationIOS.removeEventListener('notification')
         PushNotificationIOS.removeEventListener('localNotification')
       }
+      androidDeviceTokenSubscription?.remove()
       androidForegroundPushSubscription?.remove()
       androidPushOpenedSubscription?.remove()
       appStateSubscription.remove()

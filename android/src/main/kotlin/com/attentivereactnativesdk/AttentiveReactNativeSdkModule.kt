@@ -27,6 +27,7 @@ import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.Callback
+import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.attentivereactnativesdk.debug.AttentiveDebugHelper
 import java.math.BigDecimal
 import java.security.InvalidParameterException
@@ -289,6 +290,18 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 UiThreadUtil.runOnUiThread {
                     val token = result.token
                     Log.i(TAG, "🎫 [AttentiveSDK] Push token fetched successfully (preview): ${token.take(16)}...")
+
+                    // Emit the token to JS so the app can store it (e.g. for display in Settings)
+                    // and mirror the iOS behavior where APNs delivers the token via a "register" event.
+                    try {
+                        reactApplicationContext
+                            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                            .emit("AttentiveDeviceToken", token)
+                        Log.i(TAG, "📡 [AttentiveSDK] AttentiveDeviceToken event emitted to JS")
+                    } catch (e: Exception) {
+                        Log.w(TAG, "⚠️  [AttentiveSDK] Could not emit AttentiveDeviceToken event: ${e.message}")
+                    }
+
                     if (debugHelper.isDebuggingEnabled()) {
                         val debugData = mutableMapOf<String, Any>()
                         debugData["platform"] = "Android"
@@ -733,6 +746,22 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             Log.e(TAG, "getInitialPushNotification: error — ${e.message}", e)
             promise.reject("INITIAL_PUSH_ERROR", "Failed to retrieve initial push notification: ${e.message}", e)
         }
+    }
+
+    // ==========================================================================
+    // MARK: - NativeEventEmitter support
+    // ==========================================================================
+    // These stubs are required by React Native's NativeEventEmitter on the old
+    // architecture. Without them the bridge logs a warning about missing methods.
+
+    @ReactMethod
+    fun addListener(eventName: String) {
+        // No-op: listener bookkeeping is handled by the JS NativeEventEmitter.
+    }
+
+    @ReactMethod
+    fun removeListeners(count: Double) {
+        // No-op: listener bookkeeping is handled by the JS NativeEventEmitter.
     }
 
     private fun convertToStringMap(inputMap: Map<String, Any?>): Map<String, String> {
