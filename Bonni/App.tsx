@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import { StatusBar, Platform, AppState } from 'react-native'
+import { StatusBar, Platform, AppState, NativeEventEmitter, NativeModules } from 'react-native'
 import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native'
 import { createNativeStackNavigator } from '@react-navigation/native-stack'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
@@ -17,8 +17,10 @@ import {
   handlePushOpen,
   getPushAuthorizationStatus,
   registerForPushNotifications,
+  getInitialPushNotification,
   type AttentiveSdkConfiguration,
   type PushAuthorizationStatus,
+  type PushNotificationUserInfo,
 } from '../src'
 import PushNotificationIOS, { PushNotification } from '@react-native-community/push-notification-ios'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -255,6 +257,58 @@ function App(): React.JSX.Element {
       registerPushAndTrackRegularOpen().catch((error) => {
         console.error('❌ [Attentive] Android push registration flow failed:', error)
       })
+
+      // Check for initial notification (app was launched from a push tap while killed).
+      // AttentiveFirebaseMessagingService stores the payload via AttentiveNotificationStore
+      // before RN is ready; we retrieve and clear it here after the bridge is fully loaded.
+      getInitialPushNotification()
+        .then((initialNotification) => {
+          if (initialNotification) {
+            console.log('🔔 [Attentive] App launched from killed-state push tap:', initialNotification)
+            getPushAuthorizationStatus()
+              .then((authStatus: PushAuthorizationStatus) => {
+                handlePushOpen(initialNotification as PushNotificationUserInfo, authStatus)
+                console.log('✅ [Attentive] handlePushOpen reported for killed-state tap')
+              })
+              .catch((err) => console.error('❌ [Attentive] Failed to get auth status for initial push:', err))
+          }
+        })
+        .catch((err) => console.error('❌ [Attentive] getInitialPushNotification failed:', err))
+    }
+
+    // Android: listen for foreground push events emitted by AttentiveFirebaseMessagingService
+    // and background-tap events emitted by MainActivity.onNewIntent.
+    let androidForegroundPushSubscription: { remove: () => void } | null = null
+    let androidPushOpenedSubscription: { remove: () => void } | null = null
+
+    if (Platform.OS === 'android') {
+      const attentiveEmitter = new NativeEventEmitter(NativeModules.AttentiveReactNativeSdk)
+
+      androidForegroundPushSubscription = attentiveEmitter.addListener(
+        'AttentiveForegroundPush',
+        (payload: Record<string, string>) => {
+          console.log('📩 [Attentive] Foreground push received (Android):', payload)
+          getPushAuthorizationStatus()
+            .then((authStatus: PushAuthorizationStatus) => {
+              handleForegroundPush(payload as PushNotificationUserInfo, authStatus)
+              console.log('✅ [Attentive] handleForegroundPush reported for Android foreground push')
+            })
+            .catch((err) => console.error('❌ [Attentive] Failed to get auth status for foreground push:', err))
+        },
+      )
+
+      androidPushOpenedSubscription = attentiveEmitter.addListener(
+        'AttentivePushOpened',
+        (payload: Record<string, string>) => {
+          console.log('🔔 [Attentive] Push opened from background (Android):', payload)
+          getPushAuthorizationStatus()
+            .then((authStatus: PushAuthorizationStatus) => {
+              handlePushOpen(payload as PushNotificationUserInfo, authStatus)
+              console.log('✅ [Attentive] handlePushOpen reported for Android background tap')
+            })
+            .catch((err) => console.error('❌ [Attentive] Failed to get auth status for push-open:', err))
+        },
+      )
     }
 
     // Setup app state listener to track app opens
@@ -312,6 +366,8 @@ function App(): React.JSX.Element {
         PushNotificationIOS.removeEventListener('notification')
         PushNotificationIOS.removeEventListener('localNotification')
       }
+      androidForegroundPushSubscription?.remove()
+      androidPushOpenedSubscription?.remove()
       appStateSubscription.remove()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

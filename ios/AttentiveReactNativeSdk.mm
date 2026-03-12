@@ -313,6 +313,19 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
    authorizationStatus:(NSString *)authorizationStatus {
     [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
 }
+
+/**
+ * iOS stub for getInitialPushNotification.
+ *
+ * On iOS, the killed-state push-open event is tracked natively in
+ * AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:) via
+ * AttentiveSDKManager.shared, so there is no pending payload to return here.
+ * Resolves with nil so callers on both platforms can share the same code path.
+ */
+- (void)getInitialPushNotification:(RCTPromiseResolveBlock)resolve
+                             reject:(RCTPromiseRejectBlock)reject {
+    resolve(nil);
+}
 #endif
 
 

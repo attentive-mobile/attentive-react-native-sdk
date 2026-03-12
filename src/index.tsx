@@ -461,6 +461,35 @@ function handlePushOpen(
   )
 }
 
+/**
+ * Returns the push notification payload that launched the app from a killed state
+ * (i.e. the user tapped an FCM notification while the app was not running) and clears
+ * it so it is only delivered once.
+ *
+ * **Android only.** On iOS, use `PushNotificationIOS.getInitialNotification()` to
+ * achieve the same result — the Attentive iOS SDK event is tracked natively in
+ * `AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)` via
+ * `AttentiveSDKManager.shared`.
+ *
+ * Call this once at app startup (after `initialize()`) to detect and handle the
+ * killed-state push-open scenario:
+ *
+ * ```typescript
+ * const initial = await getInitialPushNotification()
+ * if (initial) {
+ *   const authStatus = await getPushAuthorizationStatus()
+ *   handlePushOpen(initial as PushNotificationUserInfo, authStatus)
+ * }
+ * ```
+ *
+ * @returns A promise that resolves to the notification data object, or `null` if the
+ *          app was not launched via a push notification tap.
+ */
+async function getInitialPushNotification(): Promise<Record<string, string> | null> {
+  const result = await AttentiveReactNativeSdk.getInitialPushNotification()
+  return result as Record<string, string> | null
+}
+
 export {
   initialize,
   triggerCreative,
@@ -484,6 +513,7 @@ export {
   handleForegroundNotification,
   handleForegroundPush,
   handlePushOpen,
+  getInitialPushNotification,
 }
 
 export type {

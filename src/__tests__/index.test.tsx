@@ -1,39 +1,48 @@
-// Mock the NativeAttentiveReactNativeSdk module
-const mockNativeModule = {
-  initialize: jest.fn(),
-  identify: jest.fn(),
-  clearUser: jest.fn(),
-  triggerCreative: jest.fn(),
-  destroyCreative: jest.fn(),
-  updateDomain: jest.fn(),
-  recordProductViewEvent: jest.fn(),
-  recordAddToCartEvent: jest.fn(),
-  recordPurchaseEvent: jest.fn(),
-  recordCustomEvent: jest.fn(),
-  invokeAttentiveDebugHelper: jest.fn(),
-  exportDebugLogs: jest.fn().mockResolvedValue('debug logs'),
-  // Push Notification Methods
-  registerForPushNotifications: jest.fn(),
-  getPushAuthorizationStatus: jest.fn().mockResolvedValue('authorized'),
-  registerDeviceToken: jest.fn(),
-  registerDeviceTokenWithCallback: jest.fn(),
-  handleRegularOpen: jest.fn(),
-  handlePushOpened: jest.fn(),
-  handleForegroundNotification: jest.fn(),
-  handleForegroundPush: jest.fn(),
-  handlePushOpen: jest.fn(),
-};
-
-jest.mock('../NativeAttentiveReactNativeSdk', () => ({
-  __esModule: true,
-  default: mockNativeModule,
-}));
-
+// jest.mock factories are hoisted above all other module-level code by jest's babel transform.
+// Any const/let declared outside the factory would be in the TDZ when the factory first runs.
+// Therefore the entire mock object is defined INSIDE the factory, and we retrieve a reference
+// to it afterwards via jest.requireMock() so tests can assert on individual jest.fn() calls.
 jest.mock('react-native', () => ({
   Platform: {
-    select: jest.fn(),
+    OS: 'ios',
+    select: (options: Record<string, unknown>) => options.ios ?? options.default,
+  },
+  // NativeAttentiveReactNativeSdk.ts falls back to NativeModules when __turboModuleProxy
+  // is absent (the case in a Jest environment with no TurboModule support).
+  NativeModules: {
+    AttentiveReactNativeSdk: {
+      initialize: jest.fn(),
+      identify: jest.fn(),
+      clearUser: jest.fn(),
+      triggerCreative: jest.fn(),
+      destroyCreative: jest.fn(),
+      updateDomain: jest.fn(),
+      recordProductViewEvent: jest.fn(),
+      recordAddToCartEvent: jest.fn(),
+      recordPurchaseEvent: jest.fn(),
+      recordCustomEvent: jest.fn(),
+      invokeAttentiveDebugHelper: jest.fn(),
+      exportDebugLogs: jest.fn().mockResolvedValue('debug logs'),
+      registerForPushNotifications: jest.fn(),
+      getPushAuthorizationStatus: jest.fn().mockResolvedValue('authorized'),
+      registerDeviceToken: jest.fn(),
+      registerDeviceTokenWithCallback: jest.fn(),
+      handleRegularOpen: jest.fn(),
+      handlePushOpened: jest.fn(),
+      handleForegroundNotification: jest.fn(),
+      handleForegroundPush: jest.fn(),
+      handlePushOpen: jest.fn(),
+      getInitialPushNotification: jest.fn().mockResolvedValue(null),
+    },
+  },
+  TurboModuleRegistry: {
+    get: () => null,
   },
 }));
+
+// Retrieve a stable reference to the mock after jest.mock is evaluated.
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const mockNativeModule = require('react-native').NativeModules.AttentiveReactNativeSdk;
 
 import {
   initialize,
@@ -58,6 +67,7 @@ import {
   handleForegroundNotification,
   handleForegroundPush,
   handlePushOpen,
+  getInitialPushNotification,
 } from '../index';
 import type { AttentiveSdkConfiguration } from '../index';
 
@@ -302,6 +312,56 @@ describe('Attentive SDK', () => {
       handleRegularOpen('authorized');
 
       expect(mockNativeModule.handleRegularOpen).toHaveBeenCalledWith('authorized');
+    });
+
+    it('should call handleForegroundPush with userInfo and authorizationStatus', () => {
+      const userInfo = { messageId: 'msg-1', title: 'Summer Sale', body: '20% off today' };
+
+      handleForegroundPush(userInfo, 'authorized');
+
+      expect(mockNativeModule.handleForegroundPush).toHaveBeenCalledWith(userInfo, 'authorized');
+    });
+
+    it('should call handlePushOpen with userInfo and authorizationStatus', () => {
+      const userInfo = { messageId: 'msg-2', title: 'New arrivals', body: 'Check them out' };
+
+      handlePushOpen(userInfo, 'authorized');
+
+      expect(mockNativeModule.handlePushOpen).toHaveBeenCalledWith(userInfo, 'authorized');
+    });
+
+    describe('getInitialPushNotification', () => {
+      it('should return null when no initial notification is pending', async () => {
+        mockNativeModule.getInitialPushNotification.mockResolvedValueOnce(null);
+
+        const result = await getInitialPushNotification();
+
+        expect(mockNativeModule.getInitialPushNotification).toHaveBeenCalledTimes(1);
+        expect(result).toBeNull();
+      });
+
+      it('should return the stored notification payload when app was launched from a push tap', async () => {
+        const expectedPayload = {
+          messageId: 'fcm-123',
+          title: 'Flash Sale',
+          body: '40% off for 2 hours',
+          campaignId: 'camp-456',
+        };
+        mockNativeModule.getInitialPushNotification.mockResolvedValueOnce(expectedPayload);
+
+        const result = await getInitialPushNotification();
+
+        expect(mockNativeModule.getInitialPushNotification).toHaveBeenCalledTimes(1);
+        expect(result).toEqual(expectedPayload);
+      });
+
+      it('should propagate native module rejections as errors', async () => {
+        mockNativeModule.getInitialPushNotification.mockRejectedValueOnce(
+          new Error('INITIAL_PUSH_ERROR'),
+        );
+
+        await expect(getInitialPushNotification()).rejects.toThrow('INITIAL_PUSH_ERROR');
+      });
     });
   });
 });

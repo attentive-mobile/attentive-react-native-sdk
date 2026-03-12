@@ -148,6 +148,18 @@ export interface Spec extends TurboModule {
    * @param authorizationStatus - Current push authorization status
    */
   handlePushOpen: (userInfo: Object, authorizationStatus: string) => void
+
+  /**
+   * Returns the push notification payload that launched the app from a killed state
+   * (i.e. the user tapped a notification when the app was not running), then clears it
+   * so it is only delivered once.
+   *
+   * Android only — on iOS use `PushNotificationIOS.getInitialNotification()` instead.
+   *
+   * @returns Promise resolving to a notification data map, or null if the app was not
+   *          launched from a push notification tap.
+   */
+  getInitialPushNotification: () => Promise<Object | null>
 }
 
 // Try to load via TurboModule first (new architecture)

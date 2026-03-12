@@ -19,6 +19,7 @@ import com.attentive.androidsdk.events.Price
 import com.attentive.androidsdk.events.ProductViewEvent
 import com.attentive.androidsdk.events.PurchaseEvent
 import com.attentive.androidsdk.push.TokenFetchResult
+import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
@@ -699,6 +700,39 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         // Route to handleForegroundPush with a default authorization status
         // Note: Authorization status is less relevant on Android than iOS
         handleForegroundPush(userInfo, "authorized")
+    }
+
+    /**
+     * Returns the push notification payload that launched the app from a killed state
+     * (i.e. the user tapped a notification while the app was not running) and clears it
+     * so it is only delivered once.
+     *
+     * The host app's `MainActivity.onCreate` is responsible for storing the payload in
+     * [AttentiveNotificationStore] when a push-tap Intent is detected before the React
+     * Native bridge is ready.
+     *
+     * Returns a [Promise] that resolves to a `ReadableMap` containing the notification data,
+     * or `null` if the app was not launched from a push notification tap.
+     *
+     * @param promise Promise to resolve with the notification payload map or null.
+     */
+    override fun getInitialPushNotification(promise: Promise) {
+        try {
+            val payload = AttentiveNotificationStore.getAndClear()
+            if (payload == null) {
+                Log.d(TAG, "getInitialPushNotification: no pending initial notification")
+                promise.resolve(null)
+                return
+            }
+
+            Log.i(TAG, "getInitialPushNotification: returning stored notification with keys=${payload.keys}")
+            val result = Arguments.createMap()
+            payload.forEach { (key, value) -> result.putString(key, value) }
+            promise.resolve(result)
+        } catch (e: Exception) {
+            Log.e(TAG, "getInitialPushNotification: error — ${e.message}", e)
+            promise.reject("INITIAL_PUSH_ERROR", "Failed to retrieve initial push notification: ${e.message}", e)
+        }
     }
 
     private fun convertToStringMap(inputMap: Map<String, Any?>): Map<String, String> {
