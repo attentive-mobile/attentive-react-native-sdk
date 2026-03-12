@@ -82,10 +82,10 @@ class MainActivity : ReactActivity() {
      *
      * @param intent The new Intent delivered to the activity.
      */
-    override fun onNewIntent(intent: Intent?) {
+    override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent: checking for push notification intent")
-        intent?.let { handleNotificationIntent(it, isInitialLaunch = false) }
+        handleNotificationIntent(intent, isInitialLaunch = false)
     }
 
     // -------------------------------------------------------------------------
@@ -150,7 +150,7 @@ class MainActivity : ReactActivity() {
 
         val payload = mutableMapOf<String, String>()
         for (key in extras.keySet()) {
-            val value = extras.getString(key) ?: extras.get(key)?.toString() ?: continue
+            val value = extras.getString(key) ?: extras.getCharSequence(key)?.toString() ?: continue
             payload[key] = value
         }
 

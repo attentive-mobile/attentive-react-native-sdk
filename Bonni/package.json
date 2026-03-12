@@ -11,7 +11,7 @@
     "start": "react-native start",
     "test": "jest",
     "pods": "./install-pods.sh",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package && node node_modules/.bin/rnc-cli config > android/autolinking.json"
   },
   "dependencies": {
     "@attentive-mobile/attentive-react-native-sdk": "file:..",
