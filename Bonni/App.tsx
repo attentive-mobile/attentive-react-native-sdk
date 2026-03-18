@@ -201,7 +201,7 @@ function App(): React.JSX.Element {
     // Initialize the Attentive SDK
     const config: AttentiveSdkConfiguration = {
       attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
-      mode: 'production',
+      mode: 'debug',
       enableDebugger: true,
     }
     console.log('📦 [Attentive] Initializing SDK with config:', config)
@@ -218,7 +218,7 @@ function App(): React.JSX.Element {
       clientUserId: 'APP_USER_ID',
       shopifyId: '207119551',
       klaviyoId: '555555',
-      customIdentifiers: { customId: 'customIdValue' },
+      customIdentifiers: { customId: 'customIdValue' }, 
     })
     console.log('✅ [Attentive] User identified')
 
@@ -261,19 +261,19 @@ function App(): React.JSX.Element {
       // Check for initial notification (app was launched from a push tap while killed).
       // AttentiveFirebaseMessagingService stores the payload via AttentiveNotificationStore
       // before RN is ready; we retrieve and clear it here after the bridge is fully loaded.
-      getInitialPushNotification()
-        .then((initialNotification) => {
-          if (initialNotification) {
-            console.log('🔔 [Attentive] App launched from killed-state push tap:', initialNotification)
-            getPushAuthorizationStatus()
-              .then((authStatus: PushAuthorizationStatus) => {
-                handlePushOpen(initialNotification as PushNotificationUserInfo, authStatus)
-                console.log('✅ [Attentive] handlePushOpen reported for killed-state tap')
-              })
-              .catch((err) => console.error('❌ [Attentive] Failed to get auth status for initial push:', err))
-          }
-        })
-        .catch((err) => console.error('❌ [Attentive] getInitialPushNotification failed:', err))
+      // getInitialPushNotification()
+      //   .then((initialNotification) => {
+      //     if (initialNotification) {
+      //       console.log('🔔 [Attentive] App launched from killed-state push tap:', initialNotification)
+      //       getPushAuthorizationStatus()
+      //         .then((authStatus: PushAuthorizationStatus) => {
+      //           handlePushOpen(initialNotification as PushNotificationUserInfo, authStatus)
+      //           console.log('✅ [Attentive] handlePushOpen reported for killed-state tap')
+      //         })
+      //         .catch((err) => console.error('❌ [Attentive] Failed to get auth status for initial push:', err))
+      //     }
+      //   })
+      //   .catch((err) => console.error('❌ [Attentive] getInitialPushNotification failed:', err))
     }
 
     // Android: listen for foreground push events emitted by AttentiveFirebaseMessagingService
@@ -304,7 +304,7 @@ function App(): React.JSX.Element {
           getPushAuthorizationStatus()
             .then((authStatus: PushAuthorizationStatus) => {
               handleForegroundPush(payload as PushNotificationUserInfo, authStatus)
-              console.log('✅ [Attentive] handleForegroundPush reported for Android foreground push')
+              console.log('✅ [Attentive] handleForegroundPush reported for Android foreground push with payload:', payload)
             })
             .catch((err) => console.error('❌ [Attentive] Failed to get auth status for foreground push:', err))
         },

@@ -31,11 +31,11 @@
         FCM service that may be auto-registered by included SDKs.
       -->
       <service
-        android:name=".AttentiveFirebaseMessagingService"
-        android:exported="false">
-        <intent-filter android:priority="2147483647">
-          <action android:name="com.google.firebase.MESSAGING_EVENT" />
-        </intent-filter>
+          android:name="com.attentive.androidsdk.push.AttentiveFirebaseMessagingService"
+          android:exported="false">
+          <intent-filter>
+              <action android:name="com.google.firebase.MESSAGING_EVENT" />
+          </intent-filter>
       </service>
     </application>
 </manifest>

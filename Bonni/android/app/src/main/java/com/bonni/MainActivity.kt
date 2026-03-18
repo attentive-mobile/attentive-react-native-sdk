@@ -68,7 +68,7 @@ class MainActivity : ReactActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate: checking for initial push notification intent")
-        handleNotificationIntent(intent, isInitialLaunch = true)
+        // handleNotificationIntent(intent, isInitialLaunch = true)
     }
 
     /**
