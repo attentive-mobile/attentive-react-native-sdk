@@ -85,7 +85,7 @@ class MainActivity : ReactActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent: checking for push notification intent")
-        handleNotificationIntent(intent, isInitialLaunch = false)
+        // handleNotificationIntent(intent, isInitialLaunch = false)
     }
 
     // -------------------------------------------------------------------------
