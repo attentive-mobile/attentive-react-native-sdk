@@ -257,23 +257,6 @@ function App(): React.JSX.Element {
       registerPushAndTrackRegularOpen().catch((error) => {
         console.error('❌ [Attentive] Android push registration flow failed:', error)
       })
-
-      // Check for initial notification (app was launched from a push tap while killed).
-      // AttentiveFirebaseMessagingService stores the payload via AttentiveNotificationStore
-      // before RN is ready; we retrieve and clear it here after the bridge is fully loaded.
-      // getInitialPushNotification()
-      //   .then((initialNotification) => {
-      //     if (initialNotification) {
-      //       console.log('🔔 [Attentive] App launched from killed-state push tap:', initialNotification)
-      //       getPushAuthorizationStatus()
-      //         .then((authStatus: PushAuthorizationStatus) => {
-      //           handlePushOpen(initialNotification as PushNotificationUserInfo, authStatus)
-      //           console.log('✅ [Attentive] handlePushOpen reported for killed-state tap')
-      //         })
-      //         .catch((err) => console.error('❌ [Attentive] Failed to get auth status for initial push:', err))
-      //     }
-      //   })
-      //   .catch((err) => console.error('❌ [Attentive] getInitialPushNotification failed:', err))
     }
 
     // Android: listen for foreground push events emitted by AttentiveFirebaseMessagingService
