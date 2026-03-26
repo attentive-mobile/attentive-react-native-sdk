@@ -22,7 +22,8 @@
 RCT_EXPORT_MODULE()
 
 #ifdef RCT_NEW_ARCH_ENABLED
-// New Architecture implementation with flattened parameters
+// New Architecture implementation with flattened parameters.
+// Initialize is invoked only from TypeScript (e.g. Bonni App); native must not auto-initialize.
 - (void)initialize:(NSString *)attentiveDomain
               mode:(NSString *)mode
 skipFatigueOnCreatives:(BOOL)skipFatigueOnCreatives
@@ -181,27 +182,6 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
 }
 
-// Helper method to convert string to UNAuthorizationStatus
-- (UNAuthorizationStatus)authorizationStatusFromString:(NSString *)statusString {
-    if ([statusString isEqualToString:@"authorized"]) {
-        return UNAuthorizationStatusAuthorized;
-    } else if ([statusString isEqualToString:@"denied"]) {
-        return UNAuthorizationStatusDenied;
-    } else if ([statusString isEqualToString:@"notDetermined"]) {
-        return UNAuthorizationStatusNotDetermined;
-    } else if ([statusString isEqualToString:@"provisional"]) {
-        if (@available(iOS 12.0, *)) {
-            return UNAuthorizationStatusProvisional;
-        }
-        return UNAuthorizationStatusNotDetermined;
-    } else if ([statusString isEqualToString:@"ephemeral"]) {
-        if (@available(iOS 14.0, *)) {
-            return UNAuthorizationStatusEphemeral;
-        }
-        return UNAuthorizationStatusNotDetermined;
-    }
-    return UNAuthorizationStatusNotDetermined;
-}
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
@@ -210,7 +190,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 #else
-// Old Architecture implementation with dictionary parameters
+// Old Architecture implementation with dictionary parameters.
+// Initialize is invoked only from TypeScript (e.g. Bonni App); native must not auto-initialize.
 - (void)initialize:(NSDictionary*)configuration {
     _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"]
                                             mode:configuration[@"mode"]
@@ -332,7 +313,74 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
    authorizationStatus:(NSString *)authorizationStatus {
     [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
 }
+
+/**
+ * iOS stub for getInitialPushNotification.
+ *
+ * On iOS, the killed-state push-open event is tracked natively in
+ * AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:) via
+ * AttentiveSDKManager.shared, so there is no pending payload to return here.
+ * Resolves with nil so callers on both platforms can share the same code path.
+ */
+- (void)getInitialPushNotification:(RCTPromiseResolveBlock)resolve
+                             reject:(RCTPromiseRejectBlock)reject {
+    resolve(nil);
+}
 #endif
+
+
+// Helper method to convert string to UNAuthorizationStatus
+- (UNAuthorizationStatus)authorizationStatusFromString:(NSString *)statusString {
+    if ([statusString isEqualToString:@"authorized"]) {
+        return UNAuthorizationStatusAuthorized;
+    } else if ([statusString isEqualToString:@"denied"]) {
+        return UNAuthorizationStatusDenied;
+    } else if ([statusString isEqualToString:@"notDetermined"]) {
+        return UNAuthorizationStatusNotDetermined;
+    } else if ([statusString isEqualToString:@"provisional"]) {
+        if (@available(iOS 12.0, *)) {
+            return UNAuthorizationStatusProvisional;
+        }
+        return UNAuthorizationStatusNotDetermined;
+    } else if ([statusString isEqualToString:@"ephemeral"]) {
+        if (@available(iOS 14.0, *)) {
+            return UNAuthorizationStatusEphemeral;
+        }
+        return UNAuthorizationStatusNotDetermined;
+    }
+    return UNAuthorizationStatusNotDetermined;
+}
+
+// Helper to convert UNAuthorizationStatus to string for getPushAuthorizationStatus
+- (NSString *)authorizationStatusToRNString:(UNAuthorizationStatus)status {
+    switch (status) {
+        case UNAuthorizationStatusAuthorized:
+            return @"authorized";
+        case UNAuthorizationStatusDenied:
+            return @"denied";
+        case UNAuthorizationStatusNotDetermined:
+            return @"notDetermined";
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000
+        case UNAuthorizationStatusProvisional:
+            return @"provisional";
+#endif
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
+        case UNAuthorizationStatusEphemeral:
+            return @"ephemeral";
+#endif
+        default:
+            return @"notDetermined";
+    }
+}
+
+- (void)getPushAuthorizationStatus:(RCTPromiseResolveBlock)resolve
+                            reject:(RCTPromiseRejectBlock)reject {
+    UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+    [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings * _Nonnull settings) {
+        NSString *status = [self authorizationStatusToRNString:settings.authorizationStatus];
+        resolve(status);
+    }];
+}
 
 - (void)triggerCreative:(NSString *)creativeId {
   dispatch_async(dispatch_get_main_queue(), ^{
@@ -349,6 +397,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 - (void)destroyCreative {
   dispatch_async(dispatch_get_main_queue(), ^{
 //    [self->_sdk closeCreative]
+    [self->_sdk notifyCreativeDestroyed];
   });
 }
 

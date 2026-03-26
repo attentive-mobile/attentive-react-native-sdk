@@ -1,6 +1,20 @@
 pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
-extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
+
+// Use pre-generated autolinking.json (produced by `npm install` postinstall) to avoid
+// running `rnc-cli config` during every Gradle settings evaluation.  On a cold disk that
+// scan can take 10+ minutes.  The file lives outside `android/build/` so it survives
+// `./reset.sh` cleans and only needs to be regenerated when dependencies change.
+def autolinkingFile = new File(rootDir, "autolinking.json")
+extensions.configure(com.facebook.react.ReactSettingsExtension){ ex ->
+    if (autolinkingFile.exists()) {
+        ex.autolinkLibrariesFromConfigFile(autolinkingFile)
+    } else {
+        // Fallback: generate on-the-fly (slow on cold disk; run `npm install` to fix).
+        def rnCliPath = new File(rootDir, "../node_modules/.bin/rnc-cli").canonicalPath
+        ex.autolinkLibrariesFromCommand(Arrays.asList("node", rnCliPath, "config"))
+    }
+}
 rootProject.name = 'Bonni'
 include ':app'
 includeBuild('../node_modules/@react-native/gradle-plugin')

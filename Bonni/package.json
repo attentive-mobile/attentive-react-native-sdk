@@ -1,19 +1,24 @@
 {
   "name": "Bonni",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "private": true,
   "scripts": {
+    "android-pure": "cd android && ./gradlew app:installDebug -PreactNativeDevServerPort=8081 && adb shell am start -n com.attentive.bonni/com.bonni.MainActivity",
+    "android-fresh": "npm --prefix .. run build && cd android && ./gradlew app:installDebug -PreactNativeDevServerPort=8081 && adb shell am start -n com.attentive.bonni/com.bonni.MainActivity",
     "android": "react-native run-android",
     "ios": "react-native run-ios",
+    "gen-apk": "cd android && ./gradlew :app:assembleRelease --rerun-tasks && find app/build/outputs/apk -type f -name \"*.apk\" -print0 | xargs -0 ls -lt | head -n 5 && cd ..",
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "pods": "./install-pods.sh"
+    "pods": "./install-pods.sh",
+    "postinstall": "patch-package && node node_modules/.bin/rnc-cli config > android/autolinking.json"
   },
   "dependencies": {
     "@attentive-mobile/attentive-react-native-sdk": "file:..",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/push-notification-ios": "^1.11.0",
+    "@react-navigation/core": "^7.13.0",
     "@react-navigation/native": "^7.1.18",
     "@react-navigation/native-stack": "^7.3.28",
     "react": "18.3.1",
@@ -39,6 +44,7 @@
     "@types/react-test-renderer": "^18.0.0",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
+    "patch-package": "^8.0.1",
     "prettier": "2.8.8",
     "react-native-svg-transformer": "^1.5.2",
     "react-test-renderer": "18.3.1",

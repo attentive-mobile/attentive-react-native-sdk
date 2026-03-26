@@ -39,7 +39,12 @@ const AttentiveReactNativeSdk = (
 ) as Spec
 
 /**
- * Initialize the Attentive SDK with the provided configuration
+ * Initialize the Attentive SDK with the provided configuration.
+ * This is the only supported entry point: the app (e.g. Bonni) must call this from TypeScript
+ * once at startup; the call is forwarded to the native module on each platform (iOS/Android),
+ * which then initializes the platform Attentive SDK. Native code must not initialize the SDK
+ * on its own (e.g. in Application onCreate or AppDelegate).
+ *
  * @param configuration - Configuration object for the Attentive SDK
  */
 function initialize(configuration: AttentiveSdkConfiguration) {
@@ -149,13 +154,13 @@ function exportDebugLogs(): Promise<string> {
 }
 
 // =============================================================================
-// Push Notification Methods (iOS only - Android is no-op with TODO stubs)
+// Push Notification Methods (iOS and Android)
 // =============================================================================
 
 /**
  * Request push notification permission from the user.
  * On iOS, this will trigger the system permission dialog.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android 13+, this requests POST_NOTIFICATIONS; on older versions, no-op.
  *
  * @example
  * ```typescript
@@ -170,11 +175,29 @@ function registerForPushNotifications(): void {
 }
 
 /**
+ * Get the current push notification authorization status.
+ * On Android, uses the SDK's native check (POST_NOTIFICATIONS on API 33+).
+ * On iOS, uses UNUserNotificationCenter notification settings.
+ *
+ * @returns Promise resolving to 'authorized' | 'denied' | 'notDetermined' (and on iOS possibly 'provisional' | 'ephemeral')
+ *
+ * @example
+ * ```typescript
+ * import { getPushAuthorizationStatus, handleRegularOpen } from 'attentive-react-native-sdk';
+ *
+ * getPushAuthorizationStatus().then((status) => handleRegularOpen(status));
+ * ```
+ */
+function getPushAuthorizationStatus(): Promise<PushAuthorizationStatus> {
+  return AttentiveReactNativeSdk.getPushAuthorizationStatus() as Promise<PushAuthorizationStatus>
+}
+
+/**
  * Register the device token received from APNs/FCM with the Attentive backend.
  * Call this from your AppDelegate's didRegisterForRemoteNotificationsWithDeviceToken.
  *
  * On iOS, the token should be the hex-encoded string representation of the device token Data.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param token - The device token as a hex-encoded string
  * @param authorizationStatus - Current push authorization status
@@ -200,7 +223,7 @@ function registerDeviceToken(
  *
  * On iOS, this will register the device token with the Attentive SDK and invoke the callback
  * after the registration completes (success or failure).
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param token - The hex-encoded device token string from APNs
  * @param authorizationStatus - Current push authorization status
@@ -260,7 +283,7 @@ function registerDeviceTokenWithCallback(
  *
  * On iOS, this will notify the Attentive SDK that the app was opened directly
  * (not from a push notification tap).
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param authorizationStatus - Current push authorization status
  *
@@ -307,7 +330,7 @@ function handleRegularOpen(authorizationStatus: PushAuthorizationStatus): void {
  *
  * On iOS, this will track the push open event and handle the notification appropriately
  * based on whether the app was in the foreground, background, or not running.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  * @param applicationState - The app state when the notification was opened ('active', 'inactive', 'background')
@@ -342,7 +365,7 @@ function handlePushOpened(
  * Call this from your notification handler when a notification is received while the app is active.
  *
  * On iOS, this allows the Attentive SDK to track the notification event.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  *
@@ -372,7 +395,7 @@ function handleForegroundNotification(
  * ```
  *
  * On iOS, this properly tracks foreground push notifications.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  * @param authorizationStatus - Current push authorization status
@@ -411,7 +434,7 @@ function handleForegroundPush(
  * ```
  *
  * On iOS, this properly tracks push notification opens.
- * On Android, this is currently a no-op (TODO: implement FCM integration).
+ * On Android, registers the FCM token when provided by the host app.
  *
  * @param userInfo - The notification payload from the push notification
  * @param authorizationStatus - Current push authorization status
@@ -438,6 +461,35 @@ function handlePushOpen(
   )
 }
 
+/**
+ * Returns the push notification payload that launched the app from a killed state
+ * (i.e. the user tapped an FCM notification while the app was not running) and clears
+ * it so it is only delivered once.
+ *
+ * **Android only.** On iOS, use `PushNotificationIOS.getInitialNotification()` to
+ * achieve the same result — the Attentive iOS SDK event is tracked natively in
+ * `AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)` via
+ * `AttentiveSDKManager.shared`.
+ *
+ * Call this once at app startup (after `initialize()`) to detect and handle the
+ * killed-state push-open scenario:
+ *
+ * ```typescript
+ * const initial = await getInitialPushNotification()
+ * if (initial) {
+ *   const authStatus = await getPushAuthorizationStatus()
+ *   handlePushOpen(initial as PushNotificationUserInfo, authStatus)
+ * }
+ * ```
+ *
+ * @returns A promise that resolves to the notification data object, or `null` if the
+ *          app was not launched via a push notification tap.
+ */
+async function getInitialPushNotification(): Promise<Record<string, string> | null> {
+  const result = await AttentiveReactNativeSdk.getInitialPushNotification()
+  return result as Record<string, string> | null
+}
+
 export {
   initialize,
   triggerCreative,
@@ -451,8 +503,9 @@ export {
   recordCustomEvent,
   invokeAttentiveDebugHelper,
   exportDebugLogs,
-  // Push Notification Methods (iOS only)
+  // Push Notification Methods
   registerForPushNotifications,
+  getPushAuthorizationStatus,
   registerDeviceToken,
   registerDeviceTokenWithCallback,
   handleRegularOpen,
@@ -460,6 +513,7 @@ export {
   handleForegroundNotification,
   handleForegroundPush,
   handlePushOpen,
+  getInitialPushNotification,
 }
 
 export type {

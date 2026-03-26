@@ -12,6 +12,12 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 
+import com.attentive.androidsdk.*
+import java.util.Locale
+import com.attentive.androidsdk.AttentiveLogLevel
+import com.facebook.react.bridge.UiThreadUtil
+import android.util.Log
+
 class MainApplication : Application(), ReactApplication {
 
   override val reactNativeHost: ReactNativeHost =
@@ -34,11 +40,39 @@ class MainApplication : Application(), ReactApplication {
     get() = getDefaultReactHost(applicationContext, reactNativeHost)
 
   override fun onCreate() {
+    val TAG = "NATIVE-PN-SETUP"
+    Log.d(TAG, "Native onCreate was called!")
     super.onCreate()
     SoLoader.init(this, OpenSourceMergedSoMapping)
     if (BuildConfig.IS_NEW_ARCHITECTURE_ENABLED) {
       // If you opted-in for the New Architecture, we load the native entry point for this app.
       load()
+    }
+    initAttentiveSDK()
+  }
+
+  fun initAttentiveSDK() {
+    val TAG = "NATIVE-PN-SETUP"
+    Log.d(TAG, "Native initAttentiveSDK was called!")
+
+    val appContext = applicationContext as? Application
+      ?: throw IllegalStateException("Application context is required for Attentive SDK")
+
+    val mode = "DEBUG"
+    val modeEnum = AttentiveConfig.Mode.valueOf(mode.uppercase(Locale.ROOT))
+    Log.d(TAG, "Building AttentiveConfig with mode received from TypeScript: \"$modeEnum\"")
+    val config = AttentiveConfig.Builder()
+      .applicationContext(appContext)
+      .domain("games")
+      .mode(modeEnum)
+      .skipFatigueOnCreatives(false)
+      .logLevel(AttentiveLogLevel.VERBOSE)
+      .build()
+
+    // AttentiveSdk.initialize internally registers a LifecycleObserver (AppLaunchTracker)
+    // which requires being called on the main thread.
+    UiThreadUtil.runOnUiThread {
+      AttentiveSdk.initialize(config)
     }
   }
 }

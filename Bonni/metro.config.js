@@ -5,7 +5,9 @@ const { getDefaultConfig, mergeConfig } = require('@react-native/metro-config')
 const pak = require('../package.json')
 
 const root = path.resolve(__dirname, '..')
+const bonniNodeModules = path.join(__dirname, 'node_modules')
 
+// Peer deps of the SDK – must come from Bonni's node_modules, not the SDK root's
 const modules = Object.keys({
   ...pak.peerDependencies,
 })
@@ -20,9 +22,12 @@ const defaultConfig = getDefaultConfig(__dirname)
  */
 const config = {
   projectRoot: __dirname,
+
+  // Watch the SDK source so Metro picks up changes without publishing
   watchFolders: [root],
 
   resolver: {
+    // Prevent Metro from picking up peer dep copies from the SDK root's node_modules
     blockList: exclusionList(
       modules.map(
         (m) =>
@@ -30,11 +35,17 @@ const config = {
       )
     ),
 
+    // Redirect peer deps to Bonni's own node_modules so there's only one copy
     extraNodeModules: modules.reduce((acc, name) => {
-      acc[name] = path.join(__dirname, 'node_modules', name)
+      acc[name] = path.join(bonniNodeModules, name)
       return acc
     }, {}),
-    // Add asset extensions for SVG
+
+    // Ensure every package (including transitive deps of @react-navigation/* etc.)
+    // resolves from Bonni's node_modules when the hierarchical walk-up fails
+    nodeModulesPaths: [bonniNodeModules],
+
+    // SVG support
     assetExts: defaultConfig.resolver.assetExts.filter((ext) => ext !== 'svg'),
     sourceExts: [...defaultConfig.resolver.sourceExts, 'svg'],
   },

@@ -65,12 +65,21 @@ export interface Spec extends TurboModule {
   invokeAttentiveDebugHelper: () => void;
   exportDebugLogs: () => Promise<string>;
 
-  // Push Notification Methods (iOS only)
+  // Push Notification Methods
   /**
    * Request push notification permission from the user.
-   * iOS only - Android is a no-op.
+   * On iOS, triggers the system permission dialog.
+   * On Android 13+, requests POST_NOTIFICATIONS; on older versions, no-op.
    */
-  registerForPushNotifications: () => void;
+  registerForPushNotifications: () => void
+
+  /**
+   * Get the current push notification authorization status.
+   * On Android, uses POST_NOTIFICATIONS (API 33+); on older versions returns 'authorized'.
+   * On iOS, use PushNotificationIOS.checkPermissions instead; this method is for Android parity.
+   * @returns Promise resolving to 'authorized' | 'denied' | 'notDetermined'
+   */
+  getPushAuthorizationStatus: () => Promise<string>
 
   /**
    * Register the device token received from APNs (simple version without callback).
@@ -78,7 +87,7 @@ export interface Spec extends TurboModule {
    * @param token - The hex-encoded device token string
    * @param authorizationStatus - Current push authorization status
    */
-  registerDeviceToken: (token: string, authorizationStatus: string) => void;
+  registerDeviceToken: (token: string, authorizationStatus: string) => void
 
   /**
    * Register the device token received from APNs with a callback.
@@ -120,7 +129,7 @@ export interface Spec extends TurboModule {
    * iOS only - Android is a no-op.
    * @param userInfo - The notification payload
    */
-  handleForegroundNotification: (userInfo: Object) => void;
+  handleForegroundNotification: (userInfo: Object) => void
 
   /**
    * Handle a push notification when the app is in the foreground (active state).
@@ -129,7 +138,7 @@ export interface Spec extends TurboModule {
    * @param userInfo - The notification payload
    * @param authorizationStatus - Current push authorization status
    */
-  handleForegroundPush: (userInfo: Object, authorizationStatus: string) => void;
+  handleForegroundPush: (userInfo: Object, authorizationStatus: string) => void
 
   /**
    * Handle when a push notification is opened by the user (app in background/inactive state).
@@ -138,15 +147,27 @@ export interface Spec extends TurboModule {
    * @param userInfo - The notification payload
    * @param authorizationStatus - Current push authorization status
    */
-  handlePushOpen: (userInfo: Object, authorizationStatus: string) => void;
+  handlePushOpen: (userInfo: Object, authorizationStatus: string) => void
+
+  /**
+   * Returns the push notification payload that launched the app from a killed state
+   * (i.e. the user tapped a notification when the app was not running), then clears it
+   * so it is only delivered once.
+   *
+   * Android only — on iOS use `PushNotificationIOS.getInitialNotification()` instead.
+   *
+   * @returns Promise resolving to a notification data map, or null if the app was not
+   *          launched from a push notification tap.
+   */
+  getInitialPushNotification: () => Promise<Object | null>
 }
 
 // Try to load via TurboModule first (new architecture)
 // Fall back to NativeModules for old architecture
-const isTurboModuleEnabled = (global as any).__turboModuleProxy != null;
+const isTurboModuleEnabled = (global as any).__turboModuleProxy != null
 
 const AttentiveReactNativeSdkModule = isTurboModuleEnabled
   ? TurboModuleRegistry.get<Spec>("AttentiveReactNativeSdk")
-  : NativeModules.AttentiveReactNativeSdk;
+  : NativeModules.AttentiveReactNativeSdk
 
-export default AttentiveReactNativeSdkModule as Spec | null;
+export default AttentiveReactNativeSdkModule as Spec | null

@@ -1,6 +1,6 @@
 {
   "name": "@attentive-mobile/attentive-react-native-sdk",
-  "version": "2.0.0-beta.1",
+  "version": "2.0.0-beta.5",
   "description": "React Native Module for the Attentive SDK",
   "main": "lib/commonjs/index",
   "module": "lib/module/index",
@@ -48,7 +48,10 @@
     "ios",
     "android"
   ],
-  "repository": "https://github.com/attentive-mobile/attentive-react-native-sdk",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/attentive-mobile/attentive-react-native-sdk.git"
+  },
   "author": "Attentive <epd-accounts+npm@attentivemobile.com> (https://www.attentive.com)",
   "contributors": [
     "Wyatt Davis"
@@ -59,7 +62,8 @@
   },
   "homepage": "https://github.com/attentive-mobile/attentive-react-native-sdk#readme",
   "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
   },
   "devDependencies": {
     "@commitlint/config-conventional": "^17.0.2",
@@ -176,6 +180,7 @@
     }
   },
   "dependencies": {
-    "@babel/runtime": "^7.27.0"
+    "@babel/runtime": "^7.27.0",
+    "metro-react-native-babel-preset": "^0.77.0"
   }
 }

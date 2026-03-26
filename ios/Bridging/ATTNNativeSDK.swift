@@ -124,9 +124,20 @@ struct DebugEvent {
     }
   }
 
+  /// Called from the native bridge when destroyCreative is invoked; shows debug overlay when debug mode is on.
+  @objc
+  public func notifyCreativeDestroyed() {
+    if debuggingEnabled {
+      showDebugInfo(event: "Creative Destroyed", data: ["action": "destroyCreative"])
+    }
+  }
+
   @objc(updateDomain:)
   public func updateDomain(domain: String) {
     sdk.update(domain:domain)
+    if debuggingEnabled {
+      showDebugInfo(event: "Domain Updated", data: ["domain": domain])
+    }
   }
 
   @objc(identify:)
@@ -136,6 +147,10 @@ struct DebugEvent {
 
     sdk.identify(identifiers)
 
+    if debuggingEnabled {
+      showDebugInfo(event: "User Identified", data: ["identifiers": identifiers])
+    }
+
     print("✅ [AttentiveSDK] identify completed")
     print("   User is now identified with the SDK")
     print("   SDK can now make network calls")
@@ -144,6 +159,9 @@ struct DebugEvent {
   @objc
   public func clearUser() {
     sdk.clearUser()
+    if debuggingEnabled {
+      showDebugInfo(event: "User Cleared", data: ["action": "clearUser"])
+    }
   }
 
   // MARK: - Push Notification Methods
@@ -363,57 +381,64 @@ struct DebugEvent {
   }
 
   /**
-   * Handle a push notification when the app is in the foreground (active state) - React Native version.
-   * This method accepts userInfo dictionary instead of UNNotificationResponse, making it callable from React Native.
+   * React Native bridge entry point for foreground push tracking.
    *
-   * Note: This is a limited version since we don't have access to the full UNNotificationResponse.
-   * For full functionality, use the native AppDelegate implementation.
+   * **Important — iOS limitation**: The Attentive iOS SDK requires a `UNNotificationResponse`
+   * object for `handleForegroundPush`, which is an opaque system type that cannot be
+   * serialised across the React Native bridge. Calling this method from JS therefore
+   * **cannot invoke the native SDK** and is a no-op.
    *
-   * @param userInfo The notification payload dictionary
-   * @param authorizationStatus Current push authorization status string
+   * The correct solution for iOS is to call
+   * `AttentiveSDKManager.shared.handleForegroundPush(response:authorizationStatus:)`
+   * directly from the host app's `UNUserNotificationCenterDelegate` implementation
+   * (i.e. `AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)`).
+   * Bonni's `AppDelegate.swift` already does this, so foreground push events are tracked
+   * correctly via the native path — this RN bridge variant is intentionally unused on iOS.
+   *
+   * @param userInfo The notification payload dictionary (unused on iOS).
+   * @param authorizationStatus Current push authorization status string (unused on iOS).
    */
   @objc(handleForegroundPushFromRN:authorizationStatus:)
   public func handleForegroundPushFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
-    _ = mapAuthorizationStatus(authorizationStatus)
-
-    // Note: SDK 2.0.8 requires UNNotificationResponse, but we only have userInfo from React Native
-    // This is a workaround that logs the limitation
-    print("[AttentiveSDK] handleForegroundPush called from React Native (limited functionality)")
-    print("[AttentiveSDK] For full functionality, implement in native AppDelegate")
+    // iOS: no-op — tracking is performed natively via AttentiveSDKManager in AppDelegate.
+    // The UNNotificationResponse required by the iOS SDK cannot cross the RN bridge.
+    print("[AttentiveSDK] handleForegroundPushFromRN: iOS push tracking is handled natively via AttentiveSDKManager in AppDelegate. This RN bridge call is a no-op on iOS.")
 
     if debuggingEnabled {
-      showDebugInfo(event: "Foreground Push (React Native)", data: [
+      showDebugInfo(event: "Foreground Push (RN bridge — iOS no-op)", data: [
         "authorizationStatus": authorizationStatus,
         "userInfo": userInfo,
-        "note": "Limited functionality - UNNotificationResponse not available from React Native"
+        "note": "iOS: tracked via AppDelegate → AttentiveSDKManager. UNNotificationResponse not available from RN bridge."
       ])
     }
   }
 
   /**
-   * Handle when a push notification is opened by the user (app in background/inactive state) - React Native version.
-   * This method accepts userInfo dictionary instead of UNNotificationResponse, making it callable from React Native.
+   * React Native bridge entry point for push-open tracking (background/inactive tap).
    *
-   * Note: This is a limited version since we don't have access to the full UNNotificationResponse.
-   * For full functionality, use the native AppDelegate implementation.
+   * **Important — iOS limitation**: The Attentive iOS SDK requires a `UNNotificationResponse`
+   * object for `handlePushOpen`, which cannot be serialised across the React Native bridge.
+   * Calling this method from JS is therefore a **no-op on iOS**.
    *
-   * @param userInfo The notification payload dictionary
-   * @param authorizationStatus Current push authorization status string
+   * The correct solution is to call
+   * `AttentiveSDKManager.shared.handlePushOpen(response:authorizationStatus:)` directly
+   * from `AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)`.
+   * Bonni's `AppDelegate.swift` already does this via the native path.
+   *
+   * @param userInfo The notification payload dictionary (unused on iOS).
+   * @param authorizationStatus Current push authorization status string (unused on iOS).
    */
   @objc(handlePushOpenFromRN:authorizationStatus:)
   public func handlePushOpenFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
-    _ = mapAuthorizationStatus(authorizationStatus)
-
-    // Note: SDK 2.0.8 requires UNNotificationResponse, but we only have userInfo from React Native
-    // This is a workaround that logs the limitation
-    print("[AttentiveSDK] handlePushOpen called from React Native (limited functionality)")
-    print("[AttentiveSDK] For full functionality, implement in native AppDelegate")
+    // iOS: no-op — tracking is performed natively via AttentiveSDKManager in AppDelegate.
+    // The UNNotificationResponse required by the iOS SDK cannot cross the RN bridge.
+    print("[AttentiveSDK] handlePushOpenFromRN: iOS push tracking is handled natively via AttentiveSDKManager in AppDelegate. This RN bridge call is a no-op on iOS.")
 
     if debuggingEnabled {
-      showDebugInfo(event: "Push Open (React Native)", data: [
+      showDebugInfo(event: "Push Open (RN bridge — iOS no-op)", data: [
         "authorizationStatus": authorizationStatus,
         "userInfo": userInfo,
-        "note": "Limited functionality - UNNotificationResponse not available from React Native"
+        "note": "iOS: tracked via AppDelegate → AttentiveSDKManager. UNNotificationResponse not available from RN bridge."
       ])
     }
   }
@@ -580,9 +605,7 @@ public extension ATTNNativeSDK {
         if let category = firstItem.category {
           itemDetails["category"] = category
         }
-        if let quantity = firstItem.quantity {
-          itemDetails["quantity"] = quantity
-        }
+        itemDetails["quantity"] = firstItem.quantity
         debugData["first_item"] = itemDetails
       }
 
@@ -620,9 +643,7 @@ public extension ATTNNativeSDK {
         if let category = firstItem.category {
           itemDetails["category"] = category
         }
-        if let quantity = firstItem.quantity {
-          itemDetails["quantity"] = quantity
-        }
+        itemDetails["quantity"] = firstItem.quantity
         debugData["first_item"] = itemDetails
       }
 
@@ -632,13 +653,19 @@ public extension ATTNNativeSDK {
 
   @objc
   func recordPurchaseEvent(_ attributes: [String: Any]) {
-    let attrOrder = attributes["order"] as? [String: String] ?? [:]
-    guard let orderId = attrOrder["id"] else { return }
+    // React Native bridge sends top-level "orderId"; legacy format used "order"["id"]
+    let orderId = (attributes["orderId"] as? String)
+      ?? (attributes["order"] as? [String: String])?["id"]
+    guard let orderId = orderId else { return }
     let order = ATTNOrder(orderId: orderId)
     let items = parseItems(attributes["items"] as? [[String : Any]] ?? [])
     let event = ATTNPurchaseEvent(items: items, order: order)
+    
+    #if DEBUG
+    print("[Attentive]", event.debugDescription)
+    #endif
     ATTNEventTracker.sharedInstance()?.record(event: event)
-
+    
     if debuggingEnabled {
       // Enhanced debug data to show parsed item details
       var debugData: [String: Any] = [
@@ -662,9 +689,7 @@ public extension ATTNNativeSDK {
         if let category = firstItem.category {
           itemDetails["category"] = category
         }
-        if let quantity = firstItem.quantity {
-          itemDetails["quantity"] = quantity
-        }
+        itemDetails["quantity"] = firstItem.quantity
         debugData["first_item"] = itemDetails
       }
 
@@ -714,7 +739,7 @@ private extension ATTNNativeSDK {
 
       // React Native bridges JS numbers as NSNumber, so accept NSNumber directly
       if let quantity = rawItem["quantity"] as? NSNumber {
-        item.quantity = quantity
+        item.quantity = quantity.intValue
       }
 
       if let category = rawItem["category"] as? String {
@@ -733,18 +758,35 @@ private extension ATTNNativeSDK {
     debugHistory.append(debugEvent)
 
     DispatchQueue.main.async {
-      // Create debug overlay with history
       guard let keyWindow = UIApplication.shared.connectedScenes
         .compactMap({ $0 as? UIWindowScene })
         .first?.windows
-        .first(where: { $0.isKeyWindow }) else { return }
+        .first(where: { $0.isKeyWindow }),
+        let rootVC = keyWindow.rootViewController else { return }
+
+      // Present from the topmost view controller so the debug window always appears on top
+      let topmost = self.topmostViewController(from: rootVC)
 
       let debugVC = DebugOverlayViewController(currentEvent: event, currentData: data, history: self.debugHistory)
       debugVC.modalPresentationStyle = .overFullScreen
       debugVC.modalTransitionStyle = .crossDissolve
 
-      keyWindow.rootViewController?.present(debugVC, animated: true)
+      topmost.present(debugVC, animated: true)
     }
+  }
+
+  /// Returns the topmost view controller so the debug overlay is presented on top of any existing modals.
+  func topmostViewController(from base: UIViewController) -> UIViewController {
+    if let presented = base.presentedViewController {
+      return topmostViewController(from: presented)
+    }
+    if let nav = base as? UINavigationController, let visible = nav.visibleViewController {
+      return topmostViewController(from: visible)
+    }
+    if let tab = base as? UITabBarController, let selected = tab.selectedViewController {
+      return topmostViewController(from: selected)
+    }
+    return base
   }
 }
 
