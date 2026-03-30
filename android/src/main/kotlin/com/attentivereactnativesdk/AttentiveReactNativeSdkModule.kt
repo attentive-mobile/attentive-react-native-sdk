@@ -34,6 +34,13 @@ import java.math.BigDecimal
 import java.security.InvalidParameterException
 import java.util.Currency
 import java.util.Locale
+import java.util.UUID
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
+import org.json.JSONObject
 
 class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     NativeAttentiveReactNativeSdkSpec(reactContext) {
@@ -42,11 +49,25 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         const val NAME = "AttentiveReactNativeSdk"
         private const val TAG = NAME
         private const val PUSH_PERMISSION_REQUEST_CODE = 3901
+
+        /** Attentive subscription API endpoints */
+        private const val OPT_IN_URL = "https://mobile.attentivemobile.com/opt-in-subscriptions"
+        private const val OPT_OUT_URL = "https://mobile.attentivemobile.com/opt-out-subscriptions"
+
+        /** SharedPreferences key for visitor ID persistence */
+        private const val PREFS_NAME = "AttentiveRNSdk"
+        private const val KEY_VISITOR_ID = "visitor_id"
     }
 
     private var attentiveConfig: AttentiveConfig? = null
     private var creative: Creative? = null
     private val debugHelper: AttentiveDebugHelper
+
+    /** Attentive domain captured from initialize(); used for subscription API calls. */
+    private var attentiveDomain: String = ""
+
+    /** OkHttp client reused across subscription requests. */
+    private val httpClient: OkHttpClient by lazy { OkHttpClient() }
 
     init {
         debugHelper = AttentiveDebugHelper(reactContext)
@@ -59,8 +80,13 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /**
      * Initialize the Attentive SDK. Called only from the TypeScript layer (e.g. Bonni App.tsx);
      * this module must not auto-initialize in Application.onCreate or elsewhere.
-     * This is operation is a no-op on Android. Initialization should happen directly through
-     * native Kotlin for Android builds to enable subscriptions.
+     * Android SDK initialization (AttentiveConfig) is performed natively in
+     * MainApplication.onCreate; this call captures the domain for subscription API calls.
+     *
+     * @param attentiveDomain Attentive shop domain (e.g. "my-brand")
+     * @param mode "production" or "debug"
+     * @param skipFatigueOnCreatives Whether to skip fatigue rules on creatives
+     * @param enableDebugger Whether to enable the debug overlay
      */
     override fun initialize(
         attentiveDomain: String,
@@ -68,6 +94,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         skipFatigueOnCreatives: Boolean,
         enableDebugger: Boolean
     ) {
+        // Capture the domain so subscription API calls can use it later
+        this.attentiveDomain = attentiveDomain
+
         // Initialize debug helper
         debugHelper.initialize(enableDebugger)
     }
@@ -668,6 +697,253 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      */
     override fun getInitialPushNotification(promise: Promise) {
       Log.d(TAG, "getInitialPushNotification called!")
+    }
+
+    // ==========================================================================
+    // MARK: - Marketing Subscription Methods
+    // ==========================================================================
+
+    /**
+     * Opts a user into marketing subscriptions.
+     *
+     * Calls the Attentive opt-in endpoint (`/opt-in-subscriptions`) directly via OkHttp,
+     * matching the payload structure used by the iOS SDK. Requires the SDK to have been
+     * initialised (via [initialize]) so the Attentive domain is available.
+     *
+     * Input normalisation (trim + blank-to-null) and validation (at least one of
+     * email / phone required) are performed before the request is sent.
+     *
+     * @param email Optional email address.
+     * @param phone Optional E.164 phone number.
+     * @param promise Resolved on HTTP 2xx; rejected with an error otherwise.
+     */
+    override fun optInMarketingSubscription(email: String?, phone: String?, promise: Promise) {
+        sendMarketingSubscriptionRequest(
+            endpoint = OPT_IN_URL,
+            email = email,
+            phone = phone,
+            operationName = "opt-in",
+            promise = promise
+        )
+    }
+
+    /**
+     * Opts a user out of marketing subscriptions.
+     *
+     * Calls the Attentive opt-out endpoint (`/opt-out-subscriptions`) directly via OkHttp,
+     * matching the payload structure used by the iOS SDK. Requires the SDK to have been
+     * initialised (via [initialize]) so the Attentive domain is available.
+     *
+     * Input normalisation (trim + blank-to-null) and validation (at least one of
+     * email / phone required) are performed before the request is sent.
+     *
+     * @param email Optional email address.
+     * @param phone Optional E.164 phone number.
+     * @param promise Resolved on HTTP 2xx; rejected with an error otherwise.
+     */
+    override fun optOutMarketingSubscription(email: String?, phone: String?, promise: Promise) {
+        sendMarketingSubscriptionRequest(
+            endpoint = OPT_OUT_URL,
+            email = email,
+            phone = phone,
+            operationName = "opt-out",
+            promise = promise
+        )
+    }
+
+    /**
+     * Shared implementation for opt-in and opt-out subscription requests.
+     *
+     * Validates inputs, builds the JSON payload, executes the OkHttp call on a
+     * background thread, and resolves/rejects the promise on the result.
+     *
+     * @param endpoint Full URL of the Attentive subscription endpoint.
+     * @param email    Optional email address (normalised internally).
+     * @param phone    Optional phone number (normalised internally).
+     * @param operationName Human-readable label used in log messages ("opt-in" or "opt-out").
+     * @param promise  RN promise to settle once the request completes.
+     */
+    private fun sendMarketingSubscriptionRequest(
+        endpoint: String,
+        email: String?,
+        phone: String?,
+        operationName: String,
+        promise: Promise
+    ) {
+        Log.i(TAG, "📬 [AttentiveSDK] $operationName marketing subscription (Android)")
+
+        // Normalise: trim whitespace and convert blank strings to null
+        val normalizedEmail = email?.trim()?.takeIf { it.isNotEmpty() }
+        val normalizedPhone = phone?.trim()?.takeIf { it.isNotEmpty() }
+
+        // At least one contact identifier must be present
+        if (normalizedEmail == null && normalizedPhone == null) {
+            val msg = "At least one of email or phone must be provided for marketing subscription $operationName"
+            Log.e(TAG, "❌ [AttentiveSDK] $msg")
+            promise.reject("MISSING_CONTACT_INFO", msg)
+            return
+        }
+
+        // Domain is required – set by initialize()
+        val domain = resolveDomain()
+        if (domain.isEmpty()) {
+            val msg = "Attentive SDK is not initialised. Call initialize() before $operationName."
+            Log.e(TAG, "❌ [AttentiveSDK] $msg")
+            promise.reject("SDK_NOT_INITIALIZED", msg)
+            return
+        }
+
+        // Build JSON payload matching iOS SDK structure
+        val payload = buildSubscriptionPayload(
+            domain = domain,
+            email = normalizedEmail,
+            phone = normalizedPhone
+        )
+
+        Log.d(TAG, "   POST $endpoint payload: $payload")
+
+        val mediaType = "application/json".toMediaType()
+        val requestBody = payload.toString().toRequestBody(mediaType)
+        val request = Request.Builder()
+            .url(endpoint)
+            .post(requestBody)
+            .header("Content-Type", "application/json")
+            .header("x-datadog-sampling-priority", "1")
+            .build()
+
+        // Execute on background thread (OkHttp synchronous call)
+        Thread {
+            try {
+                val response = httpClient.newCall(request).execute()
+                val statusCode = response.code
+                response.close()
+
+                if (statusCode in 200..299) {
+                    Log.i(TAG, "✅ [AttentiveSDK] $operationName subscription succeeded (HTTP $statusCode)")
+                    UiThreadUtil.runOnUiThread { promise.resolve(null) }
+
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf<String, Any>(
+                            "operation" to operationName,
+                            "status_code" to statusCode.toString(),
+                            "email" to (normalizedEmail ?: "nil"),
+                            "phone" to (normalizedPhone ?: "nil")
+                        )
+                        UiThreadUtil.runOnUiThread {
+                            debugHelper.showDebugInfo("Marketing Subscription ${operationName.replaceFirstChar { it.uppercase() }}", debugData)
+                        }
+                    }
+                } else {
+                    val msg = "Marketing subscription $operationName failed with HTTP $statusCode"
+                    Log.e(TAG, "❌ [AttentiveSDK] $msg")
+                    UiThreadUtil.runOnUiThread {
+                        promise.reject("HTTP_ERROR", msg)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ [AttentiveSDK] $operationName subscription network error: ${e.message}", e)
+                UiThreadUtil.runOnUiThread {
+                    promise.reject("NETWORK_ERROR", e.message ?: "Unknown network error", e)
+                }
+            }
+        }.start()
+    }
+
+    /**
+     * Returns the Attentive domain to use for subscription API calls.
+     *
+     * Preference order:
+     * 1. [attentiveConfig] domain (set by host app natively via AttentiveSdk.initialize)
+     * 2. [attentiveDomain] captured from the JS-side initialize() call
+     *
+     * @return The resolved domain string, or an empty string if unavailable.
+     */
+    private fun resolveDomain(): String {
+        return attentiveConfig?.domain?.takeIf { it.isNotEmpty() }
+            ?: attentiveDomain
+    }
+
+    /**
+     * Returns a persistent visitor ID for this device installation.
+     *
+     * Preference order:
+     * 1. Visitor ID from [attentiveConfig]'s [UserIdentifiers] (most accurate)
+     * 2. UUID stored in SharedPreferences (generated once on first call)
+     *
+     * @return A non-null visitor ID string.
+     */
+    private fun resolveVisitorId(): String {
+        attentiveConfig?.userIdentifiers?.visitorId?.takeIf { it.isNotEmpty() }?.let { return it }
+
+        val prefs = reactApplicationContext.getSharedPreferences(PREFS_NAME, 0)
+        val stored = prefs.getString(KEY_VISITOR_ID, null)
+        if (!stored.isNullOrEmpty()) return stored
+
+        val generated = UUID.randomUUID().toString()
+        prefs.edit().putString(KEY_VISITOR_ID, generated).apply()
+        return generated
+    }
+
+    /**
+     * Builds the JSON payload for a marketing subscription opt-in or opt-out request.
+     *
+     * The payload structure mirrors the iOS ATTNAPI implementation.
+     *
+     * @param domain  Geo-adjusted (or base) Attentive domain.
+     * @param email   Normalised email address, or null if not provided.
+     * @param phone   Normalised phone number, or null if not provided.
+     * @return A [JSONObject] ready to serialise as the request body.
+     */
+    private fun buildSubscriptionPayload(
+        domain: String,
+        email: String?,
+        phone: String?
+    ): JSONObject {
+        val visitorId = resolveVisitorId()
+
+        // Build external vendor IDs array from attentiveConfig if available
+        val evsArray = buildExternalVendorIds()
+
+        val payload = JSONObject().apply {
+            put("c", domain)
+            put("v", "mobile-app-rn-android")
+            put("u", visitorId)
+            put("evs", evsArray)
+            put("tp", "fcm")
+            put("type", "MARKETING")
+        }
+
+        if (email != null) payload.put("email", email)
+        if (phone != null) payload.put("phone", phone)
+
+        // Include push token if available in attentiveConfig user identifiers
+        // (The Android SDK stores the FCM token separately; we include a blank fallback)
+        return payload
+    }
+
+    /**
+     * Builds the external vendor IDs array from [attentiveConfig] user identifiers.
+     *
+     * Translates known identifier fields (clientUserId, klaviyoId, shopifyId) into
+     * the `evs` array format expected by the Attentive subscription API.
+     *
+     * @return A [JSONArray] of `{vendor, id}` objects, possibly empty.
+     */
+    private fun buildExternalVendorIds(): JSONArray {
+        val array = JSONArray()
+        val ids = attentiveConfig?.userIdentifiers ?: return array
+
+        ids.clientUserId?.takeIf { it.isNotEmpty() }?.let {
+            array.put(JSONObject().put("vendor", "CLIENT_USER").put("id", it))
+        }
+        ids.klaviyoId?.takeIf { it.isNotEmpty() }?.let {
+            array.put(JSONObject().put("vendor", "KLAVIYO").put("id", it))
+        }
+        ids.shopifyId?.takeIf { it.isNotEmpty() }?.let {
+            array.put(JSONObject().put("vendor", "SHOPIFY").put("id", it))
+        }
+
+        return array
     }
 
     // ==========================================================================

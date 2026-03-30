@@ -382,6 +382,70 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     }];
 }
 
+// =============================================================================
+// Marketing Subscription Methods (both architectures)
+// =============================================================================
+
+/**
+ * Opts a user into marketing subscriptions.
+ * Delegates to ATTNNativeSDK which forwards to ATTNSDK.optInMarketingSubscription.
+ * Input normalisation, validation, and push-token queueing are all handled natively.
+ *
+ * @param email  Email address, or NSNull when absent.
+ * @param phone  Phone number, or NSNull when absent.
+ * @param resolve RCT Promise resolve block — called with nil on success.
+ * @param reject  RCT Promise reject block — called with error details on failure.
+ */
+- (void)optInMarketingSubscription:(NSString *)email
+                              phone:(NSString *)phone
+                            resolve:(RCTPromiseResolveBlock)resolve
+                             reject:(RCTPromiseRejectBlock)reject {
+    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
+                                        phone:normalizedPhone
+                                   completion:^(NSError * _Nullable error) {
+        if (error) {
+            reject([NSString stringWithFormat:@"%ld", (long)error.code],
+                   error.localizedDescription,
+                   error);
+        } else {
+            resolve(nil);
+        }
+    }];
+}
+
+/**
+ * Opts a user out of marketing subscriptions.
+ * Delegates to ATTNNativeSDK which forwards to ATTNSDK.optOutMarketingSubscription.
+ * Input normalisation, validation, and push-token queueing are all handled natively.
+ *
+ * @param email  Email address, or NSNull when absent.
+ * @param phone  Phone number, or NSNull when absent.
+ * @param resolve RCT Promise resolve block — called with nil on success.
+ * @param reject  RCT Promise reject block — called with error details on failure.
+ */
+- (void)optOutMarketingSubscription:(NSString *)email
+                               phone:(NSString *)phone
+                             resolve:(RCTPromiseResolveBlock)resolve
+                              reject:(RCTPromiseRejectBlock)reject {
+    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    [_sdk optOutMarketingSubscriptionWithEmail:normalizedEmail
+                                         phone:normalizedPhone
+                                    completion:^(NSError * _Nullable error) {
+        if (error) {
+            reject([NSString stringWithFormat:@"%ld", (long)error.code],
+                   error.localizedDescription,
+                   error);
+        } else {
+            resolve(nil);
+        }
+    }];
+}
+
 - (void)triggerCreative:(NSString *)creativeId {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];
