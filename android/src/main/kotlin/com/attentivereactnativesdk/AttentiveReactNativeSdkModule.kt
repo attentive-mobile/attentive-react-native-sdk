@@ -59,6 +59,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /**
      * Initialize the Attentive SDK. Called only from the TypeScript layer (e.g. Bonni App.tsx);
      * this module must not auto-initialize in Application.onCreate or elsewhere.
+     * This is operation is a no-op on Android. Initialization should happen directly through
+     * native Kotlin for Android builds to enable subscriptions.
      */
     override fun initialize(
         attentiveDomain: String,
@@ -68,25 +70,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     ) {
         // Initialize debug helper
         debugHelper.initialize(enableDebugger)
-
-        // val appContext = reactApplicationContext.applicationContext as? Application
-        //     ?: throw IllegalStateException("Application context is required for Attentive SDK")
-        // val modeEnum = AttentiveConfig.Mode.valueOf(mode.uppercase(Locale.ROOT))
-        // Log.d(TAG, "Building AttentiveConfig with mode received from TypeScript: \"$modeEnum\"")
-        // val config = AttentiveConfig.Builder()
-        //     .applicationContext(appContext)
-        //     .domain(attentiveDomain)
-        //     .mode(modeEnum)
-        //     .skipFatigueOnCreatives(skipFatigueOnCreatives)
-        //     .logLevel(AttentiveLogLevel.VERBOSE)
-        //     .build()
-        // attentiveConfig = config
-
-        // // AttentiveSdk.initialize internally registers a LifecycleObserver (AppLaunchTracker)
-        // // which requires being called on the main thread.
-        // UiThreadUtil.runOnUiThread {
-        //     AttentiveSdk.initialize(config)
-        // }
     }
 
     override fun triggerCreative(creativeId: String?) {
@@ -474,66 +457,14 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * Handle regular/direct app open (not from a push notification).
      *
      * This tracks app open events using the Attentive SDK's event tracking system.
+     * This operation is iOS only. Android version is handled directly by native SDK upon
+     * TypeScript initialization.
      *
      * @param authorizationStatus Current push authorization status
      */
     override fun handleRegularOpen(authorizationStatus: String) {  // Meant to be NOOP
         Log.i(TAG, "🌉 [AttentiveSDK] handleRegularOpen called (Android)")
         Log.i(TAG, "   Authorization status: $authorizationStatus")
-        // Log.i(TAG, "   Tracking regular app open event...")
-
-        // try {
-        //     // Attentive Android SDK 1.0.1 doesn't have a built-in handleRegularOpen method
-        //     // Track app open as custom event
-
-        //     // Option 1: Track as custom event
-
-        //     Log.i(TAG, "   Tracking regular open as custom event 'app_open' with properties")
-
-        //     val properties = mapOf(
-        //         "event_type" to "app_open",
-        //         "authorization_status" to authorizationStatus,
-        //         "platform" to "Android"
-        //     )
-
-        //     try {
-        //         Log.i(TAG, "   Attempting to track custom event for regular app open")
-
-
-        //         val customEvent = CustomEvent.Builder()
-        //             .type("app_open")
-        //             .properties(properties)
-        //             .build()
-
-        //         Log.i(TAG, "   Custom event built successfully, recording event...")
-
-        //         AttentiveSdk.recordEvent(customEvent)
-
-        //         Log.i(TAG, "✅ [AttentiveSDK] handleRegularOpen completed (tracked as custom event)")
-        //         Log.i(TAG, "   Event sent to Attentive backend")
-        //     } catch (e: Exception) {
-        //         Log.w(TAG, "⚠️  [AttentiveSDK] Could not track app open as custom event: ${e.message}")
-        //         Log.i(TAG, "   App open tracking requires manual implementation or SDK upgrade")
-        //     }
-
-        //     if (debugHelper.isDebuggingEnabled()) {
-        //         val debugData = mutableMapOf<String, Any>()
-        //         debugData["authorization_status"] = authorizationStatus
-        //         debugData["event_type"] = "regular_open"
-        //         debugData["platform"] = "Android"
-        //         debugData["sdk_version"] = "2.1.1"
-        //         debugHelper.showDebugInfo("Regular Open Event", debugData)
-        //     }
-        // } catch (e: Exception) {
-        //     Log.e(TAG, "❌ [AttentiveSDK] Error in handleRegularOpen: ${e.message}", e)
-
-        //     if (debugHelper.isDebuggingEnabled()) {
-        //         val debugData = mutableMapOf<String, Any>()
-        //         debugData["error"] = e.message ?: "Unknown error"
-        //         debugData["error_type"] = e.javaClass.simpleName
-        //         debugHelper.showDebugInfo("Regular Open Error", debugData)
-        //     }
-        // }
     }
 
     /**
@@ -737,23 +668,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      */
     override fun getInitialPushNotification(promise: Promise) {
       Log.d(TAG, "getInitialPushNotification called!")
-
-//        try {
-//            val payload = AttentiveNotificationStore.getAndClear()
-//            if (payload == null) {
-//                Log.d(TAG, "getInitialPushNotification: no pending initial notification")
-//                promise.resolve(null)
-//                return
-//            }
-//
-//            Log.i(TAG, "getInitialPushNotification: returning stored notification with keys=${payload.keys}")
-//            val result = Arguments.createMap()
-//            payload.forEach { (key, value) -> result.putString(key, value) }
-//            promise.resolve(result)
-//        } catch (e: Exception) {
-//            Log.e(TAG, "getInitialPushNotification: error — ${e.message}", e)
-//            promise.reject("INITIAL_PUSH_ERROR", "Failed to retrieve initial push notification: ${e.message}", e)
-//        }
     }
 
     // ==========================================================================
