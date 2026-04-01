@@ -483,7 +483,10 @@ function handlePushOpen(
  * @returns A promise that resolves to the notification data object, or `null` if the
  *          app was not launched via a push notification tap.
  */
-async function getInitialPushNotification(): Promise<Record<string, string> | null> {
+async function getInitialPushNotification(): Promise<Record<
+  string,
+  string
+> | null> {
   const result = await AttentiveReactNativeSdk.getInitialPushNotification()
   return result as Record<string, string> | null
 }
