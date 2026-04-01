@@ -68,11 +68,58 @@ See [DEBUGGING.md](./DEBUGGING.md) for detailed information about debugging feat
 
 ### Initialize the SDK
 
+> **Platform difference:** iOS and Android have different initialization requirements.
+
+#### iOS — Initialize from TypeScript
+
+On iOS, call `initialize` from TypeScript as early as possible (e.g. the root `App` component's `useEffect`):
+
 ```typescript
-// 'initialize' should be called as soon as possible after the app starts (see the example app for an example of initializing the SDK in the App element)
-// Note: 'initialize' should only be called once per app session - if you call it multiple times it will throw an exception
+// Called once per app session, before any other SDK operations.
 Attentive.initialize(config);
 ```
+
+#### Android — Initialize from Native Code
+
+On Android, `AttentiveSdk.initialize()` **must** be called from your `Application.onCreate()` in native Kotlin/Java code. This is required so that lifecycle observers (e.g. `AppLaunchTracker`) are registered before the React Native bridge is ready. Calling `initialize()` from TypeScript on Android is a **no-op** — the SDK will not be started and all subsequent event calls will fail.
+
+Add the following to your `MainApplication.kt` (or `MainApplication.java`):
+
+```kotlin
+import android.app.Application
+import com.attentive.androidsdk.AttentiveConfig
+import com.attentive.androidsdk.AttentiveSdk
+import com.attentive.androidsdk.AttentiveLogLevel
+import com.facebook.react.bridge.UiThreadUtil
+
+class MainApplication : Application(), ReactApplication {
+
+    override fun onCreate() {
+        super.onCreate()
+        // ... your existing setup ...
+        initAttentiveSDK()
+    }
+
+    private fun initAttentiveSDK() {
+        val config = AttentiveConfig.Builder()
+            .applicationContext(this)
+            .domain("YOUR_ATTENTIVE_DOMAIN")
+            .mode(AttentiveConfig.Mode.PRODUCTION) // or Mode.DEBUG for testing
+            .skipFatigueOnCreatives(false)
+            .logLevel(AttentiveLogLevel.VERBOSE)
+            .build()
+
+        // AttentiveSdk.initialize registers lifecycle observers and must run on the main thread.
+        UiThreadUtil.runOnUiThread {
+            AttentiveSdk.initialize(config)
+        }
+    }
+}
+```
+
+After the native initialization, all other SDK operations (`identify`, `recordAddToCartEvent`, `recordPurchaseEvent`, etc.) are called from TypeScript as normal on both platforms. The TypeScript `initialize()` call is still required on iOS but is safely ignored on Android.
+
+> **Tip:** If you see `[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized` in your Android logcat, it means `AttentiveSdk.initialize()` was not called from native code before the event was recorded. Check your `Application.onCreate()` setup.
 
 ### Destroy the creative
 
@@ -205,7 +252,7 @@ This section describes how to implement Attentive app events on Android so they 
 </manifest>
 ```
 
-2. **Initialize and identify first** – In your app entry (e.g. root component `useEffect`), call `initialize(config)` and `identify(identifiers)` before any push or app-event logic.
+2. **Initialize and identify first** – The SDK must be initialized natively from `Application.onCreate()` on Android (see [Android Native Initialization](#android--initialize-from-native-code) above). Then, in your app entry (e.g. root component `useEffect`), call `identify(identifiers)` before any push or app-event logic.
 
 #### 1. On app launch (Android)
 
@@ -228,7 +275,13 @@ import {
 } from 'attentive-react-native-sdk';
 
 // Inside your root component (e.g. App.tsx useEffect):
-initialize(config);
+
+// iOS only: initialize from TypeScript.
+// Android: initialization must be done natively from Application.onCreate() — see README.
+if (Platform.OS === 'ios') {
+  initialize(config);
+}
+
 identify({ email: 'user@example.com', clientUserId: 'id-123' });
 
 if (Platform.OS === 'android') {
@@ -304,7 +357,7 @@ Get `authorizationStatus` via `getPushAuthorizationStatus()` when handling the e
 
 The [Bonni](https://github.com/attentive-mobile/attentive-react-native-sdk/tree/main/Bonni) example app ([App.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/Bonni/App.tsx)) implements the full flow:
 
-1. **Launch:** `initialize` → `identify` → (Android) `getPushAuthorizationStatus()` → `handleRegularOpen(authStatus)` → `registerForPushNotifications()`.
+1. **Launch:** Native `AttentiveSdk.initialize(config)` (from `Application.onCreate()`) → TypeScript `identify` → `getPushAuthorizationStatus()` → `handleRegularOpen(authStatus)` → `registerForPushNotifications()`.
 2. **Foreground:** `AppState.addEventListener('change', …)` → when `active` and Android → `getPushAuthorizationStatus()` → `handleRegularOpen(authStatus)`.
 3. **Optional:** When FCM token is available → `registerDeviceTokenWithCallback(token, authStatus, callback)` → in callback call `handleRegularOpen(authStatus)`.
 4. **Optional:** When user opens a notification or receives one in foreground → `handlePushOpen` / `handleForegroundPush` with payload and status from `getPushAuthorizationStatus()`.

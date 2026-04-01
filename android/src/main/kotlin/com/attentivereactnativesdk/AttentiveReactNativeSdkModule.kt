@@ -57,8 +57,28 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Initialize the Attentive SDK. Called only from the TypeScript layer (e.g. Bonni App.tsx);
-     * this module must not auto-initialize in Application.onCreate or elsewhere.
+     * TypeScript-facing initialize() — intentionally a no-op on Android.
+     *
+     * On Android, AttentiveSdk.initialize() MUST be called from your Application.onCreate()
+     * (native code) so that lifecycle observers (AppLaunchTracker, etc.) are registered
+     * before the React Native bridge is ready. Calling this from TypeScript on Android has
+     * no effect and will not initialize the SDK.
+     *
+     * Required native setup in your Application class:
+     * ```kotlin
+     * override fun onCreate() {
+     *     super.onCreate()
+     *     val config = AttentiveConfig.Builder()
+     *         .applicationContext(this)
+     *         .domain("YOUR_ATTENTIVE_DOMAIN")
+     *         .mode(AttentiveConfig.Mode.PRODUCTION)
+     *         .build()
+     *     AttentiveSdk.initialize(config)
+     * }
+     * ```
+     *
+     * See the README.md "Android Native Initialization" section for the full guide.
+     * All other SDK operations (identify, recordEvent, push) are handled from TypeScript as normal.
      */
     override fun initialize(
         attentiveDomain: String,
@@ -66,27 +86,15 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         skipFatigueOnCreatives: Boolean,
         enableDebugger: Boolean
     ) {
-        // Initialize debug helper
         debugHelper.initialize(enableDebugger)
 
-        // val appContext = reactApplicationContext.applicationContext as? Application
-        //     ?: throw IllegalStateException("Application context is required for Attentive SDK")
-        // val modeEnum = AttentiveConfig.Mode.valueOf(mode.uppercase(Locale.ROOT))
-        // Log.d(TAG, "Building AttentiveConfig with mode received from TypeScript: \"$modeEnum\"")
-        // val config = AttentiveConfig.Builder()
-        //     .applicationContext(appContext)
-        //     .domain(attentiveDomain)
-        //     .mode(modeEnum)
-        //     .skipFatigueOnCreatives(skipFatigueOnCreatives)
-        //     .logLevel(AttentiveLogLevel.VERBOSE)
-        //     .build()
-        // attentiveConfig = config
-
-        // // AttentiveSdk.initialize internally registers a LifecycleObserver (AppLaunchTracker)
-        // // which requires being called on the main thread.
-        // UiThreadUtil.runOnUiThread {
-        //     AttentiveSdk.initialize(config)
-        // }
+        Log.w(
+            TAG,
+            "[AttentiveSDK] initialize() called from TypeScript is a NO-OP on Android. " +
+            "You must call AttentiveSdk.initialize(config) from your Application.onCreate() " +
+            "so that lifecycle observers are registered before the React Native bridge is ready. " +
+            "See README.md § 'Android Native Initialization' for the required setup."
+        )
     }
 
     override fun triggerCreative(creativeId: String?) {
@@ -177,7 +185,17 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val itemsList = buildItems(items)
         val productViewEvent = ProductViewEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        AttentiveSdk.recordEvent(productViewEvent)
+        try {
+            AttentiveSdk.recordEvent(productViewEvent)
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "[AttentiveSDK] recordProductViewEvent failed — SDK may not be initialized. " +
+                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
+                "before recording events. Error: ${e.message}"
+            )
+            return
+        }
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -202,7 +220,17 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
         val purchaseEvent = purchaseBuilder.build()
 
-        AttentiveSdk.recordEvent(purchaseEvent)
+        try {
+            AttentiveSdk.recordEvent(purchaseEvent)
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "[AttentiveSDK] recordPurchaseEvent failed — SDK may not be initialized. " +
+                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
+                "before recording events. Error: ${e.message}"
+            )
+            return
+        }
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -220,7 +248,17 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val itemsList = buildItems(items)
         val addToCartEvent = AddToCartEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        AttentiveSdk.recordEvent(addToCartEvent)
+        try {
+            AttentiveSdk.recordEvent(addToCartEvent)
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized. " +
+                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
+                "before recording events. Error: ${e.message}"
+            )
+            return
+        }
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -238,7 +276,17 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val propertiesMap = convertToStringMap(properties.toHashMap())
         val customEvent = CustomEvent.Builder().type(type).properties(propertiesMap).build()
 
-        AttentiveSdk.recordEvent(customEvent)
+        try {
+            AttentiveSdk.recordEvent(customEvent)
+        } catch (e: Exception) {
+            Log.e(
+                TAG,
+                "[AttentiveSDK] recordCustomEvent failed — SDK may not be initialized. " +
+                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
+                "before recording events. Error: ${e.message}"
+            )
+            return
+        }
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -788,19 +836,37 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     private fun buildItems(rawItems: ReadableArray): List<Item> {
         Log.i(TAG, "buildItems method called with rawItems: $rawItems")
         val items = mutableListOf<Item>()
+
         for (i in 0 until rawItems.size()) {
             val rawItem = rawItems.getMap(i) ?: continue
 
-            // Price and currency are now flattened, not nested
+            // Required scalar fields
             val priceValue = rawItem.getString("price") ?: continue
             val currencyCode = rawItem.getString("currency") ?: continue
-            val price = Price.Builder()
-                .price(BigDecimal(priceValue))
-                .currency(Currency.getInstance(currencyCode))
-                .build()
-
             val productId = rawItem.getString("productId") ?: continue
             val productVariantId = rawItem.getString("productVariantId") ?: continue
+
+            // Parse price amount — skip item on malformed value rather than crash
+            val priceDecimal = try {
+                BigDecimal(priceValue)
+            } catch (e: NumberFormatException) {
+                Log.w(TAG, "buildItems: invalid price value '$priceValue' at index $i — skipping item")
+                continue
+            }
+
+            // Parse currency — skip item on unrecognised ISO 4217 code rather than crash
+            val currency = try {
+                Currency.getInstance(currencyCode)
+            } catch (e: IllegalArgumentException) {
+                Log.w(TAG, "buildItems: invalid currency code '$currencyCode' at index $i — skipping item")
+                continue
+            }
+
+            val price = Price.Builder()
+                .price(priceDecimal)
+                .currency(currency)
+                .build()
+
             val builder = Item.Builder(productId, productVariantId, price)
 
             if (rawItem.hasKey("productImage")) {
@@ -811,16 +877,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 builder.name(rawItem.getString("name"))
             }
 
+            // JS numbers are doubles on the bridge; use getDouble().toInt() to avoid ClassCastException
             if (rawItem.hasKey("quantity")) {
-                builder.quantity(rawItem.getInt("quantity"))
+                builder.quantity(rawItem.getDouble("quantity").toInt())
             }
 
             if (rawItem.hasKey("category")) {
                 builder.category(rawItem.getString("category"))
             }
 
-            val item = builder.build()
-            items.add(item)
+            items.add(builder.build())
         }
 
         return items
