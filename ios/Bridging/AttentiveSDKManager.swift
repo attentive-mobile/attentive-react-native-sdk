@@ -51,6 +51,12 @@ import UserNotifications
 
     /// The most recent UNNotificationResponse, cached so the RN bridge can use it
     /// when JS calls handlePushOpen / handleForegroundPush.
+    ///
+    /// **Known limitation:** This is a single-slot cache. If two notifications
+    /// arrive in rapid succession (e.g. a tap followed immediately by a
+    /// foreground delivery), the second call to `handleNotificationResponse`
+    /// overwrites the first before its async tracking completes. In practice
+    /// this is extremely rare because `didReceive` is serialized by the system.
     private var pendingResponse: UNNotificationResponse?
 
     /// Whether the pending response has already been tracked via `handleNotificationResponse`.
@@ -106,46 +112,52 @@ import UserNotifications
      * @param response The `UNNotificationResponse` from the notification center delegate.
      */
     @objc public func handleNotificationResponse(_ response: UNNotificationResponse) {
-        // Capture app state NOW — by the time the async block or cold-launch
-        // replay runs, the app will likely be .active regardless of how it was
-        // actually launched. Storing the state ensures a killed-state push tap
-        // is correctly classified as a push open, not a foreground push.
-        let appState = UIApplication.shared.applicationState
+        // UIApplication.shared.applicationState is a UIKit property that must
+        // be read on the main thread. userNotificationCenter(_:didReceive:) is
+        // almost always delivered on main, but we guard defensively.
+        let cacheAndTrack = { [self] (appState: UIApplication.State) in
+            // Cache the response for the RN bridge (consumed by handlePushOpenFromRN /
+            // handleForegroundPushFromRN).
+            responseLock.lock()
+            pendingResponse = response
+            pendingResponseTracked = false
+            pendingAppState = appState
+            responseLock.unlock()
 
-        // Cache the response for the RN bridge (consumed by handlePushOpenFromRN / handleForegroundPushFromRN).
-        // pendingResponseTracked stays false until tracking actually executes, so a bridge
-        // call that races with the async block below will still track correctly.
-        responseLock.lock()
-        pendingResponse = response
-        pendingResponseTracked = false
-        pendingAppState = appState
-        responseLock.unlock()
+            trackResponse(response, appState: appState)
+        }
 
-        trackResponse(response, appState: appState)
+        if Thread.isMainThread {
+            cacheAndTrack(UIApplication.shared.applicationState)
+        } else {
+            DispatchQueue.main.async {
+                cacheAndTrack(UIApplication.shared.applicationState)
+            }
+        }
     }
 
-    // MARK: - Push Notification Handlers (for AppDelegate)
+    // MARK: - Push Notification Handlers (legacy — prefer handleNotificationResponse)
 
     /**
      * Handle a push notification when the app is in the foreground (active state).
-     * Call this from AppDelegate's userNotificationCenter(_:didReceive:withCompletionHandler:)
-     * when UIApplication.shared.applicationState == .active
      *
-     * @param response The UNNotificationResponse from the notification center delegate
-     * @param authorizationStatus Current push authorization status from notification settings
+     * - Important: Deprecated — use ``handleNotificationResponse(_:)`` instead,
+     *   which handles app-state detection and auth-status lookup automatically.
+     *   Do **not** call both methods for the same notification.
      */
+    @available(*, deprecated, message: "Use handleNotificationResponse(_:) instead")
     @objc public func handleForegroundPush(response: UNNotificationResponse, authorizationStatus: UNAuthorizationStatus) {
         nativeSDK?.handleForegroundPush(response: response, authorizationStatus: authorizationStatus)
     }
 
     /**
      * Handle when a push notification is opened by the user (app in background/inactive state).
-     * Call this from AppDelegate's userNotificationCenter(_:didReceive:withCompletionHandler:)
-     * when UIApplication.shared.applicationState == .background or .inactive
      *
-     * @param response The UNNotificationResponse from the notification center delegate
-     * @param authorizationStatus Current push authorization status from notification settings
+     * - Important: Deprecated — use ``handleNotificationResponse(_:)`` instead,
+     *   which handles app-state detection and auth-status lookup automatically.
+     *   Do **not** call both methods for the same notification.
      */
+    @available(*, deprecated, message: "Use handleNotificationResponse(_:) instead")
     @objc public func handlePushOpen(response: UNNotificationResponse, authorizationStatus: UNAuthorizationStatus) {
         nativeSDK?.handlePushOpen(response: response, authorizationStatus: authorizationStatus)
     }
@@ -186,40 +198,38 @@ import UserNotifications
             guard let self = self else { return }
             let authStatus = settings.authorizationStatus
             DispatchQueue.main.async {
-                // Re-check that this response is still pending and untracked.
-                // If the bridge already consumed and tracked it via
-                // consumePendingResponse(), bail out to avoid double-tracking.
+                // Check that this response is still pending and untracked, then
+                // mark tracked optimistically *before* releasing the lock. This
+                // closes the window where consumePendingResponse() could run on
+                // another thread, see alreadyTracked: false, and also call the
+                // native SDK — resulting in double-tracking.
                 self.responseLock.lock()
                 guard self.pendingResponse === response, !self.pendingResponseTracked else {
                     self.responseLock.unlock()
                     return
                 }
-                self.responseLock.unlock()
 
-                guard let nativeSDK = self.nativeSDK else {
-                    // SDK not yet initialized (cold launch). The response stays cached
-                    // with pendingResponseTracked = false. When the SDK is set via the
-                    // RN bridge, the didSet observer will call flushPendingResponseIfNeeded.
+                guard self.nativeSDK != nil else {
+                    // SDK not yet initialized (cold launch). Leave
+                    // pendingResponseTracked = false so the didSet observer
+                    // on `sdk` can flush later.
+                    self.responseLock.unlock()
                     return
                 }
 
+                // Mark tracked while still holding the lock, before the SDK call.
+                self.pendingResponseTracked = true
+                self.responseLock.unlock()
+
+                // Safe to call outside the lock — we've already claimed ownership.
                 switch appState {
                 case .active:
-                    nativeSDK.handleForegroundPush(response: response, authorizationStatus: authStatus)
+                    self.nativeSDK?.handleForegroundPush(response: response, authorizationStatus: authStatus)
                 case .background, .inactive:
-                    nativeSDK.handlePushOpen(response: response, authorizationStatus: authStatus)
+                    self.nativeSDK?.handlePushOpen(response: response, authorizationStatus: authStatus)
                 @unknown default:
-                    nativeSDK.handlePushOpen(response: response, authorizationStatus: authStatus)
+                    self.nativeSDK?.handlePushOpen(response: response, authorizationStatus: authStatus)
                 }
-
-                // Mark tracked only after the native SDK call has actually executed.
-                // If the bridge consumed the response first (pendingResponse is now nil
-                // or points to a different notification), skip — the bridge already handled it.
-                self.responseLock.lock()
-                if self.pendingResponse === response {
-                    self.pendingResponseTracked = true
-                }
-                self.responseLock.unlock()
             }
         }
     }

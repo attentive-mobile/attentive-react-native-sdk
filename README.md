@@ -184,6 +184,13 @@ The SDK supports push notification integration on both iOS (APNs) and Android (r
 > Without this, push open and foreground push events **will not be tracked** on
 > iOS. See [iOS AppDelegate Integration](#ios-appdelegate-integration) for full
 > details.
+>
+> **Migrating from an earlier version?** If you previously called
+> `AttentiveSDKManager.shared.handleForegroundPush(response:authorizationStatus:)`
+> or `AttentiveSDKManager.shared.handlePushOpen(response:authorizationStatus:)`
+> directly from your AppDelegate, **replace** that code with the single
+> `handleNotificationResponse` call above. Using both will result in
+> double-tracked events. The old methods are now deprecated.
 
 ---
 
