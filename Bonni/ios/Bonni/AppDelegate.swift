@@ -3,6 +3,7 @@ import React
 import React_RCTAppDelegate
 import ReactAppDependencyProvider
 import UserNotifications
+import attentive_react_native_sdk
 
 @main
 class AppDelegate: RCTAppDelegate {
