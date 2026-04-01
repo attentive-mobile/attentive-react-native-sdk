@@ -57,6 +57,12 @@ import UserNotifications
     /// Prevents double-tracking when both the native convenience method and the JS bridge fire.
     private var pendingResponseTracked: Bool = false
 
+    /// The app state captured at the moment `handleNotificationResponse` was called.
+    /// Stored so that cold-launch replays use the original state (typically `.inactive`
+    /// or `.background`) rather than `.active` which is what the app will be in by the
+    /// time the SDK finishes initializing.
+    private var pendingAppState: UIApplication.State = .inactive
+
     /// Serialises access to the cache fields above.
     private let responseLock = NSLock()
 
@@ -100,15 +106,22 @@ import UserNotifications
      * @param response The `UNNotificationResponse` from the notification center delegate.
      */
     @objc public func handleNotificationResponse(_ response: UNNotificationResponse) {
+        // Capture app state NOW — by the time the async block or cold-launch
+        // replay runs, the app will likely be .active regardless of how it was
+        // actually launched. Storing the state ensures a killed-state push tap
+        // is correctly classified as a push open, not a foreground push.
+        let appState = UIApplication.shared.applicationState
+
         // Cache the response for the RN bridge (consumed by handlePushOpenFromRN / handleForegroundPushFromRN).
         // pendingResponseTracked stays false until tracking actually executes, so a bridge
         // call that races with the async block below will still track correctly.
         responseLock.lock()
         pendingResponse = response
         pendingResponseTracked = false
+        pendingAppState = appState
         responseLock.unlock()
 
-        trackResponse(response)
+        trackResponse(response, appState: appState)
     }
 
     // MARK: - Push Notification Handlers (for AppDelegate)
@@ -164,11 +177,25 @@ import UserNotifications
     /// Attempt to track a cached response via the native SDK.
     /// If nativeSDK is nil (cold launch), returns without marking tracked;
     /// the `sdk` didSet will call `flushPendingResponseIfNeeded` later.
-    private func trackResponse(_ response: UNNotificationResponse) {
+    ///
+    /// Uses the supplied `appState` (captured at `handleNotificationResponse` time)
+    /// rather than the current app state, so cold-launch replays classify the
+    /// event correctly.
+    private func trackResponse(_ response: UNNotificationResponse, appState: UIApplication.State) {
         UNUserNotificationCenter.current().getNotificationSettings { [weak self] settings in
             guard let self = self else { return }
             let authStatus = settings.authorizationStatus
             DispatchQueue.main.async {
+                // Re-check that this response is still pending and untracked.
+                // If the bridge already consumed and tracked it via
+                // consumePendingResponse(), bail out to avoid double-tracking.
+                self.responseLock.lock()
+                guard self.pendingResponse === response, !self.pendingResponseTracked else {
+                    self.responseLock.unlock()
+                    return
+                }
+                self.responseLock.unlock()
+
                 guard let nativeSDK = self.nativeSDK else {
                     // SDK not yet initialized (cold launch). The response stays cached
                     // with pendingResponseTracked = false. When the SDK is set via the
@@ -176,7 +203,7 @@ import UserNotifications
                     return
                 }
 
-                switch UIApplication.shared.applicationState {
+                switch appState {
                 case .active:
                     nativeSDK.handleForegroundPush(response: response, authorizationStatus: authStatus)
                 case .background, .inactive:
@@ -199,15 +226,17 @@ import UserNotifications
 
     /// Called from `sdk` didSet when the SDK becomes available.
     /// If there is a pending untracked response (cold-launch scenario),
-    /// track it now.
+    /// track it now using the app state captured at the original
+    /// `handleNotificationResponse` call.
     private func flushPendingResponseIfNeeded() {
         responseLock.lock()
         guard let response = pendingResponse, !pendingResponseTracked else {
             responseLock.unlock()
             return
         }
+        let appState = pendingAppState
         responseLock.unlock()
 
-        trackResponse(response)
+        trackResponse(response, appState: appState)
     }
 }
