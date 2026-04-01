@@ -220,6 +220,25 @@ Attentive.identify({phone: '+15556667777'};)
 
 The SDK supports push notification integration on both iOS (APNs) and Android (runtime permission + optional FCM). The following sections cover iOS-specific flows and a full **App events on Android** implementation that mirrors the behavior of the [Bonni](https://github.com/attentive-mobile/attentive-react-native-sdk/tree/main/Bonni) example app.
 
+> **iOS — required setup:** Your AppDelegate **must** forward notification
+> responses to the SDK for push tracking to work. Add this single line to your
+> `userNotificationCenter(_:didReceive:withCompletionHandler:)`:
+>
+> ```swift
+> AttentiveSDKManager.shared.handleNotificationResponse(response)
+> ```
+>
+> Without this, push open and foreground push events **will not be tracked** on
+> iOS. See [iOS AppDelegate Integration](#ios-appdelegate-integration) for full
+> details.
+>
+> **Migrating from an earlier version?** If you previously called
+> `AttentiveSDKManager.shared.handleForegroundPush(response:authorizationStatus:)`
+> or `AttentiveSDKManager.shared.handlePushOpen(response:authorizationStatus:)`
+> directly from your AppDelegate, **replace** that code with the single
+> `handleNotificationResponse` call above. Using both will result in
+> double-tracked events. The old methods are now deprecated.
+
 ---
 
 ### App Events on Android
@@ -426,7 +445,40 @@ For proper push notification integration, your iOS AppDelegate needs to:
 
 1. Request notification permissions via the SDK
 2. Implement `application:didRegisterForRemoteNotificationsWithDeviceToken:` to register the token
-3. Implement `UNUserNotificationCenterDelegate` methods to handle notification events
+3. **Forward notification responses to the SDK for push-open tracking**
+
+##### Push Open Tracking (Required)
+
+Add **one line** to your AppDelegate's `didReceive` handler so the SDK can track
+push opens and foreground push events. Without this, `handlePushOpen()` and
+`handleForegroundPush()` called from JavaScript will not be able to track events
+on iOS (the native SDK requires a `UNNotificationResponse` which cannot cross the
+React Native bridge).
+
+```swift
+// In AppDelegate.swift — UNUserNotificationCenterDelegate
+func userNotificationCenter(
+    _ center: UNUserNotificationCenter,
+    didReceive response: UNNotificationResponse,
+    withCompletionHandler completionHandler: @escaping () -> Void
+) {
+    // Attentive push tracking (handles app-state + auth status automatically)
+    AttentiveSDKManager.shared.handleNotificationResponse(response)
+
+    // Forward to your push library (e.g. RNCPushNotificationIOS) for JS events
+    RNCPushNotificationIOS.didReceive(response)
+    completionHandler()
+}
+```
+
+`handleNotificationResponse` automatically:
+- Detects whether the app is in the foreground or background
+- Fetches the current authorization status
+- Calls the correct native SDK method (`handlePushOpen` or `handleForegroundPush`)
+- Caches the response so the JS-side `handlePushOpen()` / `handleForegroundPush()` calls
+  are fulfilled without double-tracking
+- **Cold-launch safe:** If the user taps a push while the app is killed, the
+  response is cached and automatically tracked once the SDK initializes
 
 ##### Callback-Based Registration (Recommended)
 
@@ -443,13 +495,13 @@ func application(
 ) {
     UNUserNotificationCenter.current().getNotificationSettings { settings in
         let authStatus = settings.authorizationStatus
-        
+
         // Get SDK instance with proper type
         guard let attentiveSdk = AttentiveSDKManager.shared.sdk as? ATTNNativeSDK else {
             print("[Attentive] SDK not initialized")
             return
         }
-        
+
         // Register device token with callback
         attentiveSdk.registerDeviceToken(
             deviceToken,
@@ -460,7 +512,7 @@ func application(
                     if let error = error {
                         print("[Attentive] Registration failed: \(error.localizedDescription)")
                     }
-                    
+
                     // Trigger regular open event after registration
                     attentiveSdk.handleRegularOpen(authorizationStatus: authStatus)
                 }
