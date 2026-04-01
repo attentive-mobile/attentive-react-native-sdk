@@ -182,6 +182,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     override fun recordProductViewEvent(items: ReadableArray, deeplink: String?) {
         Log.i(TAG, "Sending product viewed event")
 
+        val itemsDebugData = if (debugHelper.isDebuggingEnabled()) extractItemsDebugData(items) else emptyList()
+
         val itemsList = buildItems(items)
         val productViewEvent = ProductViewEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
@@ -201,6 +203,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             val debugData = mutableMapOf<String, Any>()
             debugData["items_count"] = itemsList.size.toString()
             debugData["deeplink"] = deeplink ?: ""
+            debugData["all_items"] = itemsDebugData
+            itemsDebugData.firstOrNull()?.let { debugData["first_item"] = it }
             debugHelper.showDebugInfo("Product View Event", debugData)
         }
     }
@@ -212,6 +216,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         cartCoupon: String?
     ) {
         Log.i(TAG, "Sending purchase event")
+
+        val itemsDebugData = if (debugHelper.isDebuggingEnabled()) extractItemsDebugData(items) else emptyList()
+
         val order = Order.Builder().orderId(orderId).build()
         val itemsList = buildItems(items)
         val purchaseBuilder = PurchaseEvent.Builder(itemsList, order)
@@ -236,14 +243,19 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             val debugData = mutableMapOf<String, Any>()
             debugData["items_count"] = itemsList.size.toString()
             debugData["order_id"] = orderId
-            if (cartId != null) debugData["cart_id"] = cartId
-            if (cartCoupon != null) debugData["cart_coupon"] = cartCoupon
+            if (!cartId.isNullOrEmpty()) debugData["cart_id"] = cartId!!
+            if (!cartCoupon.isNullOrEmpty()) debugData["cart_coupon"] = cartCoupon!!
+            debugData["all_items"] = itemsDebugData
+            itemsDebugData.firstOrNull()?.let { debugData["first_item"] = it }
             debugHelper.showDebugInfo("Purchase Event", debugData)
         }
     }
 
     override fun recordAddToCartEvent(items: ReadableArray, deeplink: String?) {
         Log.i(TAG, "Sending add to cart event")
+
+        // Extract raw debug data before building items so all bridge fields are preserved
+        val itemsDebugData = if (debugHelper.isDebuggingEnabled()) extractItemsDebugData(items) else emptyList()
 
         val itemsList = buildItems(items)
         val addToCartEvent = AddToCartEvent.Builder().items(itemsList).deeplink(deeplink).build()
@@ -264,6 +276,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             val debugData = mutableMapOf<String, Any>()
             debugData["items_count"] = itemsList.size.toString()
             debugData["deeplink"] = deeplink ?: ""
+            debugData["all_items"] = itemsDebugData
+            itemsDebugData.firstOrNull()?.let { debugData["first_item"] = it }
             debugHelper.showDebugInfo("Add To Cart Event", debugData)
         }
     }
@@ -818,6 +832,38 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     @ReactMethod
     fun removeListeners(count: Double) {
         // No-op: listener bookkeeping is handled by the JS NativeEventEmitter.
+    }
+
+    /**
+     * Extracts a human-readable list of item maps from the raw bridge array for debug display.
+     *
+     * This intentionally reads all fields from the original [ReadableArray] rather than from
+     * the built [Item] objects so that every field sent from TypeScript (including optional ones)
+     * is visible in the debugger — even fields that may be skipped during SDK item construction.
+     *
+     * @param rawItems The raw item array as received from the React Native bridge.
+     * @return A list of maps, one per item, containing all present fields.
+     */
+    private fun extractItemsDebugData(rawItems: ReadableArray): List<Map<String, Any>> {
+        val result = mutableListOf<Map<String, Any>>()
+        for (i in 0 until rawItems.size()) {
+            val rawItem = rawItems.getMap(i) ?: continue
+            val itemData = mutableMapOf<String, Any>()
+
+            rawItem.getString("productId")?.let { itemData["productId"] = it }
+            rawItem.getString("productVariantId")?.let { itemData["productVariantId"] = it }
+            rawItem.getString("price")?.let { itemData["price"] = it }
+            rawItem.getString("currency")?.let { itemData["currency"] = it }
+            rawItem.getString("name")?.let { itemData["name"] = it }
+            rawItem.getString("productImage")?.let { itemData["productImage"] = it }
+            rawItem.getString("category")?.let { itemData["category"] = it }
+            if (rawItem.hasKey("quantity")) {
+                itemData["quantity"] = rawItem.getDouble("quantity").toInt()
+            }
+
+            result.add(itemData)
+        }
+        return result
     }
 
     private fun convertToStringMap(inputMap: Map<String, Any?>): Map<String, String> {
