@@ -158,10 +158,16 @@ extension AppDelegate: UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         print("[Attentive] Notification tapped/received response")
-        
+
+        // Required: forward to Attentive SDK for push-open and foreground-push tracking.
+        // Without this call, handlePushOpen() / handleForegroundPush() on the JS side
+        // will not track events on iOS. This one call handles both foreground and
+        // background app states and is safe to call for cold-launch notifications.
+        AttentiveSDKManager.shared.handleNotificationResponse(response)
+
         // Forward to React Native if using RNCPushNotificationIOS
         // RNCPushNotificationIOS.didReceive(response)
-        
+
         completionHandler()
     }
 }
@@ -271,4 +277,4 @@ If the regular open event doesn't fire:
 
 - [Push Token Registration Guide](./PUSH_TOKEN_REGISTRATION_GUIDE.md)
 - [Push Notifications Setup](./PUSH_NOTIFICATIONS_SETUP.md)
-- [SDK Upgrade Guide](./UPGRADE_TO_2.0.8.md)
+- [Migration Guide](../MIGRATION_GUIDE.md)

@@ -9,6 +9,73 @@ The Attentive iOS SDK provides a callback-based `registerDeviceToken` method tha
 2. Receive a callback with the registration result
 3. Trigger a "regular open" event after registration completes
 
+## Android Token Registration
+
+> **Important:** On Android, SDK initialization is **not** triggered from TypeScript. You must call `AttentiveSdk.initialize(config)` from your `Application.onCreate()` in native Kotlin/Java before the React Native bridge is ready. Calling `initialize()` from TypeScript on Android is a no-op. See the [Android Native Initialization](../README.md#android--initialize-from-native-code) section of the main README for the required `MainApplication.kt` setup.
+
+Once the SDK is initialized natively, token registration is handled entirely from TypeScript using the same API on both platforms.
+
+### Option A — Recommended: Let the SDK manage FCM registration
+
+Call `registerForPushNotifications()` from JavaScript. On Android this triggers `AttentiveSdk.getPushTokenWithCallback` inside the native module, which requests the `POST_NOTIFICATIONS` permission (Android 13+), fetches the FCM token, and registers it with Attentive — no extra native code required.
+
+```typescript
+import { registerForPushNotifications } from 'attentive-react-native-sdk';
+
+// Call once after identify(); shows the system permission dialog on Android 13+
+// and registers the FCM token with the Attentive backend.
+registerForPushNotifications();
+```
+
+### Option B — Alternative: Supply the FCM token yourself
+
+If you already obtain the FCM token from `@react-native-firebase/messaging` or another library, pass it directly via `registerDeviceTokenWithCallback` and then call `handleRegularOpen` in the callback:
+
+```typescript
+import {
+  getPushAuthorizationStatus,
+  registerDeviceTokenWithCallback,
+  handleRegularOpen,
+} from 'attentive-react-native-sdk';
+
+// Obtain your FCM token from Firebase Messaging (or any other source)
+const fcmToken = await messaging().getToken();
+
+getPushAuthorizationStatus().then((authStatus) => {
+  registerDeviceTokenWithCallback(
+    fcmToken,
+    authStatus,
+    (data, url, response, error) => {
+      if (error) {
+        console.error('[Attentive] Token registration failed', error);
+      }
+      // Always call handleRegularOpen after registration (success or failure)
+      handleRegularOpen(authStatus);
+    }
+  );
+});
+```
+
+### AndroidManifest prerequisite
+
+Declare the notification permission for Android 13+ in your `AndroidManifest.xml`:
+
+```xml
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+</manifest>
+```
+
+### Full Android launch and foreground flow
+
+For the complete Android integration (launch, returning to foreground, and permission handling), refer to the **[App Events on Android](../README.md#app-events-on-android)** section in the main README.
+
+---
+
+## iOS Token Registration
+
+> **Platform difference:** On iOS, SDK initialization is called from TypeScript (`Attentive.initialize(config)`) before any push or event calls. The native `didRegisterForRemoteNotificationsWithDeviceToken` AppDelegate callback receives the APNs token and should forward it to the Attentive SDK.
+
 ## Implementation in AppDelegate
 
 ### Step 1: Import Required Frameworks
@@ -245,8 +312,7 @@ If the regular open event doesn't fire:
 ## Related Documentation
 
 - [Push Notifications Setup Guide](./PUSH_NOTIFICATIONS_SETUP.md)
-- [SDK Upgrade Guide](./UPGRADE_TO_2.0.8.md)
-- [Migration Guide](./MIGRATION_GUIDE.md)
+- [Migration Guide](../MIGRATION_GUIDE.md)
 
 ## Support
 
