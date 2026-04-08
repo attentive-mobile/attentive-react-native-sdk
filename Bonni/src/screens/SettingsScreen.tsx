@@ -23,6 +23,7 @@ import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/
 import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle } from '../constants/buttonStyles'
 import { useAttentiveUser } from '../hooks/useAttentiveUser'
 import { useAttentiveActions } from '../hooks/useAttentiveActions'
+import { useMarketingSubscriptions } from '../hooks/useMarketingSubscriptions'
 import {
   updateDomain,
   registerForPushNotifications,
@@ -55,6 +56,25 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [domainPickerVisible, setDomainPickerVisible] = useState<boolean>(false)
   const { identifyUser, clearUserIdentification } = useAttentiveUser()
   const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions()
+  const {
+    emailInput: subEmailInput,
+    phoneInput: subPhoneInput,
+    currentEmail: subCurrentEmail,
+    currentPhone: subCurrentPhone,
+    emailError: subEmailError,
+    phoneError: subPhoneError,
+    setEmailInput: setSubEmailInput,
+    setPhoneInput: setSubPhoneInput,
+    handleSetEmail: handleSubSetEmail,
+    handleSetPhone: handleSubSetPhone,
+    handleOptInEmail,
+    handleOptOutEmail,
+    handleOptInPhone,
+    handleOptOutPhone,
+  } = useMarketingSubscriptions({
+    onSuccess: (message) => Alert.alert('Success', message),
+    onError: (message) => Alert.alert('Error', message),
+  })
 
   // Load device token and configuration on mount
   useEffect(() => {
@@ -524,6 +544,110 @@ The SDK will handle the API request internally.`
 
         <View style={styles.divider} />
 
+        {/* Marketing Subscriptions Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Marketing Subscriptions</Text>
+
+          {/* Email channel */}
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={styles.input}
+              placeholder="Email (name@example.com)"
+              value={subEmailInput}
+              onChangeText={(text) => {
+                setSubEmailInput(text)
+              }}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {subEmailError ? (
+              <Text style={styles.errorText}>{subEmailError}</Text>
+            ) : null}
+            <View style={styles.buttonRow}>
+              <Pressable
+                style={({ pressed }) => [styles.buttonRowItem, getPrimaryButtonStyle(pressed)]}
+                onPress={handleSubSetEmail}
+              >
+                {({ pressed }) => (
+                  <Text style={getPrimaryButtonTextStyle(pressed)}>Set Email</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.buttonRowItem, getSecondaryButtonStyle(pressed)]}
+                onPress={handleOptInEmail}
+              >
+                {({ pressed }) => (
+                  <Text style={getSecondaryButtonTextStyle(pressed)}>Opt In</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.buttonRowItem, styles.destructiveButton, pressed && styles.destructiveButtonPressed]}
+                onPress={handleOptOutEmail}
+              >
+                {({ pressed }) => (
+                  <Text style={[styles.destructiveButtonText, pressed && styles.destructiveButtonTextPressed]}>
+                    Opt Out
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.currentValueLabel}>
+              Current email: {subCurrentEmail ?? '—'}
+            </Text>
+          </View>
+
+          {/* Phone channel */}
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={styles.input}
+              placeholder="Phone (+15551234567)"
+              value={subPhoneInput}
+              onChangeText={(text) => {
+                setSubPhoneInput(text)
+              }}
+              keyboardType="phone-pad"
+              autoCorrect={false}
+            />
+            {subPhoneError ? (
+              <Text style={styles.errorText}>{subPhoneError}</Text>
+            ) : null}
+            <View style={styles.buttonRow}>
+              <Pressable
+                style={({ pressed }) => [styles.buttonRowItem, getPrimaryButtonStyle(pressed)]}
+                onPress={handleSubSetPhone}
+              >
+                {({ pressed }) => (
+                  <Text style={getPrimaryButtonTextStyle(pressed)}>Set Phone</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.buttonRowItem, getSecondaryButtonStyle(pressed)]}
+                onPress={handleOptInPhone}
+              >
+                {({ pressed }) => (
+                  <Text style={getSecondaryButtonTextStyle(pressed)}>Opt In</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.buttonRowItem, styles.destructiveButton, pressed && styles.destructiveButtonPressed]}
+                onPress={handleOptOutPhone}
+              >
+                {({ pressed }) => (
+                  <Text style={[styles.destructiveButtonText, pressed && styles.destructiveButtonTextPressed]}>
+                    Opt Out
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+            <Text style={styles.currentValueLabel}>
+              Current phone: {subCurrentPhone ?? '—'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.divider} />
+
         {/* Add Identifiers Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Add Identifiers</Text>
@@ -864,6 +988,45 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.medium,
     color: Colors.black,
     fontWeight: Typography.weights.bold,
+  },
+  // Marketing Subscriptions section
+  buttonRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  buttonRowItem: {
+    flex: 1,
+  },
+  errorText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.error,
+    marginBottom: Spacing.sm,
+  },
+  currentValueLabel: {
+    fontSize: Typography.sizes.small,
+    color: Colors.secondaryText,
+    marginTop: Spacing.xs,
+  },
+  destructiveButton: {
+    height: Layout.buttonHeight,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+  },
+  destructiveButtonPressed: {
+    backgroundColor: Colors.error,
+  },
+  destructiveButtonText: {
+    fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.medium,
+    color: Colors.error,
+    letterSpacing: Typography.letterSpacing.normal,
+  },
+  destructiveButtonTextPressed: {
+    color: Colors.white,
   },
 })
 
