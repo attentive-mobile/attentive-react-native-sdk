@@ -81,7 +81,12 @@ Attentive.initialize(config);
 
 #### Android — Initialize from Native Code
 
-On Android, `AttentiveSdk.initialize()` **must** be called from your `Application.onCreate()` in native Kotlin/Java code. This is required so that lifecycle observers (e.g. `AppLaunchTracker`) are registered before the React Native bridge is ready.
+On Android, `AttentiveSdk.initialize()` **must** be called from your `Application.onCreate()` in native Kotlin/Java code. There are two reasons for this:
+
+1. **Lifecycle observers must be registered before the React Native bridge is ready.** Internally, the SDK creates an `AppLaunchTracker` that calls `lifecycle.addObserver()` on the `ProcessLifecycleOwner`. If initialization happens after the bridge starts, early app-launch events can be missed.
+2. **`lifecycle.addObserver()` requires the main thread.** AndroidX enforces this with an `IllegalStateException` if called from a background thread. `Application.onCreate()` is guaranteed by the Android system to run on the main thread, so calling `initialize` there satisfies this requirement automatically — no extra threading machinery needed.
+
+> **Do not** call `AttentiveSdk.initialize()` from a background thread or a coroutine dispatcher other than `Dispatchers.Main`. Doing so will throw an `IllegalStateException` from inside the AndroidX Lifecycle library.
 
 Add the following to your `MainApplication.kt` (or `MainApplication.java`):
 
@@ -90,7 +95,6 @@ import android.app.Application
 import com.attentive.androidsdk.AttentiveConfig
 import com.attentive.androidsdk.AttentiveSdk
 import com.attentive.androidsdk.AttentiveLogLevel
-import com.facebook.react.bridge.UiThreadUtil
 
 class MainApplication : Application(), ReactApplication {
 
@@ -109,10 +113,9 @@ class MainApplication : Application(), ReactApplication {
             .logLevel(AttentiveLogLevel.VERBOSE)
             .build()
 
-        // AttentiveSdk.initialize registers lifecycle observers and must run on the main thread.
-        UiThreadUtil.runOnUiThread {
-            AttentiveSdk.initialize(config)
-        }
+        // Application.onCreate() is always called on the main thread by the Android system,
+        // so no thread-switching wrapper is needed here.
+        AttentiveSdk.initialize(config)
     }
 }
 ```

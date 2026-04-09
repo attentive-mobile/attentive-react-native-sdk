@@ -15,7 +15,6 @@ import com.facebook.soloader.SoLoader
 import com.attentive.androidsdk.*
 import java.util.Locale
 import com.attentive.androidsdk.AttentiveLogLevel
-import com.facebook.react.bridge.UiThreadUtil
 import android.util.Log
 
 class MainApplication : Application(), ReactApplication {
@@ -69,10 +68,10 @@ class MainApplication : Application(), ReactApplication {
       .logLevel(AttentiveLogLevel.VERBOSE)
       .build()
 
-    // AttentiveSdk.initialize internally registers a LifecycleObserver (AppLaunchTracker)
-    // which requires being called on the main thread.
-    UiThreadUtil.runOnUiThread {
-      AttentiveSdk.initialize(config)
-    }
+    // Application.onCreate() is guaranteed by Android to run on the main thread.
+    // AttentiveSdk.initialize internally calls lifecycle.addObserver() (via AppLaunchTracker /
+    // ProcessLifecycleOwner), which AndroidX enforces must be called on the main thread.
+    // No thread-switching wrapper is needed here because we are already on the main thread.
+    AttentiveSdk.initialize(config)
   }
 }
