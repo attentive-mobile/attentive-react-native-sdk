@@ -88,7 +88,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     ) {
         debugHelper.initialize(enableDebugger)
 
-        Log.w(
+        Log.d(
             TAG,
             "[AttentiveSDK] initialize() called from TypeScript is a NO-OP on Android. " +
             "You must call AttentiveSdk.initialize(config) from your Application.onCreate() " +
@@ -187,17 +187,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val itemsList = buildItems(items)
         val productViewEvent = ProductViewEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        try {
-            AttentiveSdk.recordEvent(productViewEvent)
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "[AttentiveSDK] recordProductViewEvent failed — SDK may not be initialized. " +
-                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
-                "before recording events. Error: ${e.message}"
-            )
-            return
-        }
+        if (!recordEventSafely("recordProductViewEvent") { AttentiveSdk.recordEvent(productViewEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -227,17 +217,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
         val purchaseEvent = purchaseBuilder.build()
 
-        try {
-            AttentiveSdk.recordEvent(purchaseEvent)
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "[AttentiveSDK] recordPurchaseEvent failed — SDK may not be initialized. " +
-                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
-                "before recording events. Error: ${e.message}"
-            )
-            return
-        }
+        if (!recordEventSafely("recordPurchaseEvent") { AttentiveSdk.recordEvent(purchaseEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -260,17 +240,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val itemsList = buildItems(items)
         val addToCartEvent = AddToCartEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        try {
-            AttentiveSdk.recordEvent(addToCartEvent)
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized. " +
-                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
-                "before recording events. Error: ${e.message}"
-            )
-            return
-        }
+        if (!recordEventSafely("recordAddToCartEvent") { AttentiveSdk.recordEvent(addToCartEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -290,17 +260,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val propertiesMap = convertToStringMap(properties.toHashMap())
         val customEvent = CustomEvent.Builder().type(type).properties(propertiesMap).build()
 
-        try {
-            AttentiveSdk.recordEvent(customEvent)
-        } catch (e: Exception) {
-            Log.e(
-                TAG,
-                "[AttentiveSDK] recordCustomEvent failed — SDK may not be initialized. " +
-                "On Android, call AttentiveSdk.initialize(config) from Application.onCreate() " +
-                "before recording events. Error: ${e.message}"
-            )
-            return
-        }
+        if (!recordEventSafely("recordCustomEvent") { AttentiveSdk.recordEvent(customEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -844,6 +804,36 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * @param rawItems The raw item array as received from the React Native bridge.
      * @return A list of maps, one per item, containing all present fields.
      */
+    /**
+     * Executes [block] (which calls [AttentiveSdk.recordEvent]) and catches any [Exception].
+     *
+     * When an exception is caught the log always includes the exception's simple class name so
+     * callers can distinguish an uninitialized-SDK error (typically [IllegalStateException]) from
+     * a programming mistake such as [NullPointerException] or [IllegalArgumentException] in event
+     * construction — both of which would have been silently misattributed to initialization
+     * failure under the previous broad catch-and-blame pattern.
+     *
+     * @param callerName Method name to include in the log for quick triage (e.g. "recordPurchaseEvent").
+     * @param block Lambda that performs the [AttentiveSdk.recordEvent] call.
+     * @return `true` if [block] completed without throwing, `false` if an exception was caught.
+     */
+    private fun recordEventSafely(callerName: String, block: () -> Unit): Boolean {
+        return try {
+            block()
+            true
+        } catch (e: Exception) {
+            // Include the exception class so the developer can tell apart an uninitialized SDK
+            // (IllegalStateException) from a malformed-event bug (NullPointerException, etc.)
+            Log.e(
+                TAG,
+                "[AttentiveSDK] $callerName failed with ${e.javaClass.simpleName}: ${e.message}. " +
+                "If the SDK was not initialized via AttentiveSdk.initialize() in Application.onCreate(), " +
+                "that is the most likely cause. Otherwise, inspect the exception type above."
+            )
+            false
+        }
+    }
+
     private fun extractItemsDebugData(rawItems: ReadableArray): List<Map<String, Any>> {
         val result = mutableListOf<Map<String, Any>>()
         for (i in 0 until rawItems.size()) {
