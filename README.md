@@ -476,9 +476,8 @@ func application(
 ```
 
 **Documentation:**
-- [Push Token Registration Guide](./docs/PUSH_TOKEN_REGISTRATION_GUIDE.md) - Detailed guide for callback-based registration
-- [AppDelegate Callback Example](./docs/APPDELEGATE_CALLBACK_EXAMPLE.md) - Complete AppDelegate implementation
-- [Push Notifications Setup](./docs/PUSH_NOTIFICATIONS_SETUP.md) - General push notification setup
+- [Push Notifications Integration Guide](./docs/PUSH_NOTIFICATIONS_INTEGRATION.md) - Callback-based registration, complete AppDelegate implementation, Android and iOS token flow
+- [Push Notifications Setup](./docs/PUSH_NOTIFICATIONS_SETUP.md) - Apple Developer Portal, APNs certificates, and TestFlight configuration
 - [iOS Native SDK documentation](https://github.com/attentive-mobile/attentive-ios-sdk) - Native SDK reference
 
 For Android push notification integration, see the **[App Events on Android](#app-events-on-android)** section above.

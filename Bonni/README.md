@@ -179,7 +179,7 @@ This section covers the exact steps to build, run, and debug the Bonni app on bo
     npm start
     ```
 
-> **Android initialization reminder:** `AttentiveSdk.initialize()` must be called from `MainApplication.kt` → `onCreate()` before the React Native bridge starts. If this call is missing, all SDK events will silently fail. See [`docs/PUSH_TOKEN_REGISTRATION_GUIDE.md`](../docs/PUSH_TOKEN_REGISTRATION_GUIDE.md#android-token-registration) for details.
+> **Android initialization reminder:** `AttentiveSdk.initialize()` must be called from `MainApplication.kt` → `onCreate()` before the React Native bridge starts. If this call is missing, all SDK events will silently fail. See the [Android Integration](../docs/PUSH_NOTIFICATIONS_INTEGRATION.md#android-integration) section of the Push Notifications Integration Guide for details.
 
 ---
 
