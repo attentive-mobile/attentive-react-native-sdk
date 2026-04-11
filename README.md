@@ -281,55 +281,43 @@ identify({ email: 'user@example.com', clientUserId: 'id-123' });
 
 #### Push notifications on Android (FCM)
 
-On Android, FCM token registration and push notification handling are managed natively in Kotlin/Java. This gives you full control over the Firebase Messaging lifecycle and ensures events are tracked before the React Native bridge initialises.
+The Attentive Android SDK registers its own `FirebaseMessagingService` automatically — **you do not need to create a subclass**. As long as your app is registered with Firebase and includes a valid `google-services.json`, the SDK handles FCM token registration and foreground push delivery for you. Follow the [Firebase Android setup guide](https://firebase.google.com/docs/cloud-messaging/android/client) to add FCM to your project.
 
-Add Firebase Cloud Messaging to your app following the [Firebase Android setup guide](https://firebase.google.com/docs/cloud-messaging/android/client), then handle token registration and notification events in your native `FirebaseMessagingService`:
+##### If you already have a FirebaseMessagingService subclass
+
+If your app has an existing `FirebaseMessagingService` subclass for other purposes, route Attentive messages through to the SDK:
 
 ```kotlin
 import com.attentive.androidsdk.AttentiveSdk
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
-class AttentiveMessagingService : FirebaseMessagingService() {
-
-    override fun onNewToken(token: String) {
-        super.onNewToken(token)
-        // Register the FCM token with the Attentive SDK
-        AttentiveSdk.registerDeviceToken(token)
-    }
+class YourFirebaseMessagingService : FirebaseMessagingService() {
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
-        // Handle foreground push delivery
-        AttentiveSdk.handleForegroundPush(remoteMessage.data)
+        if (AttentiveSdk.isAttentiveFirebaseMessage(remoteMessage)) {
+            AttentiveSdk.sendNotification(remoteMessage)
+        }
+        // Handle your own messages below...
     }
 }
 ```
 
-For notification opens (when the user taps a push notification), handle the intent in your main `Activity`:
+##### Notification opens (singleTask apps)
+
+React Native apps use `singleTask` launch mode by default. When a push notification is tapped while the app is in the background, Android delivers the intent via `onNewIntent()` rather than recreating the activity. Override `onNewIntent` in your `MainActivity` so the SDK can detect the notification tap:
 
 ```kotlin
-import com.attentive.androidsdk.AttentiveSdk
+import android.content.Intent
 
 class MainActivity : ReactActivity() {
 
-    override fun onResume() {
-        super.onResume()
-        intent?.let { AttentiveSdk.handlePushOpen(it) }
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.let { setIntent(it) }
     }
 }
-```
-
-Declare the service in your `AndroidManifest.xml`:
-
-```xml
-<service
-    android:name=".AttentiveMessagingService"
-    android:exported="false">
-    <intent-filter>
-        <action android:name="com.google.firebase.MESSAGING_EVENT" />
-    </intent-filter>
-</service>
 ```
 
 Refer to the [Attentive Android SDK documentation](https://github.com/attentive-mobile/attentive-android-sdk) for the full list of native APIs available for push notification integration.
