@@ -68,11 +68,61 @@ See [DEBUGGING.md](./DEBUGGING.md) for detailed information about debugging feat
 
 ### Initialize the SDK
 
+> **Platform difference:** iOS and Android have different initialization requirements.
+
+#### iOS — Initialize from TypeScript
+
+On iOS, call `initialize` from TypeScript as early as possible (e.g. the root `App` component's `useEffect`):
+
 ```typescript
-// 'initialize' should be called as soon as possible after the app starts (see the example app for an example of initializing the SDK in the App element)
-// Note: 'initialize' should only be called once per app session - if you call it multiple times it will throw an exception
+// Called once per app session, before any other SDK operations.
 Attentive.initialize(config);
 ```
+
+#### Android — Initialize from Native Code
+
+On Android, `AttentiveSdk.initialize()` **must** be called from your `Application.onCreate()` in native Kotlin/Java code. There are two reasons for this:
+
+1. **Lifecycle observers must be registered before the React Native bridge is ready.** Internally, the SDK creates an `AppLaunchTracker` that calls `lifecycle.addObserver()` on the `ProcessLifecycleOwner`. If initialization happens after the bridge starts, early app-launch events can be missed.
+2. **`lifecycle.addObserver()` requires the main thread.** AndroidX enforces this with an `IllegalStateException` if called from a background thread. `Application.onCreate()` is guaranteed by the Android system to run on the main thread, so calling `initialize` there satisfies this requirement automatically — no extra threading machinery needed.
+
+> **Do not** call `AttentiveSdk.initialize()` from a background thread or a coroutine dispatcher other than `Dispatchers.Main`. Doing so will throw an `IllegalStateException` from inside the AndroidX Lifecycle library.
+
+Add the following to your `MainApplication.kt` (or `MainApplication.java`):
+
+```kotlin
+import android.app.Application
+import com.attentive.androidsdk.AttentiveConfig
+import com.attentive.androidsdk.AttentiveSdk
+import com.attentive.androidsdk.AttentiveLogLevel
+
+class MainApplication : Application(), ReactApplication {
+
+    override fun onCreate() {
+        super.onCreate()
+        // ... your existing setup ...
+        initAttentiveSDK()
+    }
+
+    private fun initAttentiveSDK() {
+        val config = AttentiveConfig.Builder()
+            .applicationContext(this)
+            .domain("YOUR_ATTENTIVE_DOMAIN")
+            .mode(AttentiveConfig.Mode.PRODUCTION) // or Mode.DEBUG for testing
+            .skipFatigueOnCreatives(false)
+            .logLevel(AttentiveLogLevel.VERBOSE)
+            .build()
+
+        // Application.onCreate() is always called on the main thread by the Android system,
+        // so no thread-switching wrapper is needed here.
+        AttentiveSdk.initialize(config)
+    }
+}
+```
+
+After the native initialization, all other SDK operations (`identify`, `recordAddToCartEvent`, `recordPurchaseEvent`, etc.) are called from TypeScript as normal on both platforms.
+
+> **Tip:** If you see `[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized` in your Android logcat, it means `AttentiveSdk.initialize()` was not called from native code before the event was recorded. Check your `Application.onCreate()` setup.
 
 ### Destroy the creative
 
@@ -171,7 +221,7 @@ Attentive.identify({phone: '+15556667777'};)
 
 ### Push Notifications (iOS and Android)
 
-The SDK supports push notification integration on both iOS (APNs) and Android (runtime permission + optional FCM). The following sections cover iOS-specific flows and a full **App events on Android** implementation that mirrors the behavior of the [Bonni](https://github.com/attentive-mobile/attentive-react-native-sdk/tree/main/Bonni) example app.
+The SDK supports push notification integration on both iOS (APNs) and Android (FCM). The following sections cover iOS-specific setup flows. On Android, push notification integration is handled entirely in native Kotlin/Java code — see [App Events on Android](#app-events-on-android) for details.
 
 > **iOS — required setup:** Your AppDelegate **must** forward notification
 > responses to the SDK for push tracking to work. Add this single line to your
@@ -196,22 +246,9 @@ The SDK supports push notification integration on both iOS (APNs) and Android (r
 
 ### App Events on Android
 
-This section describes how to implement Attentive app events on Android so they behave like the iOS flow: **regular app opens** (launch and resume from background) and **notification permission** are handled using the SDK’s native Android APIs. You can add FCM token registration and push open handling when your app uses Firebase Cloud Messaging.
+On Android, **regular app open and foreground events are handled automatically** by the native Android SDK once `AttentiveSdk.initialize()` is called from `Application.onCreate()` (see [Android Native Initialization](#android--initialize-from-native-code)). The lifecycle observers registered during initialization (e.g. `AppLaunchTracker`) take care of this transparently — there is no need to manually call `handleRegularOpen` or subscribe to `AppState` changes.
 
-| SDK method | Purpose on Android |
-|------------|--------------------|
-| `getPushAuthorizationStatus()` | Returns `authorized`, `denied`, or `notDetermined` (uses `POST_NOTIFICATIONS` on API 33+). Use before `handleRegularOpen` so tracking uses the correct status. |
-| `registerForPushNotifications()` | Requests `POST_NOTIFICATIONS` on Android 13+; no-op on older versions. |
-| `handleRegularOpen(authStatus)` | Tracks a regular app open (launch or return to foreground). Call after `identify()` and pass the result of `getPushAuthorizationStatus()`. |
-| `registerDeviceToken` / `registerDeviceTokenWithCallback` | Optional. Register your FCM token when using Firebase Cloud Messaging. |
-| `handlePushOpen` / `handleForegroundPush` | Optional. Call when the user opens a notification or receives one in the foreground. |
-
-#### Overview
-
-- **Regular app open** – Call `handleRegularOpen(authorizationStatus)` when the app is opened (launch or returning to foreground). The SDK uses this for tracking and the `/mtctrl` endpoint.
-- **Permission status** – On Android 13+ (API 33+), notification permission is `POST_NOTIFICATIONS`. The SDK exposes `getPushAuthorizationStatus()` so you can pass the correct status into `handleRegularOpen`.
-- **Requesting permission** – Call `registerForPushNotifications()` to trigger the system permission dialog on Android 13+; it is a no-op on older versions.
-- **Order of operations** – Always call `identify()` before any `handleRegularOpen()` so the SDK has user context for network requests.
+The only TypeScript-side step required on Android is calling `identify()` with any available user identifiers as early as possible in your app’s lifecycle (e.g. in the root component `useEffect`).
 
 #### Prerequisites
 
@@ -224,109 +261,66 @@ This section describes how to implement Attentive app events on Android so they 
 </manifest>
 ```
 
-2. **Initialize and identify first** – In your app entry (e.g. root component `useEffect`), call `initialize(config)` and `identify(identifiers)` before any push or app-event logic.
+2. **Native initialization** – The SDK must be initialized from `Application.onCreate()` on Android (see [Android Native Initialization](#android--initialize-from-native-code) above). App open and lifecycle events are then tracked automatically.
 
-#### 1. On app launch (Android)
+#### TypeScript setup (Android)
 
-Right after `identify()`, do the following for the Android path:
-
-1. Get the current notification authorization status with `getPushAuthorizationStatus()`.
-2. Call `handleRegularOpen(authStatus)` with that status.
-3. Optionally call `registerForPushNotifications()` to prompt for permission (Android 13+).
+After native initialization, the only required TypeScript call is `identify()`:
 
 ```typescript
 import { Platform } from 'react-native';
-import {
-  initialize,
-  identify,
-  getPushAuthorizationStatus,
-  registerForPushNotifications,
-  handleRegularOpen,
-  type AttentiveSdkConfiguration,
-  type PushAuthorizationStatus,
-} from 'attentive-react-native-sdk';
+import { initialize, identify } from 'attentive-react-native-sdk';
 
 // Inside your root component (e.g. App.tsx useEffect):
-initialize(config);
-identify({ email: 'user@example.com', clientUserId: 'id-123' });
+if (Platform.OS === 'ios') {
+  initialize(config);
+}
 
-if (Platform.OS === 'android') {
-  getPushAuthorizationStatus()
-    .then((authStatus: PushAuthorizationStatus) => {
-      handleRegularOpen(authStatus);
-    })
-    .catch(() => {
-      handleRegularOpen('authorized'); // fallback
-    });
-  registerForPushNotifications(); // Shows permission dialog on Android 13+
+identify({ email: 'user@example.com', clientUserId: 'id-123' });
+```
+
+#### Push notifications on Android (FCM)
+
+The Attentive Android SDK registers its own `FirebaseMessagingService` automatically — **you do not need to create a subclass**. As long as your app is registered with Firebase and includes a valid `google-services.json`, the SDK handles FCM token registration and foreground push delivery for you. Follow the [Firebase Android setup guide](https://firebase.google.com/docs/cloud-messaging/android/client) to add FCM to your project.
+
+##### If you already have a FirebaseMessagingService subclass
+
+If your app has an existing `FirebaseMessagingService` subclass for other purposes, route Attentive messages through to the SDK:
+
+```kotlin
+import com.attentive.androidsdk.AttentiveSdk
+import com.google.firebase.messaging.FirebaseMessagingService
+import com.google.firebase.messaging.RemoteMessage
+
+class YourFirebaseMessagingService : FirebaseMessagingService() {
+
+    override fun onMessageReceived(remoteMessage: RemoteMessage) {
+        super.onMessageReceived(remoteMessage)
+        if (AttentiveSdk.isAttentiveFirebaseMessage(remoteMessage)) {
+            AttentiveSdk.sendNotification(remoteMessage)
+        }
+        // Handle your own messages below...
+    }
 }
 ```
 
-#### 2. When app returns to foreground (Android)
+##### Notification opens (singleTask apps)
 
-Subscribe to `AppState` and, when the app becomes `active`, get the current status and call `handleRegularOpen` again:
+React Native apps use `singleTask` launch mode by default. When a push notification is tapped while the app is in the background, Android delivers the intent via `onNewIntent()` rather than recreating the activity. Override `onNewIntent` in your `MainActivity` so the SDK can detect the notification tap:
 
-```typescript
-import { AppState } from 'react-native';
-import { getPushAuthorizationStatus, handleRegularOpen } from 'attentive-react-native-sdk';
-import type { PushAuthorizationStatus } from 'attentive-react-native-sdk';
+```kotlin
+import android.content.Intent
 
-const subscription = AppState.addEventListener('change', (nextAppState) => {
-  if (nextAppState === 'active' && Platform.OS === 'android') {
-    getPushAuthorizationStatus()
-      .then((authStatus: PushAuthorizationStatus) => {
-        handleRegularOpen(authStatus);
-      })
-      .catch(() => {
-        handleRegularOpen('authorized');
-      });
-  }
-});
+class MainActivity : ReactActivity() {
 
-// Cleanup on unmount:
-return () => subscription.remove();
-```
-
-#### 3. Optional: Register FCM token (Android)
-
-**Recommended:** This React Native SDK’s Android native module depends on Attentive Android SDK **2.1.1**, which exposes `AttentiveSdk.getPushTokenWithCallback`. Calling `registerForPushNotifications()` from JS triggers that API: the SDK requests permission (when needed), fetches the FCM token, and registers it with Attentive. No separate native code is required.
-
-**Alternative (token from JS):** If you obtain the FCM token elsewhere (e.g. Firebase Messaging), use `registerDeviceTokenWithCallback` and then call `handleRegularOpen` in the callback:
-
-```typescript
-import { registerDeviceTokenWithCallback, handleRegularOpen } from 'attentive-react-native-sdk';
-
-getPushAuthorizationStatus().then((authStatus) => {
-  registerDeviceTokenWithCallback(
-    fcmToken,
-    authStatus,
-    (data, url, response, error) => {
-      if (error) {
-        console.error('Attentive token registration failed', error);
-      }
-      handleRegularOpen(authStatus);
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.let { setIntent(it) }
     }
-  );
-});
+}
 ```
 
-#### 4. Optional: Handle notification opens and foreground (Android)
-
-If you handle FCM messages (e.g. with `@react-native-firebase/messaging`), you can report notification opens and foreground receives the same way as on iOS:
-
-- **User opened notification (background/inactive):** `handlePushOpen(payload, authorizationStatus)`
-- **Notification received while app in foreground:** `handleForegroundPush(payload, authorizationStatus)`
-
-Get `authorizationStatus` via `getPushAuthorizationStatus()` when handling the event.
-
-#### Complete Android flow (reference)
-
-The [Bonni](https://github.com/attentive-mobile/attentive-react-native-sdk/tree/main/Bonni) example app ([App.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/Bonni/App.tsx)) implements the full flow:
-
-1. **Launch:** `initialize` → `identify` → (Android) `getPushAuthorizationStatus()` → `handleRegularOpen(authStatus)` → `registerForPushNotifications()`.
-2. **Foreground:** `AppState.addEventListener('change', …)` → when `active` and Android → `getPushAuthorizationStatus()` → `handleRegularOpen(authStatus)`.
-3. **Optional:** When FCM token is available → `registerDeviceTokenWithCallback(token, authStatus, callback)` → in callback call `handleRegularOpen(authStatus)`.
-4. **Optional:** When user opens a notification or receives one in foreground → `handlePushOpen` / `handleForegroundPush` with payload and status from `getPushAuthorizationStatus()`.
+Refer to the [Attentive Android SDK documentation](https://github.com/attentive-mobile/attentive-android-sdk) for the full list of native APIs available for push notification integration.
 
 ---
 
@@ -340,9 +334,9 @@ import { registerForPushNotifications } from 'attentive-react-native-sdk';
 registerForPushNotifications();
 ```
 
-#### Register Device Token (iOS: APNs / Android: FCM)
+#### Register Device Token (iOS)
 
-When your app receives a device token (APNs on iOS, FCM on Android), register it with the Attentive backend:
+When your iOS app receives an APNs device token, register it with the Attentive backend:
 
 ```typescript
 import { registerDeviceToken } from 'attentive-react-native-sdk';
@@ -359,7 +353,7 @@ The `authorizationStatus` parameter should be one of:
 - `'provisional'` - Provisional authorization (quiet notifications)
 - `'ephemeral'` - App Clip notifications
 
-#### Handle Push Notification Opens (iOS and Android)
+#### Handle Push Notification Opens (iOS)
 
 When a user taps on a push notification, track the event:
 
@@ -375,7 +369,7 @@ handlePushOpened(
 );
 ```
 
-#### Handle Foreground Notifications (iOS and Android)
+#### Handle Foreground Notifications (iOS)
 
 When a notification arrives while the app is in the foreground:
 
@@ -470,9 +464,8 @@ func application(
 ```
 
 **Documentation:**
-- [Push Token Registration Guide](./PUSH_TOKEN_REGISTRATION_GUIDE.md) - Detailed guide for callback-based registration
-- [AppDelegate Callback Example](./APPDELEGATE_CALLBACK_EXAMPLE.md) - Complete AppDelegate implementation
-- [Push Notifications Setup](./PUSH_NOTIFICATIONS_SETUP.md) - General push notification setup
+- [Push Notifications Integration Guide](./docs/PUSH_NOTIFICATIONS_INTEGRATION.md) - Callback-based registration, complete AppDelegate implementation, Android and iOS token flow
+- [Push Notifications Setup](./docs/PUSH_NOTIFICATIONS_SETUP.md) - Apple Developer Portal, APNs certificates, and TestFlight configuration
 - [iOS Native SDK documentation](https://github.com/attentive-mobile/attentive-ios-sdk) - Native SDK reference
 
-For a full Android implementation (app launch, foreground, permission, and optional FCM), see the **[App Events on Android](#app-events-on-android)** section above.
+For Android push notification integration, see the **[App Events on Android](#app-events-on-android)** section above.
