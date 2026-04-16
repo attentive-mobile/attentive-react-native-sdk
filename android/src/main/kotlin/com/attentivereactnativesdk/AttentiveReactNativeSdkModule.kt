@@ -708,8 +708,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         ioScope.launch {
             try {
                 AttentiveSdk.optUserIntoMarketingSubscription(
-                    email = normalizedEmail,
-                    phone = normalizedPhone,
+                    email = normalizedEmail ?: "",
+                    phoneNumber = normalizedPhone ?: "",
                 )
                 Log.i(TAG, "✅ [AttentiveSDK] optInMarketingSubscription succeeded")
                 UiThreadUtil.runOnUiThread { promise.resolve(null) }
@@ -756,8 +756,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         ioScope.launch {
             try {
                 AttentiveSdk.optUserOutOfMarketingSubscription(
-                    email = normalizedEmail,
-                    phone = normalizedPhone,
+                    email = normalizedEmail ?: "",
+                    phoneNumber = normalizedPhone ?: "",
                 )
                 Log.i(TAG, "✅ [AttentiveSDK] optOutMarketingSubscription succeeded")
                 UiThreadUtil.runOnUiThread { promise.resolve(null) }
