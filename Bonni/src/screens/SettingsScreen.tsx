@@ -17,6 +17,7 @@ import {
   Platform,
   Modal,
   Switch,
+  ActivityIndicator,
 } from 'react-native'
 import { SettingsScreenProps } from '../types/navigation'
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
@@ -63,6 +64,11 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     currentPhone: subCurrentPhone,
     emailError: subEmailError,
     phoneError: subPhoneError,
+    isOptingInEmail,
+    isOptingOutEmail,
+    isOptingInPhone,
+    isOptingOutPhone,
+    isAnyLoading: isSubLoading,
     setEmailInput: setSubEmailInput,
     setPhoneInput: setSubPhoneInput,
     handleSetEmail: handleSubSetEmail,
@@ -551,44 +557,66 @@ The SDK will handle the API request internally.`
           {/* Email channel */}
           <View style={styles.inputGroup}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, isSubLoading && styles.inputDisabled]}
               placeholder="Email (name@example.com)"
               value={subEmailInput}
-              onChangeText={(text) => {
-                setSubEmailInput(text)
-              }}
+              onChangeText={setSubEmailInput}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
+              editable={!isSubLoading}
             />
             {subEmailError ? (
               <Text style={styles.errorText}>{subEmailError}</Text>
             ) : null}
             <View style={styles.buttonRow}>
               <Pressable
-                style={({ pressed }) => [styles.buttonRowItem, getPrimaryButtonStyle(pressed)]}
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  getPrimaryButtonStyle(pressed && !isSubLoading),
+                  isSubLoading && styles.buttonDisabled,
+                ]}
                 onPress={handleSubSetEmail}
+                disabled={isSubLoading}
               >
                 {({ pressed }) => (
-                  <Text style={getPrimaryButtonTextStyle(pressed)}>Set Email</Text>
+                  <Text style={getPrimaryButtonTextStyle(pressed && !isSubLoading)}>Set Email</Text>
                 )}
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.buttonRowItem, getSecondaryButtonStyle(pressed)]}
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  getSecondaryButtonStyle(pressed && !isSubLoading),
+                  isSubLoading && styles.buttonDisabled,
+                ]}
                 onPress={handleOptInEmail}
+                disabled={isSubLoading}
               >
                 {({ pressed }) => (
-                  <Text style={getSecondaryButtonTextStyle(pressed)}>Opt In</Text>
+                  isOptingInEmail
+                    ? <ActivityIndicator size="small" color={Colors.primaryText} />
+                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>Opt In</Text>
                 )}
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.buttonRowItem, styles.destructiveButton, pressed && styles.destructiveButtonPressed]}
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  styles.destructiveButton,
+                  pressed && !isSubLoading && styles.destructiveButtonPressed,
+                  isSubLoading && styles.buttonDisabled,
+                ]}
                 onPress={handleOptOutEmail}
+                disabled={isSubLoading}
               >
                 {({ pressed }) => (
-                  <Text style={[styles.destructiveButtonText, pressed && styles.destructiveButtonTextPressed]}>
-                    Opt Out
-                  </Text>
+                  isOptingOutEmail
+                    ? <ActivityIndicator size="small" color={Colors.error} />
+                    : <Text style={[
+                        styles.destructiveButtonText,
+                        pressed && !isSubLoading && styles.destructiveButtonTextPressed,
+                      ]}>
+                        Opt Out
+                      </Text>
                 )}
               </Pressable>
             </View>
@@ -600,43 +628,65 @@ The SDK will handle the API request internally.`
           {/* Phone channel */}
           <View style={styles.inputGroup}>
             <TextInput
-              style={styles.input}
+              style={[styles.input, isSubLoading && styles.inputDisabled]}
               placeholder="Phone (+15551234567)"
               value={subPhoneInput}
-              onChangeText={(text) => {
-                setSubPhoneInput(text)
-              }}
+              onChangeText={setSubPhoneInput}
               keyboardType="phone-pad"
               autoCorrect={false}
+              editable={!isSubLoading}
             />
             {subPhoneError ? (
               <Text style={styles.errorText}>{subPhoneError}</Text>
             ) : null}
             <View style={styles.buttonRow}>
               <Pressable
-                style={({ pressed }) => [styles.buttonRowItem, getPrimaryButtonStyle(pressed)]}
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  getPrimaryButtonStyle(pressed && !isSubLoading),
+                  isSubLoading && styles.buttonDisabled,
+                ]}
                 onPress={handleSubSetPhone}
+                disabled={isSubLoading}
               >
                 {({ pressed }) => (
-                  <Text style={getPrimaryButtonTextStyle(pressed)}>Set Phone</Text>
+                  <Text style={getPrimaryButtonTextStyle(pressed && !isSubLoading)}>Set Phone</Text>
                 )}
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.buttonRowItem, getSecondaryButtonStyle(pressed)]}
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  getSecondaryButtonStyle(pressed && !isSubLoading),
+                  isSubLoading && styles.buttonDisabled,
+                ]}
                 onPress={handleOptInPhone}
+                disabled={isSubLoading}
               >
                 {({ pressed }) => (
-                  <Text style={getSecondaryButtonTextStyle(pressed)}>Opt In</Text>
+                  isOptingInPhone
+                    ? <ActivityIndicator size="small" color={Colors.primaryText} />
+                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>Opt In</Text>
                 )}
               </Pressable>
               <Pressable
-                style={({ pressed }) => [styles.buttonRowItem, styles.destructiveButton, pressed && styles.destructiveButtonPressed]}
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  styles.destructiveButton,
+                  pressed && !isSubLoading && styles.destructiveButtonPressed,
+                  isSubLoading && styles.buttonDisabled,
+                ]}
                 onPress={handleOptOutPhone}
+                disabled={isSubLoading}
               >
                 {({ pressed }) => (
-                  <Text style={[styles.destructiveButtonText, pressed && styles.destructiveButtonTextPressed]}>
-                    Opt Out
-                  </Text>
+                  isOptingOutPhone
+                    ? <ActivityIndicator size="small" color={Colors.error} />
+                    : <Text style={[
+                        styles.destructiveButtonText,
+                        pressed && !isSubLoading && styles.destructiveButtonTextPressed,
+                      ]}>
+                        Opt Out
+                      </Text>
                 )}
               </Pressable>
             </View>
@@ -1027,6 +1077,13 @@ const styles = StyleSheet.create({
   },
   destructiveButtonTextPressed: {
     color: Colors.white,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
+  },
+  inputDisabled: {
+    opacity: 0.5,
+    backgroundColor: Colors.lightBackground,
   },
 })
 

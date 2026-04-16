@@ -462,13 +462,16 @@ struct DebugEvent {
     phone: String?,
     completion: @escaping (NSError?) -> Void
   ) {
+    NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription called email=%@ phone=%@", email ?? "nil", phone ?? "nil")
+
     sdk.optInMarketingSubscription(email: email, phone: phone) { [weak self] _, _, response, error in
-      // Map native callback to a simple success/failure completion
       if let error = error {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription FAILED (error): %@", error.localizedDescription)
         completion(error as NSError)
         return
       }
       if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription FAILED (HTTP %d)", httpResponse.statusCode)
         completion(NSError(
           domain: "com.attentive.sdk",
           code: httpResponse.statusCode,
@@ -476,6 +479,7 @@ struct DebugEvent {
         ))
         return
       }
+      NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription succeeded")
       completion(nil)
 
       if self?.debuggingEnabled == true {
@@ -512,13 +516,16 @@ struct DebugEvent {
     phone: String?,
     completion: @escaping (NSError?) -> Void
   ) {
+    NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription called email=%@ phone=%@", email ?? "nil", phone ?? "nil")
+
     sdk.optOutMarketingSubscription(email: email, phone: phone) { [weak self] _, _, response, error in
-      // Map native callback to a simple success/failure completion
       if let error = error {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription FAILED (error): %@", error.localizedDescription)
         completion(error as NSError)
         return
       }
       if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription FAILED (HTTP %d)", httpResponse.statusCode)
         completion(NSError(
           domain: "com.attentive.sdk",
           code: httpResponse.statusCode,
@@ -526,6 +533,7 @@ struct DebugEvent {
         ))
         return
       }
+      NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription succeeded")
       completion(nil)
 
       if self?.debuggingEnabled == true {

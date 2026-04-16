@@ -4,13 +4,15 @@
  * so SettingsScreen remains a thin view component.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
     identify,
     optInMarketingSubscription,
     optOutMarketingSubscription,
 } from '@attentive-mobile/attentive-react-native-sdk'
 import { validateEmail, validatePhone } from '../utils/validation'
+
+const TAG = '[Marketing]'
 
 /**
  * Callbacks that the hook invokes after each operation completes so the caller
@@ -40,6 +42,16 @@ export interface UseMarketingSubscriptionsResult {
     emailError: string | null
     /** Inline validation error for the phone input, or `null` when valid / untouched. */
     phoneError: string | null
+    /** `true` while an email opt-in request is in flight. */
+    isOptingInEmail: boolean
+    /** `true` while an email opt-out request is in flight. */
+    isOptingOutEmail: boolean
+    /** `true` while a phone opt-in request is in flight. */
+    isOptingInPhone: boolean
+    /** `true` while a phone opt-out request is in flight. */
+    isOptingOutPhone: boolean
+    /** `true` when any opt-in / opt-out operation is in progress. */
+    isAnyLoading: boolean
     /** Updates the email text input value. */
     setEmailInput: (value: string) => void
     /** Updates the phone text input value. */
@@ -79,6 +91,16 @@ export function useMarketingSubscriptions(
     const [currentPhone, setCurrentPhone] = useState<string | null>(null)
     const [emailError, setEmailError] = useState<string | null>(null)
     const [phoneError, setPhoneError] = useState<string | null>(null)
+
+    const [isOptingInEmail, setIsOptingInEmail] = useState(false)
+    const [isOptingOutEmail, setIsOptingOutEmail] = useState(false)
+    const [isOptingInPhone, setIsOptingInPhone] = useState(false)
+    const [isOptingOutPhone, setIsOptingOutPhone] = useState(false)
+
+    const isAnyLoading = useMemo(
+        () => isOptingInEmail || isOptingOutEmail || isOptingInPhone || isOptingOutPhone,
+        [isOptingInEmail, isOptingOutEmail, isOptingInPhone, isOptingOutPhone],
+    )
 
     // ---------------------------------------------------------------------------
     // Set / commit handlers
@@ -126,6 +148,7 @@ export function useMarketingSubscriptions(
 
     /**
      * Opts the committed email address into marketing subscriptions.
+     * Sets `isOptingInEmail` while the request is in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptInEmail = useCallback(async () => {
@@ -133,16 +156,23 @@ export function useMarketingSubscriptions(
             callbacks?.onError?.('Set an email address first')
             return
         }
+        console.log(TAG, 'optInEmail called with:', currentEmail)
+        setIsOptingInEmail(true)
         try {
             await optInMarketingSubscription({ email: currentEmail })
+            console.log(TAG, 'optInEmail succeeded')
             callbacks?.onSuccess?.('Email opt-in successful')
-        } catch {
+        } catch (e) {
+            console.warn(TAG, 'optInEmail failed:', e)
             callbacks?.onError?.('Email opt-in failed')
+        } finally {
+            setIsOptingInEmail(false)
         }
     }, [currentEmail, callbacks])
 
     /**
      * Opts the committed phone number into marketing subscriptions.
+     * Sets `isOptingInPhone` while the request is in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptInPhone = useCallback(async () => {
@@ -150,11 +180,17 @@ export function useMarketingSubscriptions(
             callbacks?.onError?.('Set a phone number first')
             return
         }
+        console.log(TAG, 'optInPhone called with:', currentPhone)
+        setIsOptingInPhone(true)
         try {
             await optInMarketingSubscription({ phone: currentPhone })
+            console.log(TAG, 'optInPhone succeeded')
             callbacks?.onSuccess?.('Phone opt-in successful')
-        } catch {
+        } catch (e) {
+            console.warn(TAG, 'optInPhone failed:', e)
             callbacks?.onError?.('Phone opt-in failed')
+        } finally {
+            setIsOptingInPhone(false)
         }
     }, [currentPhone, callbacks])
 
@@ -164,6 +200,7 @@ export function useMarketingSubscriptions(
 
     /**
      * Opts the committed email address out of marketing subscriptions.
+     * Sets `isOptingOutEmail` while the request is in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptOutEmail = useCallback(async () => {
@@ -171,16 +208,23 @@ export function useMarketingSubscriptions(
             callbacks?.onError?.('Set an email address first')
             return
         }
+        console.log(TAG, 'optOutEmail called with:', currentEmail)
+        setIsOptingOutEmail(true)
         try {
             await optOutMarketingSubscription({ email: currentEmail })
+            console.log(TAG, 'optOutEmail succeeded')
             callbacks?.onSuccess?.('Email opt-out successful')
-        } catch {
+        } catch (e) {
+            console.warn(TAG, 'optOutEmail failed:', e)
             callbacks?.onError?.('Email opt-out failed')
+        } finally {
+            setIsOptingOutEmail(false)
         }
     }, [currentEmail, callbacks])
 
     /**
      * Opts the committed phone number out of marketing subscriptions.
+     * Sets `isOptingOutPhone` while the request is in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptOutPhone = useCallback(async () => {
@@ -188,11 +232,17 @@ export function useMarketingSubscriptions(
             callbacks?.onError?.('Set a phone number first')
             return
         }
+        console.log(TAG, 'optOutPhone called with:', currentPhone)
+        setIsOptingOutPhone(true)
         try {
             await optOutMarketingSubscription({ phone: currentPhone })
+            console.log(TAG, 'optOutPhone succeeded')
             callbacks?.onSuccess?.('Phone opt-out successful')
-        } catch {
+        } catch (e) {
+            console.warn(TAG, 'optOutPhone failed:', e)
             callbacks?.onError?.('Phone opt-out failed')
+        } finally {
+            setIsOptingOutPhone(false)
         }
     }, [currentPhone, callbacks])
 
@@ -203,6 +253,11 @@ export function useMarketingSubscriptions(
         currentPhone,
         emailError,
         phoneError,
+        isOptingInEmail,
+        isOptingOutEmail,
+        isOptingInPhone,
+        isOptingOutPhone,
+        isAnyLoading,
         setEmailInput,
         setPhoneInput,
         handleSetEmail,

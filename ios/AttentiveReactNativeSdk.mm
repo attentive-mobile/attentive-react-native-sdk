@@ -400,17 +400,23 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
                               phone:(NSString *)phone
                             resolve:(RCTPromiseResolveBlock)resolve
                              reject:(RCTPromiseRejectBlock)reject {
+    NSLog(@"[AttentiveSDK] optInMarketingSubscription called (iOS) email=%@ phone=%@", email, phone);
+
     NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
     NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    NSLog(@"[AttentiveSDK] optInMarketingSubscription normalized email=%@ phone=%@", normalizedEmail, normalizedPhone);
 
     [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
                                         phone:normalizedPhone
                                    completion:^(NSError * _Nullable error) {
         if (error) {
+            NSLog(@"[AttentiveSDK] optInMarketingSubscription FAILED: %@", error.localizedDescription);
             reject([NSString stringWithFormat:@"%ld", (long)error.code],
                    error.localizedDescription,
                    error);
         } else {
+            NSLog(@"[AttentiveSDK] optInMarketingSubscription succeeded");
             resolve(nil);
         }
     }];
@@ -430,17 +436,23 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
                                phone:(NSString *)phone
                              resolve:(RCTPromiseResolveBlock)resolve
                               reject:(RCTPromiseRejectBlock)reject {
+    NSLog(@"[AttentiveSDK] optOutMarketingSubscription called (iOS) email=%@ phone=%@", email, phone);
+
     NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
     NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    NSLog(@"[AttentiveSDK] optOutMarketingSubscription normalized email=%@ phone=%@", normalizedEmail, normalizedPhone);
 
     [_sdk optOutMarketingSubscriptionWithEmail:normalizedEmail
                                          phone:normalizedPhone
                                     completion:^(NSError * _Nullable error) {
         if (error) {
+            NSLog(@"[AttentiveSDK] optOutMarketingSubscription FAILED: %@", error.localizedDescription);
             reject([NSString stringWithFormat:@"%ld", (long)error.code],
                    error.localizedDescription,
                    error);
         } else {
+            NSLog(@"[AttentiveSDK] optOutMarketingSubscription succeeded");
             resolve(nil);
         }
     }];
