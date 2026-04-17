@@ -63,15 +63,28 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Initialize the Attentive SDK. Called only from the TypeScript layer (e.g. Bonni App.tsx);
-     * this module must not auto-initialize in Application.onCreate or elsewhere.
-     * Android SDK initialization (AttentiveConfig) is performed natively in
-     * MainApplication.onCreate; this call captures the domain for subscription API calls.
+     * TypeScript-facing initialize() — intentionally a no-op on Android.
      *
-     * @param attentiveDomain Attentive shop domain (e.g. "my-brand")
-     * @param mode "production" or "debug"
-     * @param skipFatigueOnCreatives Whether to skip fatigue rules on creatives
-     * @param enableDebugger Whether to enable the debug overlay
+     * On Android, AttentiveSdk.initialize() MUST be called from your Application.onCreate()
+     * (native code) so that lifecycle observers (AppLaunchTracker, etc.) are registered
+     * before the React Native bridge is ready. Calling this from TypeScript on Android has
+     * no effect and will not initialize the SDK.
+     *
+     * Required native setup in your Application class:
+     * ```kotlin
+     * override fun onCreate() {
+     *     super.onCreate()
+     *     val config = AttentiveConfig.Builder()
+     *         .applicationContext(this)
+     *         .domain("YOUR_ATTENTIVE_DOMAIN")
+     *         .mode(AttentiveConfig.Mode.PRODUCTION)
+     *         .build()
+     *     AttentiveSdk.initialize(config)
+     * }
+     * ```
+     *
+     * See the README.md "Android Native Initialization" section for the full guide.
+     * All other SDK operations (identify, recordEvent, push) are handled from TypeScript as normal.
      */
     override fun initialize(
         attentiveDomain: String,
@@ -79,7 +92,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         skipFatigueOnCreatives: Boolean,
         enableDebugger: Boolean
     ) {
-        // Initialize debug helper
         debugHelper.initialize(enableDebugger)
     }
 
@@ -168,15 +180,19 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     override fun recordProductViewEvent(items: ReadableArray, deeplink: String?) {
         Log.i(TAG, "Sending product viewed event")
 
+        val itemsDebugData = if (debugHelper.isDebuggingEnabled()) extractItemsDebugData(items) else emptyList()
+
         val itemsList = buildItems(items)
         val productViewEvent = ProductViewEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        AttentiveSdk.recordEvent(productViewEvent)
+        if (!recordEventSafely("recordProductViewEvent") { AttentiveSdk.recordEvent(productViewEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
             debugData["items_count"] = itemsList.size.toString()
             debugData["deeplink"] = deeplink ?: ""
+            debugData["all_items"] = itemsDebugData
+            itemsDebugData.firstOrNull()?.let { debugData["first_item"] = it }
             debugHelper.showDebugInfo("Product View Event", debugData)
         }
     }
@@ -188,6 +204,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         cartCoupon: String?
     ) {
         Log.i(TAG, "Sending purchase event")
+
+        val itemsDebugData = if (debugHelper.isDebuggingEnabled()) extractItemsDebugData(items) else emptyList()
+
         val order = Order.Builder().orderId(orderId).build()
         val itemsList = buildItems(items)
         val purchaseBuilder = PurchaseEvent.Builder(itemsList, order)
@@ -196,14 +215,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
         val purchaseEvent = purchaseBuilder.build()
 
-        AttentiveSdk.recordEvent(purchaseEvent)
+        if (!recordEventSafely("recordPurchaseEvent") { AttentiveSdk.recordEvent(purchaseEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
             debugData["items_count"] = itemsList.size.toString()
             debugData["order_id"] = orderId
-            if (cartId != null) debugData["cart_id"] = cartId
-            if (cartCoupon != null) debugData["cart_coupon"] = cartCoupon
+            if (!cartId.isNullOrEmpty()) debugData["cart_id"] = cartId!!
+            if (!cartCoupon.isNullOrEmpty()) debugData["cart_coupon"] = cartCoupon!!
+            debugData["all_items"] = itemsDebugData
+            itemsDebugData.firstOrNull()?.let { debugData["first_item"] = it }
             debugHelper.showDebugInfo("Purchase Event", debugData)
         }
     }
@@ -211,15 +232,20 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     override fun recordAddToCartEvent(items: ReadableArray, deeplink: String?) {
         Log.i(TAG, "Sending add to cart event")
 
+        // Extract raw debug data before building items so all bridge fields are preserved
+        val itemsDebugData = if (debugHelper.isDebuggingEnabled()) extractItemsDebugData(items) else emptyList()
+
         val itemsList = buildItems(items)
         val addToCartEvent = AddToCartEvent.Builder().items(itemsList).deeplink(deeplink).build()
 
-        AttentiveSdk.recordEvent(addToCartEvent)
+        if (!recordEventSafely("recordAddToCartEvent") { AttentiveSdk.recordEvent(addToCartEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
             debugData["items_count"] = itemsList.size.toString()
             debugData["deeplink"] = deeplink ?: ""
+            debugData["all_items"] = itemsDebugData
+            itemsDebugData.firstOrNull()?.let { debugData["first_item"] = it }
             debugHelper.showDebugInfo("Add To Cart Event", debugData)
         }
     }
@@ -232,7 +258,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val propertiesMap = convertToStringMap(properties.toHashMap())
         val customEvent = CustomEvent.Builder().type(type).properties(propertiesMap).build()
 
-        AttentiveSdk.recordEvent(customEvent)
+        if (!recordEventSafely("recordCustomEvent") { AttentiveSdk.recordEvent(customEvent) }) return
 
         if (debugHelper.isDebuggingEnabled()) {
             val debugData = mutableMapOf<String, Any>()
@@ -797,6 +823,68 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         // No-op: listener bookkeeping is handled by the JS NativeEventEmitter.
     }
 
+    /**
+     * Extracts a human-readable list of item maps from the raw bridge array for debug display.
+     *
+     * This intentionally reads all fields from the original [ReadableArray] rather than from
+     * the built [Item] objects so that every field sent from TypeScript (including optional ones)
+     * is visible in the debugger — even fields that may be skipped during SDK item construction.
+     *
+     * @param rawItems The raw item array as received from the React Native bridge.
+     * @return A list of maps, one per item, containing all present fields.
+     */
+    /**
+     * Executes [block] (which calls [AttentiveSdk.recordEvent]) and catches any [Exception].
+     *
+     * When an exception is caught the log always includes the exception's simple class name so
+     * callers can distinguish an uninitialized-SDK error (typically [IllegalStateException]) from
+     * a programming mistake such as [NullPointerException] or [IllegalArgumentException] in event
+     * construction — both of which would have been silently misattributed to initialization
+     * failure under the previous broad catch-and-blame pattern.
+     *
+     * @param callerName Method name to include in the log for quick triage (e.g. "recordPurchaseEvent").
+     * @param block Lambda that performs the [AttentiveSdk.recordEvent] call.
+     * @return `true` if [block] completed without throwing, `false` if an exception was caught.
+     */
+    private fun recordEventSafely(callerName: String, block: () -> Unit): Boolean {
+        return try {
+            block()
+            true
+        } catch (e: Exception) {
+            // Include the exception class so the developer can tell apart an uninitialized SDK
+            // (IllegalStateException) from a malformed-event bug (NullPointerException, etc.)
+            Log.e(
+                TAG,
+                "[AttentiveSDK] $callerName failed with ${e.javaClass.simpleName}: ${e.message}. " +
+                "If the SDK was not initialized via AttentiveSdk.initialize() in Application.onCreate(), " +
+                "that is the most likely cause. Otherwise, inspect the exception type above."
+            )
+            false
+        }
+    }
+
+    private fun extractItemsDebugData(rawItems: ReadableArray): List<Map<String, Any>> {
+        val result = mutableListOf<Map<String, Any>>()
+        for (i in 0 until rawItems.size()) {
+            val rawItem = rawItems.getMap(i) ?: continue
+            val itemData = mutableMapOf<String, Any>()
+
+            rawItem.getString("productId")?.let { itemData["productId"] = it }
+            rawItem.getString("productVariantId")?.let { itemData["productVariantId"] = it }
+            rawItem.getString("price")?.let { itemData["price"] = it }
+            rawItem.getString("currency")?.let { itemData["currency"] = it }
+            rawItem.getString("name")?.let { itemData["name"] = it }
+            rawItem.getString("productImage")?.let { itemData["productImage"] = it }
+            rawItem.getString("category")?.let { itemData["category"] = it }
+            if (rawItem.hasKey("quantity")) {
+                itemData["quantity"] = rawItem.getDouble("quantity").toInt()
+            }
+
+            result.add(itemData)
+        }
+        return result
+    }
+
     private fun convertToStringMap(inputMap: Map<String, Any?>): Map<String, String> {
         val outputMap = mutableMapOf<String, String>()
         for ((key, value) in inputMap) {
@@ -813,19 +901,37 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     private fun buildItems(rawItems: ReadableArray): List<Item> {
         Log.i(TAG, "buildItems method called with rawItems: $rawItems")
         val items = mutableListOf<Item>()
+
         for (i in 0 until rawItems.size()) {
             val rawItem = rawItems.getMap(i) ?: continue
 
-            // Price and currency are now flattened, not nested
+            // Required scalar fields
             val priceValue = rawItem.getString("price") ?: continue
             val currencyCode = rawItem.getString("currency") ?: continue
-            val price = Price.Builder()
-                .price(BigDecimal(priceValue))
-                .currency(Currency.getInstance(currencyCode))
-                .build()
-
             val productId = rawItem.getString("productId") ?: continue
             val productVariantId = rawItem.getString("productVariantId") ?: continue
+
+            // Parse price amount — skip item on malformed value rather than crash
+            val priceDecimal = try {
+                BigDecimal(priceValue)
+            } catch (e: NumberFormatException) {
+                Log.w(TAG, "buildItems: invalid price value '$priceValue' at index $i — skipping item")
+                continue
+            }
+
+            // Parse currency — skip item on unrecognised ISO 4217 code rather than crash
+            val currency = try {
+                Currency.getInstance(currencyCode)
+            } catch (e: IllegalArgumentException) {
+                Log.w(TAG, "buildItems: invalid currency code '$currencyCode' at index $i — skipping item")
+                continue
+            }
+
+            val price = Price.Builder()
+                .price(priceDecimal)
+                .currency(currency)
+                .build()
+
             val builder = Item.Builder(productId, productVariantId, price)
 
             if (rawItem.hasKey("productImage")) {
@@ -836,16 +942,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 builder.name(rawItem.getString("name"))
             }
 
+            // JS numbers are doubles on the bridge; use getDouble().toInt() to avoid ClassCastException
             if (rawItem.hasKey("quantity")) {
-                builder.quantity(rawItem.getInt("quantity"))
+                builder.quantity(rawItem.getDouble("quantity").toInt())
             }
 
             if (rawItem.hasKey("category")) {
                 builder.category(rawItem.getString("category"))
             }
 
-            val item = builder.build()
-            items.add(item)
+            items.add(builder.build())
         }
 
         return items

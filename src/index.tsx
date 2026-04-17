@@ -386,17 +386,16 @@ function handleForegroundNotification(
 
 /**
  * Handle a push notification when the app is in the foreground (active state).
- * This is the React Native equivalent of the native iOS handleForegroundPush method.
  *
  * Call this when you receive a notification response and the app state is 'active'.
- * This is part of implementing the native iOS pattern:
- * ```swift
- * case .active:
- *   self.attentiveSdk?.handleForegroundPush(response: response, authorizationStatus: authStatus)
- * ```
  *
- * On iOS, this properly tracks foreground push notifications.
- * On Android, registers the FCM token when provided by the host app.
+ * **iOS prerequisite:** Your AppDelegate's
+ * `userNotificationCenter(_:didReceive:withCompletionHandler:)` must call
+ * `AttentiveSDKManager.shared.handleNotificationResponse(response)` so that
+ * the SDK can cache the `UNNotificationResponse` required by the native iOS SDK.
+ * Without that one line of native code, this function cannot track the event.
+ *
+ * On Android, this tracks the foreground push as a custom event.
  *
  * @param userInfo - The notification payload from the push notification
  * @param authorizationStatus - Current push authorization status
@@ -425,17 +424,16 @@ function handleForegroundPush(
 
 /**
  * Handle when a push notification is opened by the user (app in background/inactive state).
- * This is the React Native equivalent of the native iOS handlePushOpen method.
  *
  * Call this when you receive a notification response and the app state is 'background' or 'inactive'.
- * This is part of implementing the native iOS pattern:
- * ```swift
- * case .background, .inactive:
- *   self.attentiveSdk?.handlePushOpen(response: response, authorizationStatus: authStatus)
- * ```
  *
- * On iOS, this properly tracks push notification opens.
- * On Android, registers the FCM token when provided by the host app.
+ * **iOS prerequisite:** Your AppDelegate's
+ * `userNotificationCenter(_:didReceive:withCompletionHandler:)` must call
+ * `AttentiveSDKManager.shared.handleNotificationResponse(response)` so that
+ * the SDK can cache the `UNNotificationResponse` required by the native iOS SDK.
+ * Without that one line of native code, this function cannot track the event.
+ *
+ * On Android, this tracks the push open as a custom event.
  *
  * @param userInfo - The notification payload from the push notification
  * @param authorizationStatus - Current push authorization status
@@ -486,7 +484,10 @@ function handlePushOpen(
  * @returns A promise that resolves to the notification data object, or `null` if the
  *          app was not launched via a push notification tap.
  */
-async function getInitialPushNotification(): Promise<Record<string, string> | null> {
+async function getInitialPushNotification(): Promise<Record<
+  string,
+  string
+> | null> {
   const result = await AttentiveReactNativeSdk.getInitialPushNotification()
   return result as Record<string, string> | null
 }

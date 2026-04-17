@@ -280,7 +280,7 @@ struct DebugEvent {
 
   /**
    * Handle when a push notification is opened by the user.
-   * Note: SDK 2.0.8 changed the API to require UNNotificationResponse instead of userInfo dictionary.
+   * Note: The SDK requires UNNotificationResponse instead of a plain userInfo dictionary.
    * This method is kept for backward compatibility but has limited functionality.
    * For full functionality, handle push notifications natively in AppDelegate.
    *
@@ -290,11 +290,11 @@ struct DebugEvent {
    */
   @objc(handlePushOpened:applicationState:authorizationStatus:)
   public func handlePushOpened(_ userInfo: [String: Any], applicationState: String, authorizationStatus: String) {
-    // Note: SDK 2.0.8 changed the API to require UNNotificationResponse
+    // Note: The native SDK requires UNNotificationResponse for push tracking.
     // Since React Native doesn't provide direct access to UNNotificationResponse,
-    // apps should handle push notifications natively in AppDelegate for full functionality
-    print("[AttentiveSDK] Warning: Push notification handling from React Native is limited in SDK 2.0.8")
-    print("[AttentiveSDK] The native SDK now requires UNNotificationResponse for push tracking")
+    // apps should handle push notifications natively in AppDelegate for full functionality.
+    print("[AttentiveSDK] Warning: Push notification handling from React Native is limited")
+    print("[AttentiveSDK] The native SDK requires UNNotificationResponse for push tracking")
     print("[AttentiveSDK] Please implement push handling in AppDelegate for full functionality")
 
     if debuggingEnabled {
@@ -302,7 +302,7 @@ struct DebugEvent {
         "applicationState": applicationState,
         "authorizationStatus": authorizationStatus,
         "userInfo": userInfo,
-        "warning": "SDK 2.0.8 requires native UNNotificationResponse handling in AppDelegate"
+        "warning": "Native SDK requires UNNotificationResponse handling in AppDelegate"
       ])
     }
   }
@@ -313,15 +313,15 @@ struct DebugEvent {
    */
   @objc(handleForegroundNotification:)
   public func handleForegroundNotification(_ userInfo: [String: Any]) {
-    // Note: SDK 2.0.8 changed the API to require UNNotificationResponse
-    // Since React Native doesn't provide this, we'll log a warning
-    print("[AttentiveSDK] Warning: Foreground notification handling from React Native is limited in SDK 2.0.8")
+    // Note: The native SDK requires UNNotificationResponse for push tracking.
+    // Since React Native doesn't provide this, we'll log a warning.
+    print("[AttentiveSDK] Warning: Foreground notification handling from React Native is limited")
     print("[AttentiveSDK] Please handle foreground notifications natively in AppDelegate for full functionality")
 
     if debuggingEnabled {
       showDebugInfo(event: "Foreground Notification", data: [
         "userInfo": userInfo,
-        "warning": "SDK 2.0.8 requires native UNNotificationResponse handling"
+        "warning": "Native SDK requires UNNotificationResponse handling"
       ])
     }
   }
@@ -383,63 +383,126 @@ struct DebugEvent {
   /**
    * React Native bridge entry point for foreground push tracking.
    *
-   * **Important — iOS limitation**: The Attentive iOS SDK requires a `UNNotificationResponse`
-   * object for `handleForegroundPush`, which is an opaque system type that cannot be
-   * serialised across the React Native bridge. Calling this method from JS therefore
-   * **cannot invoke the native SDK** and is a no-op.
+   * The Attentive iOS SDK requires a `UNNotificationResponse` which cannot be
+   * serialised across the React Native bridge. To work around this, the method
+   * checks `AttentiveSDKManager.shared` for a cached response (set by the
+   * recommended `handleNotificationResponse(_:)` call in AppDelegate).
    *
-   * The correct solution for iOS is to call
-   * `AttentiveSDKManager.shared.handleForegroundPush(response:authorizationStatus:)`
-   * directly from the host app's `UNUserNotificationCenterDelegate` implementation
-   * (i.e. `AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)`).
-   * Bonni's `AppDelegate.swift` already does this, so foreground push events are tracked
-   * correctly via the native path — this RN bridge variant is intentionally unused on iOS.
+   * - If a cached response exists **and was already tracked**, this is a no-op
+   *   (prevents double-tracking).
+   * - If a cached response exists **but was not yet tracked**, it is used to
+   *   call the real native SDK method.
+   * - If no cached response is available, a warning is logged instructing the
+   *   developer to add `AttentiveSDKManager.shared.handleNotificationResponse(response)`
+   *   to their AppDelegate.
    *
-   * @param userInfo The notification payload dictionary (unused on iOS).
-   * @param authorizationStatus Current push authorization status string (unused on iOS).
+   * @param userInfo The notification payload dictionary.
+   * @param authorizationStatus Current push authorization status string.
    */
   @objc(handleForegroundPushFromRN:authorizationStatus:)
   public func handleForegroundPushFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
-    // iOS: no-op — tracking is performed natively via AttentiveSDKManager in AppDelegate.
-    // The UNNotificationResponse required by the iOS SDK cannot cross the RN bridge.
-    print("[AttentiveSDK] handleForegroundPushFromRN: iOS push tracking is handled natively via AttentiveSDKManager in AppDelegate. This RN bridge call is a no-op on iOS.")
+    if let pending = AttentiveSDKManager.shared.consumePendingResponse() {
+      if pending.alreadyTracked {
+        // Already tracked by handleNotificationResponse — nothing to do.
+        if debuggingEnabled {
+          showDebugInfo(event: "Foreground Push (already tracked natively)", data: [
+            "authorizationStatus": authorizationStatus,
+            "note": "Push was already tracked via AttentiveSDKManager.handleNotificationResponse."
+          ])
+        }
+        return
+      }
 
-    if debuggingEnabled {
-      showDebugInfo(event: "Foreground Push (RN bridge — iOS no-op)", data: [
-        "authorizationStatus": authorizationStatus,
-        "userInfo": userInfo,
-        "note": "iOS: tracked via AppDelegate → AttentiveSDKManager. UNNotificationResponse not available from RN bridge."
-      ])
+      // Cached response exists but wasn't tracked yet — track it now.
+      let authStatus = mapAuthorizationStatus(authorizationStatus)
+      sdk.handleForegroundPush(response: pending.response, authorizationStatus: authStatus)
+
+      if debuggingEnabled {
+        let cachedUserInfo = pending.response.notification.request.content.userInfo
+        showDebugInfo(event: "Foreground Push (tracked via cached response)", data: [
+          "authorizationStatus": authorizationStatus,
+          "userInfo": cachedUserInfo as? [String: Any] ?? [:],
+          "actionIdentifier": pending.response.actionIdentifier
+        ])
+      }
+    } else {
+      // No cached response. Either:
+      //   (a) The client's AppDelegate is missing handleNotificationResponse, or
+      //   (b) A prior bridge call (handlePushOpen / handleForegroundPush) already consumed it.
+      print("[AttentiveSDK] handleForegroundPushFromRN: No cached UNNotificationResponse available.")
+      print("[AttentiveSDK] If push tracking is not working, add this line to your AppDelegate's didReceive handler:")
+      print("[AttentiveSDK]   AttentiveSDKManager.shared.handleNotificationResponse(response)")
+
+      if debuggingEnabled {
+        showDebugInfo(event: "Foreground Push (no cached response)", data: [
+          "authorizationStatus": authorizationStatus,
+          "userInfo": userInfo,
+          "note": "No cached response — either already consumed by a prior call or AppDelegate setup missing."
+        ])
+      }
     }
   }
 
   /**
    * React Native bridge entry point for push-open tracking (background/inactive tap).
    *
-   * **Important — iOS limitation**: The Attentive iOS SDK requires a `UNNotificationResponse`
-   * object for `handlePushOpen`, which cannot be serialised across the React Native bridge.
-   * Calling this method from JS is therefore a **no-op on iOS**.
+   * The Attentive iOS SDK requires a `UNNotificationResponse` which cannot be
+   * serialised across the React Native bridge. To work around this, the method
+   * checks `AttentiveSDKManager.shared` for a cached response (set by the
+   * recommended `handleNotificationResponse(_:)` call in AppDelegate).
    *
-   * The correct solution is to call
-   * `AttentiveSDKManager.shared.handlePushOpen(response:authorizationStatus:)` directly
-   * from `AppDelegate.userNotificationCenter(_:didReceive:withCompletionHandler:)`.
-   * Bonni's `AppDelegate.swift` already does this via the native path.
+   * - If a cached response exists **and was already tracked**, this is a no-op
+   *   (prevents double-tracking).
+   * - If a cached response exists **but was not yet tracked**, it is used to
+   *   call the real native SDK method.
+   * - If no cached response is available, a warning is logged instructing the
+   *   developer to add `AttentiveSDKManager.shared.handleNotificationResponse(response)`
+   *   to their AppDelegate.
    *
-   * @param userInfo The notification payload dictionary (unused on iOS).
-   * @param authorizationStatus Current push authorization status string (unused on iOS).
+   * @param userInfo The notification payload dictionary.
+   * @param authorizationStatus Current push authorization status string.
    */
   @objc(handlePushOpenFromRN:authorizationStatus:)
   public func handlePushOpenFromRN(_ userInfo: [String: Any], authorizationStatus: String) {
-    // iOS: no-op — tracking is performed natively via AttentiveSDKManager in AppDelegate.
-    // The UNNotificationResponse required by the iOS SDK cannot cross the RN bridge.
-    print("[AttentiveSDK] handlePushOpenFromRN: iOS push tracking is handled natively via AttentiveSDKManager in AppDelegate. This RN bridge call is a no-op on iOS.")
+    if let pending = AttentiveSDKManager.shared.consumePendingResponse() {
+      if pending.alreadyTracked {
+        // Already tracked by handleNotificationResponse — nothing to do.
+        if debuggingEnabled {
+          showDebugInfo(event: "Push Open (already tracked natively)", data: [
+            "authorizationStatus": authorizationStatus,
+            "note": "Push was already tracked via AttentiveSDKManager.handleNotificationResponse."
+          ])
+        }
+        return
+      }
 
-    if debuggingEnabled {
-      showDebugInfo(event: "Push Open (RN bridge — iOS no-op)", data: [
-        "authorizationStatus": authorizationStatus,
-        "userInfo": userInfo,
-        "note": "iOS: tracked via AppDelegate → AttentiveSDKManager. UNNotificationResponse not available from RN bridge."
-      ])
+      // Cached response exists but wasn't tracked yet — track it now.
+      let authStatus = mapAuthorizationStatus(authorizationStatus)
+      sdk.handlePushOpen(response: pending.response, authorizationStatus: authStatus)
+
+      if debuggingEnabled {
+        let cachedUserInfo = pending.response.notification.request.content.userInfo
+        showDebugInfo(event: "Push Open (tracked via cached response)", data: [
+          "authorizationStatus": authorizationStatus,
+          "userInfo": cachedUserInfo as? [String: Any] ?? [:],
+          "actionIdentifier": pending.response.actionIdentifier
+        ])
+      }
+    } else {
+      // No cached response. Either:
+      //   (a) The client's AppDelegate is missing handleNotificationResponse, or
+      //   (b) A prior bridge call (handlePushOpen / handleForegroundPush) already consumed it.
+      print("[AttentiveSDK] handlePushOpenFromRN: No cached UNNotificationResponse available.")
+      print("[AttentiveSDK] If push tracking is not working, add this line to your AppDelegate's didReceive handler:")
+      print("[AttentiveSDK]   AttentiveSDKManager.shared.handleNotificationResponse(response)")
+
+      if debuggingEnabled {
+        showDebugInfo(event: "Push Open (no cached response)", data: [
+          "authorizationStatus": authorizationStatus,
+          "userInfo": userInfo,
+          "note": "No cached response — either already consumed by a prior call or AppDelegate setup missing."
+        ])
+      }
     }
   }
 
