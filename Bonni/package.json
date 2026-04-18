@@ -1,6 +1,6 @@
 {
   "name": "Bonni",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": true,
   "scripts": {
     "android-pure": "cd android && ./gradlew app:installDebug -PreactNativeDevServerPort=8081 && adb shell am start -n com.attentive.bonni/com.bonni.MainActivity",
