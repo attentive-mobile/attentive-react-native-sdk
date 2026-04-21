@@ -23,8 +23,8 @@ import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/
 import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle } from '../constants/buttonStyles'
 import { useAttentiveUser } from '../hooks/useAttentiveUser'
 import { useAttentiveActions } from '../hooks/useAttentiveActions'
+import { useAttentiveDomain } from '../hooks/useAttentiveDomain'
 import {
-  updateDomain,
   registerForPushNotifications,
   registerDeviceToken,
   handlePushOpened,
@@ -37,10 +37,7 @@ import PushNotificationIOS from '@react-native-community/push-notification-ios'
 const CONFIG_STORAGE_KEYS = {
   DEBUGGER_ENABLED: 'attentive_debugger_enabled',
   DISPLAY_ALERTS: 'attentive_display_alerts',
-  ATTENTIVE_DOMAIN: 'attentive_domain',
 }
-
-const ATTENTIVE_DOMAINS = ['vs', 'games', '76ers', 'belk']
 
 const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [email, setEmail] = useState('')
@@ -51,8 +48,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [responseData, setResponseData] = useState<string>('')
   const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true)
   const [displayAlerts, setDisplayAlerts] = useState<boolean>(true)
-  const [attentiveDomain, setAttentiveDomain] = useState<string>('games')
-  const [domainPickerVisible, setDomainPickerVisible] = useState<boolean>(false)
+  const { domain: attentiveDomain, promptForDomain } = useAttentiveDomain()
   const { identifyUser, clearUserIdentification } = useAttentiveUser()
   const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions()
 
@@ -78,10 +74,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    */
   const loadConfiguration = async () => {
     try {
-      const [debuggerValue, alertsValue, domainValue] = await Promise.all([
+      const [debuggerValue, alertsValue] = await Promise.all([
         AsyncStorage.getItem(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED),
         AsyncStorage.getItem(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS),
-        AsyncStorage.getItem(CONFIG_STORAGE_KEYS.ATTENTIVE_DOMAIN),
       ])
 
       if (debuggerValue !== null) {
@@ -89,9 +84,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
       }
       if (alertsValue !== null) {
         setDisplayAlerts(alertsValue === 'true')
-      }
-      if (domainValue !== null) {
-        setAttentiveDomain(domainValue)
       }
     } catch (error) {
       console.error('Error loading configuration:', error)
@@ -131,23 +123,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     } catch (error) {
       console.error('Error saving display alerts setting:', error)
       // Don't show alert here since alerts are being disabled
-    }
-  }, [])
-
-  /**
-   * Handle domain selection
-   * @param domain - Selected domain
-   */
-  const handleDomainSelect = useCallback(async (domain: string) => {
-    try {
-      setAttentiveDomain(domain)
-      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.ATTENTIVE_DOMAIN, domain)
-      updateDomain(domain)
-      setDomainPickerVisible(false)
-      Alert.alert('Success', `Domain updated to: ${domain}`)
-    } catch (error) {
-      console.error('Error saving domain setting:', error)
-      Alert.alert('Error', 'Failed to save domain setting')
     }
   }, [])
 
@@ -598,19 +573,16 @@ The SDK will handle the API request internally.`
             />
           </View>
 
-          {/* Domain Picker */}
-          <View style={styles.configRow}>
+          {/* Domain Input */}
+          <Pressable style={styles.configRow} onPress={promptForDomain}>
             <View style={styles.configLabelContainer}>
               <Text style={styles.configLabel}>Attentive Domain</Text>
             </View>
-            <Pressable
-              style={styles.domainPickerButton}
-              onPress={() => setDomainPickerVisible(true)}
-            >
+            <View style={styles.domainPickerButton}>
               <Text style={styles.domainPickerText}>{attentiveDomain}</Text>
               <Text style={styles.domainPickerArrow}>›</Text>
-            </Pressable>
-          </View>
+            </View>
+          </Pressable>
         </View>
 
         <View style={styles.divider} />
@@ -652,50 +624,6 @@ The SDK will handle the API request internally.`
         </View>
       </Modal>
 
-      {/* Domain Picker Modal */}
-      <Modal
-        visible={domainPickerVisible}
-        animationType="slide"
-        presentationStyle="formSheet"
-        onRequestClose={() => setDomainPickerVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Select Domain</Text>
-            <TouchableOpacity
-              onPress={() => setDomainPickerVisible(false)}
-              style={styles.closeButton}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-          </View>
-          <ScrollView style={styles.modalContent}>
-            {ATTENTIVE_DOMAINS.map((domain) => (
-              <Pressable
-                key={domain}
-                style={({ pressed }) => [
-                  styles.domainOption,
-                  pressed && styles.domainOptionPressed,
-                  attentiveDomain === domain && styles.domainOptionSelected,
-                ]}
-                onPress={() => handleDomainSelect(domain)}
-              >
-                <Text
-                  style={[
-                    styles.domainOptionText,
-                    attentiveDomain === domain && styles.domainOptionTextSelected,
-                  ]}
-                >
-                  {domain}
-                </Text>
-                {attentiveDomain === domain && (
-                  <Text style={styles.domainOptionCheckmark}>✓</Text>
-                )}
-              </Pressable>
-            ))}
-          </ScrollView>
-        </View>
-      </Modal>
     </>
   )
 }
@@ -836,34 +764,6 @@ const styles = StyleSheet.create({
   domainPickerArrow: {
     fontSize: Typography.sizes.large,
     color: Colors.secondaryText,
-  },
-  domainOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Spacing.base,
-    paddingHorizontal: Spacing.base,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightBackground,
-  },
-  domainOptionPressed: {
-    backgroundColor: Colors.lightBackground,
-  },
-  domainOptionSelected: {
-    backgroundColor: Colors.lightBackground,
-  },
-  domainOptionText: {
-    fontSize: Typography.sizes.medium,
-    color: Colors.black,
-  },
-  domainOptionTextSelected: {
-    fontWeight: Typography.weights.medium,
-    color: Colors.black,
-  },
-  domainOptionCheckmark: {
-    fontSize: Typography.sizes.medium,
-    color: Colors.black,
-    fontWeight: Typography.weights.bold,
   },
 })
 
