@@ -576,7 +576,7 @@ The SDK will handle the API request internally.`
           {/* Domain Input */}
           <Pressable style={styles.configRow} onPress={promptForDomain}>
             <View style={styles.configLabelContainer}>
-              <Text style={styles.configLabel}>Attentive Domain</Text>
+              <Text style={styles.configLabel}>Switch Domain</Text>
             </View>
             <View style={styles.domainPickerButton}>
               <Text style={styles.domainPickerText}>{attentiveDomain}</Text>

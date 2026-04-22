@@ -51,7 +51,7 @@ export function useAttentiveDomain(): AttentiveDomainHook {
    * Persists a new domain, updates local state, and notifies the SDK.
    *
    * @param newDomain - Raw string entered by the user.
-   * @throws Does not throw; surfaces errors via Alert.
+   * @throws Does not throw; errors are logged to the console.
    */
   const saveDomain = useCallback(async (newDomain: string) => {
     const trimmed = newDomain.trim()
@@ -60,10 +60,8 @@ export function useAttentiveDomain(): AttentiveDomainHook {
       setDomain(trimmed)
       await AsyncStorage.setItem(DOMAIN_STORAGE_KEY, trimmed)
       updateDomain(trimmed)
-      Alert.alert('Success', `Domain updated to: ${trimmed}`)
     } catch (error) {
       console.error('Error saving domain setting:', error)
-      Alert.alert('Error', 'Failed to save domain setting')
     }
   }, [])
 
@@ -73,14 +71,14 @@ export function useAttentiveDomain(): AttentiveDomainHook {
    */
   const promptForDomain = useCallback(() => {
     Alert.prompt(
-      'Attentive Domain',
-      'Enter your domain name',
+      'Switch Domain',
+      'Enter the new domain',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Save',
           onPress: (value) => {
-            if (value) saveDomain(value)
+            if (value) { saveDomain(value) }
           },
         },
       ],
