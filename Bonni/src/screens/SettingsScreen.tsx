@@ -24,6 +24,7 @@ import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonSty
 import { useAttentiveUser } from '../hooks/useAttentiveUser'
 import { useAttentiveActions } from '../hooks/useAttentiveActions'
 import { useAttentiveDomain } from '../hooks/useAttentiveDomain'
+import { useTextPrompt } from '../hooks/useTextPrompt'
 import {
   registerForPushNotifications,
   registerDeviceToken,
@@ -48,7 +49,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [responseData, setResponseData] = useState<string>('')
   const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true)
   const [displayAlerts, setDisplayAlerts] = useState<boolean>(true)
-  const { domain: attentiveDomain, promptForDomain } = useAttentiveDomain()
+  const { domain: attentiveDomain, promptForDomain, DomainPromptModal } = useAttentiveDomain()
+  const { showPrompt: showScreenPrompt, PromptModal: ScreenPromptModal } = useTextPrompt()
   const { identifyUser, clearUserIdentification } = useAttentiveUser()
   const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions()
 
@@ -127,38 +129,25 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   }, [])
 
   const handleSwitchUser = useCallback(() => {
-    Alert.prompt(
-      'Switch Account / Log Out',
-      'Enter email or phone to identify, or cancel to log out',
-      [
-        {
-          text: 'Log Out',
-          style: 'destructive',
-          onPress: () => {
-            clearUserIdentification()
-            setCurrentUser('Guest')
-            Alert.alert('Success', 'Logged out successfully')
-          },
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Identify',
-          onPress: (value) => {
-            if (value) {
-              const isEmail = value.includes('@')
-              identifyUser(isEmail ? { email: value } : { phone: value })
-              setCurrentUser(value)
-              Alert.alert('Success', 'User identified!')
-            }
-          },
-        },
-      ],
-      'plain-text'
-    )
-  }, [identifyUser, clearUserIdentification])
+    showScreenPrompt({
+      title: 'Switch Account',
+      message: 'Enter email or phone to identify a new user',
+      placeholder: 'email or phone',
+      confirmText: 'Identify',
+      cancelText: 'Log Out',
+      onConfirm: (value) => {
+        const isEmail = value.includes('@')
+        identifyUser(isEmail ? { email: value } : { phone: value })
+        setCurrentUser(value)
+        Alert.alert('Success', 'User identified!')
+      },
+      onCancel: () => {
+        clearUserIdentification()
+        setCurrentUser('Guest')
+        Alert.alert('Success', 'Logged out successfully')
+      },
+    })
+  }, [identifyUser, clearUserIdentification, showScreenPrompt])
 
   const handleManageAddresses = useCallback(() => {
     // TODO: Implement address management
@@ -287,32 +276,22 @@ The SDK will handle the API request internally.`
   }, [displayAlerts])
 
   const handleIdentifyUser = useCallback(() => {
-    // Show prompt to enter user identifier (like iOS implementation)
-    Alert.prompt(
-      'Identify User',
-      'Enter email or phone to identify the user',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Identify',
-          onPress: (value) => {
-            if (value) {
-              const isEmail = value.includes('@')
-              identifyUser(isEmail ? { email: value } : { phone: value })
-              setCurrentUser(value)
-              if (displayAlerts) {
-                Alert.alert('Success', `User identified: ${value}`)
-              }
-            }
-          },
-        },
-      ],
-      'plain-text'
-    )
-  }, [identifyUser, displayAlerts])
+    showScreenPrompt({
+      title: 'Identify User',
+      message: 'Enter email or phone to identify the user',
+      placeholder: 'email or phone',
+      confirmText: 'Identify',
+      cancelText: 'Cancel',
+      onConfirm: (value) => {
+        const isEmail = value.includes('@')
+        identifyUser(isEmail ? { email: value } : { phone: value })
+        setCurrentUser(value)
+        if (displayAlerts) {
+          Alert.alert('Success', `User identified: ${value}`)
+        }
+      },
+    })
+  }, [identifyUser, displayAlerts, showScreenPrompt])
 
   const handleClearUser = useCallback(() => {
     // Call SDK's clearUser method
@@ -623,6 +602,10 @@ The SDK will handle the API request internally.`
           </ScrollView>
         </View>
       </Modal>
+
+      {/* Cross-platform text prompt modals (null on iOS) */}
+      {DomainPromptModal}
+      {ScreenPromptModal}
 
     </>
   )
