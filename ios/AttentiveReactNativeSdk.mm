@@ -407,6 +407,15 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
     NSLog(@"[AttentiveSDK] optInMarketingSubscription normalized email=%@ phone=%@", normalizedEmail, normalizedPhone);
 
+    // We nil guard _sdk here to avoid hang if this operation is called before the SDK is initialized
+    if (!_sdk) {
+        NSLog(@"[AttentiveSDK] optInMarketingSubscription FAILED: SDK not initialized");
+        reject([NSString stringWithFormat:@"%ld", (long)1000],
+               @"SDK not initialized",
+               nil);
+        return;
+    }
+
     [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
                                         phone:normalizedPhone
                                    completion:^(NSError * _Nullable error) {
