@@ -521,6 +521,15 @@ async function getInitialPushNotification(): Promise<Record<
 function optInMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
+  // Check whether params is defined and expected properties are present
+  if (!params || (!params.email && !params.phone)) {
+    return Promise.reject(
+      new Error(
+        'Params are required and must contain either email or phone property'
+      )
+    )
+  }
+
   return AttentiveReactNativeSdk.optInMarketingSubscription(
     params.email,
     params.phone
@@ -552,6 +561,15 @@ function optInMarketingSubscription(
 function optOutMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
+  // Check whether params is defined and expected properties are present
+  if (!params || (!params.email && !params.phone)) {
+    return Promise.reject(
+      new Error(
+        'Params are required and must contain either email or phone property'
+      )
+    )
+  }
+
   return AttentiveReactNativeSdk.optOutMarketingSubscription(
     params.email,
     params.phone
