@@ -60,8 +60,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const {
     emailInput: subEmailInput,
     phoneInput: subPhoneInput,
-    currentEmail: subCurrentEmail,
-    currentPhone: subCurrentPhone,
     emailError: subEmailError,
     phoneError: subPhoneError,
     isOptingInEmail,
@@ -71,8 +69,6 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     isAnyLoading: isSubLoading,
     setEmailInput: setSubEmailInput,
     setPhoneInput: setSubPhoneInput,
-    handleSetEmail: handleSubSetEmail,
-    handleSetPhone: handleSubSetPhone,
     handleOptInEmail,
     handleOptOutEmail,
     handleOptInPhone,
@@ -573,19 +569,6 @@ The SDK will handle the API request internally.`
               <Pressable
                 style={({ pressed }) => [
                   styles.buttonRowItem,
-                  getPrimaryButtonStyle(pressed && !isSubLoading),
-                  isSubLoading && styles.buttonDisabled,
-                ]}
-                onPress={handleSubSetEmail}
-                disabled={isSubLoading}
-              >
-                {({ pressed }) => (
-                  <Text style={getPrimaryButtonTextStyle(pressed && !isSubLoading)}>Set Email</Text>
-                )}
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.buttonRowItem,
                   getSecondaryButtonStyle(pressed && !isSubLoading),
                   isSubLoading && styles.buttonDisabled,
                 ]}
@@ -595,7 +578,7 @@ The SDK will handle the API request internally.`
                 {({ pressed }) => (
                   isOptingInEmail
                     ? <ActivityIndicator size="small" color={Colors.primaryText} />
-                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>Opt In</Text>
+                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>OPT IN</Text>
                 )}
               </Pressable>
               <Pressable
@@ -615,14 +598,11 @@ The SDK will handle the API request internally.`
                         styles.destructiveButtonText,
                         pressed && !isSubLoading && styles.destructiveButtonTextPressed,
                       ]}>
-                        Opt Out
+                        OPT OUT
                       </Text>
                 )}
               </Pressable>
             </View>
-            <Text style={styles.currentValueLabel}>
-              Current email: {subCurrentEmail ?? '—'}
-            </Text>
           </View>
 
           {/* Phone channel */}
@@ -643,19 +623,6 @@ The SDK will handle the API request internally.`
               <Pressable
                 style={({ pressed }) => [
                   styles.buttonRowItem,
-                  getPrimaryButtonStyle(pressed && !isSubLoading),
-                  isSubLoading && styles.buttonDisabled,
-                ]}
-                onPress={handleSubSetPhone}
-                disabled={isSubLoading}
-              >
-                {({ pressed }) => (
-                  <Text style={getPrimaryButtonTextStyle(pressed && !isSubLoading)}>Set Phone</Text>
-                )}
-              </Pressable>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.buttonRowItem,
                   getSecondaryButtonStyle(pressed && !isSubLoading),
                   isSubLoading && styles.buttonDisabled,
                 ]}
@@ -665,7 +632,7 @@ The SDK will handle the API request internally.`
                 {({ pressed }) => (
                   isOptingInPhone
                     ? <ActivityIndicator size="small" color={Colors.primaryText} />
-                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>Opt In</Text>
+                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>OPT IN</Text>
                 )}
               </Pressable>
               <Pressable
@@ -685,14 +652,11 @@ The SDK will handle the API request internally.`
                         styles.destructiveButtonText,
                         pressed && !isSubLoading && styles.destructiveButtonTextPressed,
                       ]}>
-                        Opt Out
+                        OPT OUT
                       </Text>
                 )}
               </Pressable>
             </View>
-            <Text style={styles.currentValueLabel}>
-              Current phone: {subCurrentPhone ?? '—'}
-            </Text>
           </View>
         </View>
 

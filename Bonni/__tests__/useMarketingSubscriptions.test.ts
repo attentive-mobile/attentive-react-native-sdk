@@ -124,17 +124,16 @@ describe('useMarketingSubscriptions', () => {
             )
 
             act(() => result.current.setEmailInput('user@example.com'))
-            act(() => result.current.handleSetEmail())
-            onSuccess.mockClear()
 
             await act(() => result.current.handleOptInEmail())
 
+            expect(mockIdentify).toHaveBeenCalledWith({ email: 'user@example.com' })
             expect(mockOptIn).toHaveBeenCalledWith({ email: 'user@example.com' })
             expect(onSuccess).toHaveBeenCalledWith('Email opt-in successful')
             expect(result.current.isOptingInEmail).toBe(false)
         })
 
-        it('should invoke onError when no email is committed', async () => {
+        it('should invoke onError and set emailError when email input is empty', async () => {
             const onError = jest.fn()
             const { result } = renderHook(() =>
                 useMarketingSubscriptions({ onError }),
@@ -143,7 +142,8 @@ describe('useMarketingSubscriptions', () => {
             await act(() => result.current.handleOptInEmail())
 
             expect(mockOptIn).not.toHaveBeenCalled()
-            expect(onError).toHaveBeenCalledWith('Set an email address first')
+            expect(onError).toHaveBeenCalledWith('Email is required')
+            expect(result.current.emailError).toBe('Email is required')
         })
     })
 
@@ -155,11 +155,10 @@ describe('useMarketingSubscriptions', () => {
             )
 
             act(() => result.current.setEmailInput('user@example.com'))
-            act(() => result.current.handleSetEmail())
-            onSuccess.mockClear()
 
             await act(() => result.current.handleOptOutEmail())
 
+            expect(mockIdentify).toHaveBeenCalledWith({ email: 'user@example.com' })
             expect(mockOptOut).toHaveBeenCalledWith({ email: 'user@example.com' })
             expect(onSuccess).toHaveBeenCalledWith('Email opt-out successful')
             expect(result.current.isOptingOutEmail).toBe(false)
@@ -174,17 +173,16 @@ describe('useMarketingSubscriptions', () => {
             )
 
             act(() => result.current.setPhoneInput('+15551234567'))
-            act(() => result.current.handleSetPhone())
-            onSuccess.mockClear()
 
             await act(() => result.current.handleOptInPhone())
 
+            expect(mockIdentify).toHaveBeenCalledWith({ phone: '+15551234567' })
             expect(mockOptIn).toHaveBeenCalledWith({ phone: '+15551234567' })
             expect(onSuccess).toHaveBeenCalledWith('Phone opt-in successful')
             expect(result.current.isOptingInPhone).toBe(false)
         })
 
-        it('should invoke onError when no phone is committed', async () => {
+        it('should invoke onError and set phoneError when phone input is empty', async () => {
             const onError = jest.fn()
             const { result } = renderHook(() =>
                 useMarketingSubscriptions({ onError }),
@@ -193,7 +191,8 @@ describe('useMarketingSubscriptions', () => {
             await act(() => result.current.handleOptInPhone())
 
             expect(mockOptIn).not.toHaveBeenCalled()
-            expect(onError).toHaveBeenCalledWith('Set a phone number first')
+            expect(onError).toHaveBeenCalledWith('Phone number is required')
+            expect(result.current.phoneError).toBe('Phone number is required')
         })
     })
 
@@ -205,11 +204,10 @@ describe('useMarketingSubscriptions', () => {
             )
 
             act(() => result.current.setPhoneInput('+15551234567'))
-            act(() => result.current.handleSetPhone())
-            onSuccess.mockClear()
 
             await act(() => result.current.handleOptOutPhone())
 
+            expect(mockIdentify).toHaveBeenCalledWith({ phone: '+15551234567' })
             expect(mockOptOut).toHaveBeenCalledWith({ phone: '+15551234567' })
             expect(onSuccess).toHaveBeenCalledWith('Phone opt-out successful')
             expect(result.current.isOptingOutPhone).toBe(false)
@@ -229,7 +227,6 @@ describe('useMarketingSubscriptions', () => {
             )
 
             act(() => result.current.setEmailInput('user@example.com'))
-            act(() => result.current.handleSetEmail())
 
             await act(() => result.current.handleOptInEmail())
 
@@ -246,7 +243,6 @@ describe('useMarketingSubscriptions', () => {
             )
 
             act(() => result.current.setPhoneInput('+15551234567'))
-            act(() => result.current.handleSetPhone())
 
             await act(() => result.current.handleOptOutPhone())
 
@@ -269,7 +265,6 @@ describe('useMarketingSubscriptions', () => {
             const { result } = renderHook(() => useMarketingSubscriptions())
 
             act(() => result.current.setEmailInput('user@example.com'))
-            act(() => result.current.handleSetEmail())
 
             // Start the request but don't resolve yet
             let promise: Promise<void>
@@ -296,7 +291,6 @@ describe('useMarketingSubscriptions', () => {
             const { result } = renderHook(() => useMarketingSubscriptions())
 
             act(() => result.current.setEmailInput('user@example.com'))
-            act(() => result.current.handleSetEmail())
 
             let promise: Promise<void>
             act(() => { promise = result.current.handleOptOutEmail() })
@@ -322,7 +316,6 @@ describe('useMarketingSubscriptions', () => {
             const { result } = renderHook(() => useMarketingSubscriptions())
 
             act(() => result.current.setEmailInput('user@example.com'))
-            act(() => result.current.handleSetEmail())
 
             await expect(
                 act(() => result.current.handleOptInEmail()),
@@ -334,7 +327,6 @@ describe('useMarketingSubscriptions', () => {
             const { result } = renderHook(() => useMarketingSubscriptions())
 
             act(() => result.current.setPhoneInput('+15551234567'))
-            act(() => result.current.handleSetPhone())
 
             await expect(
                 act(() => result.current.handleOptOutPhone()),

@@ -66,13 +66,13 @@ export interface UseMarketingSubscriptionsResult {
      * calls `identify` so the Attentive SDK associates the phone with the user.
      */
     handleSetPhone: () => void
-    /** Opts `currentEmail` into marketing subscriptions. */
+    /** Validates `emailInput` and opts it into marketing subscriptions. */
     handleOptInEmail: () => Promise<void>
-    /** Opts `currentEmail` out of marketing subscriptions. */
+    /** Validates `emailInput` and opts it out of marketing subscriptions. */
     handleOptOutEmail: () => Promise<void>
-    /** Opts `currentPhone` into marketing subscriptions. */
+    /** Validates `phoneInput` and opts it into marketing subscriptions. */
     handleOptInPhone: () => Promise<void>
-    /** Opts `currentPhone` out of marketing subscriptions. */
+    /** Validates `phoneInput` and opts it out of marketing subscriptions. */
     handleOptOutPhone: () => Promise<void>
 }
 
@@ -147,19 +147,24 @@ export function useMarketingSubscriptions(
     // ---------------------------------------------------------------------------
 
     /**
-     * Opts the committed email address into marketing subscriptions.
-     * Sets `isOptingInEmail` while the request is in flight.
+     * Validates `emailInput`, identifies the user, then opts that email address
+     * into marketing subscriptions. Sets `isOptingInEmail` while in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptInEmail = useCallback(async () => {
-        if (!currentEmail) {
-            callbacks?.onError?.('Set an email address first')
+        const error = validateEmail(emailInput)
+        if (error) {
+            setEmailError(error)
+            callbacks?.onError?.(error)
             return
         }
-        console.log(TAG, 'optInEmail called with:', currentEmail)
+        const trimmed = emailInput.trim()
+        setEmailError(null)
+        console.log(TAG, 'optInEmail called with:', trimmed)
         setIsOptingInEmail(true)
         try {
-            await optInMarketingSubscription({ email: currentEmail })
+            identify({ email: trimmed })
+            await optInMarketingSubscription({ email: trimmed })
             console.log(TAG, 'optInEmail succeeded')
             callbacks?.onSuccess?.('Email opt-in successful')
         } catch (e) {
@@ -168,22 +173,27 @@ export function useMarketingSubscriptions(
         } finally {
             setIsOptingInEmail(false)
         }
-    }, [currentEmail, callbacks])
+    }, [emailInput, callbacks])
 
     /**
-     * Opts the committed phone number into marketing subscriptions.
-     * Sets `isOptingInPhone` while the request is in flight.
+     * Validates `phoneInput`, identifies the user, then opts that phone number
+     * into marketing subscriptions. Sets `isOptingInPhone` while in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptInPhone = useCallback(async () => {
-        if (!currentPhone) {
-            callbacks?.onError?.('Set a phone number first')
+        const error = validatePhone(phoneInput)
+        if (error) {
+            setPhoneError(error)
+            callbacks?.onError?.(error)
             return
         }
-        console.log(TAG, 'optInPhone called with:', currentPhone)
+        const trimmed = phoneInput.trim()
+        setPhoneError(null)
+        console.log(TAG, 'optInPhone called with:', trimmed)
         setIsOptingInPhone(true)
         try {
-            await optInMarketingSubscription({ phone: currentPhone })
+            identify({ phone: trimmed })
+            await optInMarketingSubscription({ phone: trimmed })
             console.log(TAG, 'optInPhone succeeded')
             callbacks?.onSuccess?.('Phone opt-in successful')
         } catch (e) {
@@ -192,26 +202,31 @@ export function useMarketingSubscriptions(
         } finally {
             setIsOptingInPhone(false)
         }
-    }, [currentPhone, callbacks])
+    }, [phoneInput, callbacks])
 
     // ---------------------------------------------------------------------------
     // Opt-out handlers
     // ---------------------------------------------------------------------------
 
     /**
-     * Opts the committed email address out of marketing subscriptions.
-     * Sets `isOptingOutEmail` while the request is in flight.
+     * Validates `emailInput`, identifies the user, then opts that email address
+     * out of marketing subscriptions. Sets `isOptingOutEmail` while in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptOutEmail = useCallback(async () => {
-        if (!currentEmail) {
-            callbacks?.onError?.('Set an email address first')
+        const error = validateEmail(emailInput)
+        if (error) {
+            setEmailError(error)
+            callbacks?.onError?.(error)
             return
         }
-        console.log(TAG, 'optOutEmail called with:', currentEmail)
+        const trimmed = emailInput.trim()
+        setEmailError(null)
+        console.log(TAG, 'optOutEmail called with:', trimmed)
         setIsOptingOutEmail(true)
         try {
-            await optOutMarketingSubscription({ email: currentEmail })
+            identify({ email: trimmed })
+            await optOutMarketingSubscription({ email: trimmed })
             console.log(TAG, 'optOutEmail succeeded')
             callbacks?.onSuccess?.('Email opt-out successful')
         } catch (e) {
@@ -220,22 +235,27 @@ export function useMarketingSubscriptions(
         } finally {
             setIsOptingOutEmail(false)
         }
-    }, [currentEmail, callbacks])
+    }, [emailInput, callbacks])
 
     /**
-     * Opts the committed phone number out of marketing subscriptions.
-     * Sets `isOptingOutPhone` while the request is in flight.
+     * Validates `phoneInput`, identifies the user, then opts that phone number
+     * out of marketing subscriptions. Sets `isOptingOutPhone` while in flight.
      * @throws Never — errors are surfaced via the `onError` callback.
      */
     const handleOptOutPhone = useCallback(async () => {
-        if (!currentPhone) {
-            callbacks?.onError?.('Set a phone number first')
+        const error = validatePhone(phoneInput)
+        if (error) {
+            setPhoneError(error)
+            callbacks?.onError?.(error)
             return
         }
-        console.log(TAG, 'optOutPhone called with:', currentPhone)
+        const trimmed = phoneInput.trim()
+        setPhoneError(null)
+        console.log(TAG, 'optOutPhone called with:', trimmed)
         setIsOptingOutPhone(true)
         try {
-            await optOutMarketingSubscription({ phone: currentPhone })
+            identify({ phone: trimmed })
+            await optOutMarketingSubscription({ phone: trimmed })
             console.log(TAG, 'optOutPhone succeeded')
             callbacks?.onSuccess?.('Phone opt-out successful')
         } catch (e) {
@@ -244,7 +264,7 @@ export function useMarketingSubscriptions(
         } finally {
             setIsOptingOutPhone(false)
         }
-    }, [currentPhone, callbacks])
+    }, [phoneInput, callbacks])
 
     return {
         emailInput,
