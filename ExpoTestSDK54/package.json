@@ -9,7 +9,7 @@
     "web": "expo start --web"
   },
   "dependencies": {
-    "@attentive-mobile/attentive-react-native-sdk": "^2.0.0-beta.8",
+    "@attentive-mobile/attentive-react-native-sdk": "2.0.0-beta.8",
     "expo": "54.0.27",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
