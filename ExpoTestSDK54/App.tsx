@@ -42,10 +42,10 @@ export default function App() {
   };
 
   const handleProductView = () => {
-    recordProductViewEvent(
-      [{ productId: 'SKU-001', productVariantId: 'VAR-001', price: '29.99', currency: 'USD' }],
-      'https://example.com/product/001'
-    );
+    recordProductViewEvent({
+      items: [{ productId: 'SKU-001', productVariantId: 'VAR-001', price: '29.99', currency: 'USD' }],
+      deeplink: 'https://example.com/product/001',
+    });
     Alert.alert('Event Sent', 'Product view event recorded');
   };
 
