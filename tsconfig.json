@@ -25,5 +25,5 @@
     "strict": true,
     "target": "esnext"
   },
-  "exclude": ["Bonni", "example", "node_modules", "**/__tests__"]
+  "exclude": ["Bonni", "example", "ExpoTestSDK54", "node_modules", "**/__tests__"]
 }
