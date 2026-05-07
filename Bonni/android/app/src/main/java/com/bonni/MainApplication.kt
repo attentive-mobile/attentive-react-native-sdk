@@ -64,6 +64,7 @@ class MainApplication : Application(), ReactApplication {
       .applicationContext(appContext)
       .domain("games")
       .mode(modeEnum)
+      .notificationIconId(R.drawable.bonni_logo)
       .skipFatigueOnCreatives(false)
       .logLevel(AttentiveLogLevel.VERBOSE)
       .build()
