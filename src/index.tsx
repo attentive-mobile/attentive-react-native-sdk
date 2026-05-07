@@ -11,6 +11,7 @@ import type {
   ApplicationState,
   PushNotificationUserInfo,
   PushRegistrationResult,
+  MarketingSubscriptionParams,
 } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
@@ -491,6 +492,90 @@ async function getInitialPushNotification(): Promise<Record<
   return result as Record<string, string> | null
 }
 
+// =============================================================================
+// Marketing Subscription Methods
+// =============================================================================
+
+/**
+ * Opts a user into marketing subscriptions (email and/or SMS).
+ *
+ * On iOS, bridges to the native ATTNSDK which handles input normalisation,
+ * validation, and APNs push-token queueing internally.
+ *
+ * On Android, calls the Attentive `/opt-in-subscriptions` endpoint directly via
+ * OkHttp with equivalent normalisation and validation logic.
+ *
+ * At least one of `email` or `phone` must be provided — otherwise the returned
+ * Promise rejects with a missing-contact-info error.
+ *
+ * @param params - Object containing optional `email` and/or `phone`.
+ * @returns Promise that resolves on success or rejects with an error.
+ *
+ * @example
+ * ```typescript
+ * import { optInMarketingSubscription } from 'attentive-react-native-sdk';
+ *
+ * await optInMarketingSubscription({ email: 'user@example.com', phone: '+15551234567' });
+ * ```
+ */
+function optInMarketingSubscription(
+  params: MarketingSubscriptionParams
+): Promise<void> {
+  // Check whether params is defined and expected properties are present
+  if (!params || (!params.email && !params.phone)) {
+    return Promise.reject(
+      new Error(
+        'Params are required and must contain either email or phone property'
+      )
+    )
+  }
+
+  return AttentiveReactNativeSdk.optInMarketingSubscription(
+    params.email,
+    params.phone
+  ) as Promise<void>
+}
+
+/**
+ * Opts a user out of marketing subscriptions (email and/or SMS).
+ *
+ * On iOS, bridges to the native ATTNSDK which handles input normalisation,
+ * validation, and APNs push-token queueing internally.
+ *
+ * On Android, calls the Attentive `/opt-out-subscriptions` endpoint directly via
+ * OkHttp with equivalent normalisation and validation logic.
+ *
+ * At least one of `email` or `phone` must be provided — otherwise the returned
+ * Promise rejects with a missing-contact-info error.
+ *
+ * @param params - Object containing optional `email` and/or `phone`.
+ * @returns Promise that resolves on success or rejects with an error.
+ *
+ * @example
+ * ```typescript
+ * import { optOutMarketingSubscription } from 'attentive-react-native-sdk';
+ *
+ * await optOutMarketingSubscription({ email: 'user@example.com' });
+ * ```
+ */
+function optOutMarketingSubscription(
+  params: MarketingSubscriptionParams
+): Promise<void> {
+  // Check whether params is defined and expected properties are present
+  if (!params || (!params.email && !params.phone)) {
+    return Promise.reject(
+      new Error(
+        'Params are required and must contain either email or phone property'
+      )
+    )
+  }
+
+  return AttentiveReactNativeSdk.optOutMarketingSubscription(
+    params.email,
+    params.phone
+  ) as Promise<void>
+}
+
 export {
   initialize,
   triggerCreative,
@@ -515,6 +600,9 @@ export {
   handleForegroundPush,
   handlePushOpen,
   getInitialPushNotification,
+  // Marketing Subscription Methods
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
 }
 
 export type {
@@ -530,4 +618,6 @@ export type {
   ApplicationState,
   PushNotificationUserInfo,
   PushRegistrationResult,
+  // Marketing Subscription Types
+  MarketingSubscriptionParams,
 }

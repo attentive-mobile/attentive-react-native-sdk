@@ -382,6 +382,91 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     }];
 }
 
+// =============================================================================
+// Marketing Subscription Methods (both architectures)
+// =============================================================================
+
+/**
+ * Opts a user into marketing subscriptions.
+ * Delegates to ATTNNativeSDK which forwards to ATTNSDK.optInMarketingSubscription.
+ * Input normalisation, validation, and push-token queueing are all handled natively.
+ *
+ * @param email  Email address, or NSNull when absent.
+ * @param phone  Phone number, or NSNull when absent.
+ * @param resolve RCT Promise resolve block — called with nil on success.
+ * @param reject  RCT Promise reject block — called with error details on failure.
+ */
+- (void)optInMarketingSubscription:(NSString *)email
+                              phone:(NSString *)phone
+                            resolve:(RCTPromiseResolveBlock)resolve
+                             reject:(RCTPromiseRejectBlock)reject {
+    NSLog(@"[AttentiveSDK] optInMarketingSubscription called (iOS) email=%@ phone=%@", email, phone);
+
+    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    NSLog(@"[AttentiveSDK] optInMarketingSubscription normalized email=%@ phone=%@", normalizedEmail, normalizedPhone);
+
+    // We nil guard _sdk here to avoid hang if this operation is called before the SDK is initialized
+    if (!_sdk) {
+        NSLog(@"[AttentiveSDK] optInMarketingSubscription FAILED: SDK not initialized");
+        reject([NSString stringWithFormat:@"%ld", (long)1000],
+               @"SDK not initialized",
+               nil);
+        return;
+    }
+
+    [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
+                                        phone:normalizedPhone
+                                   completion:^(NSError * _Nullable error) {
+        if (error) {
+            NSLog(@"[AttentiveSDK] optInMarketingSubscription FAILED: %@", error.localizedDescription);
+            reject([NSString stringWithFormat:@"%ld", (long)error.code],
+                   error.localizedDescription,
+                   error);
+        } else {
+            NSLog(@"[AttentiveSDK] optInMarketingSubscription succeeded");
+            resolve(nil);
+        }
+    }];
+}
+
+/**
+ * Opts a user out of marketing subscriptions.
+ * Delegates to ATTNNativeSDK which forwards to ATTNSDK.optOutMarketingSubscription.
+ * Input normalisation, validation, and push-token queueing are all handled natively.
+ *
+ * @param email  Email address, or NSNull when absent.
+ * @param phone  Phone number, or NSNull when absent.
+ * @param resolve RCT Promise resolve block — called with nil on success.
+ * @param reject  RCT Promise reject block — called with error details on failure.
+ */
+- (void)optOutMarketingSubscription:(NSString *)email
+                               phone:(NSString *)phone
+                             resolve:(RCTPromiseResolveBlock)resolve
+                              reject:(RCTPromiseRejectBlock)reject {
+    NSLog(@"[AttentiveSDK] optOutMarketingSubscription called (iOS) email=%@ phone=%@", email, phone);
+
+    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    NSLog(@"[AttentiveSDK] optOutMarketingSubscription normalized email=%@ phone=%@", normalizedEmail, normalizedPhone);
+
+    [_sdk optOutMarketingSubscriptionWithEmail:normalizedEmail
+                                         phone:normalizedPhone
+                                    completion:^(NSError * _Nullable error) {
+        if (error) {
+            NSLog(@"[AttentiveSDK] optOutMarketingSubscription FAILED: %@", error.localizedDescription);
+            reject([NSString stringWithFormat:@"%ld", (long)error.code],
+                   error.localizedDescription,
+                   error);
+        } else {
+            NSLog(@"[AttentiveSDK] optOutMarketingSubscription succeeded");
+            resolve(nil);
+        }
+    }];
+}
+
 - (void)triggerCreative:(NSString *)creativeId {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];

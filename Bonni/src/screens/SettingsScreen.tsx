@@ -17,12 +17,14 @@ import {
   Platform,
   Modal,
   Switch,
+  ActivityIndicator,
 } from 'react-native'
 import { SettingsScreenProps } from '../types/navigation'
 import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
 import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle } from '../constants/buttonStyles'
 import { useAttentiveUser } from '../hooks/useAttentiveUser'
 import { useAttentiveActions } from '../hooks/useAttentiveActions'
+import { useMarketingSubscriptions } from '../hooks/useMarketingSubscriptions'
 import {
   updateDomain,
   registerForPushNotifications,
@@ -55,6 +57,26 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [domainPickerVisible, setDomainPickerVisible] = useState<boolean>(false)
   const { identifyUser, clearUserIdentification } = useAttentiveUser()
   const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions()
+  const {
+    emailInput: subEmailInput,
+    phoneInput: subPhoneInput,
+    emailError: subEmailError,
+    phoneError: subPhoneError,
+    isOptingInEmail,
+    isOptingOutEmail,
+    isOptingInPhone,
+    isOptingOutPhone,
+    isAnyLoading: isSubLoading,
+    setEmailInput: setSubEmailInput,
+    setPhoneInput: setSubPhoneInput,
+    handleOptInEmail,
+    handleOptOutEmail,
+    handleOptInPhone,
+    handleOptOutPhone,
+  } = useMarketingSubscriptions({
+    onSuccess: (message) => Alert.alert('Success', message),
+    onError: (message) => Alert.alert('Error', message),
+  })
 
   // Load device token and configuration on mount
   useEffect(() => {
@@ -524,6 +546,122 @@ The SDK will handle the API request internally.`
 
         <View style={styles.divider} />
 
+        {/* Marketing Subscriptions Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Marketing Subscriptions</Text>
+
+          {/* Email channel */}
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={[styles.input, isSubLoading && styles.inputDisabled]}
+              placeholder="Email (name@example.com)"
+              value={subEmailInput}
+              onChangeText={setSubEmailInput}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              editable={!isSubLoading}
+            />
+            {subEmailError ? (
+              <Text style={styles.errorText}>{subEmailError}</Text>
+            ) : null}
+            <View style={styles.buttonRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  getSecondaryButtonStyle(pressed && !isSubLoading),
+                  isSubLoading && styles.buttonDisabled,
+                ]}
+                onPress={handleOptInEmail}
+                disabled={isSubLoading}
+              >
+                {({ pressed }) => (
+                  isOptingInEmail
+                    ? <ActivityIndicator size="small" color={Colors.primaryText} />
+                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>OPT IN</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  styles.destructiveButton,
+                  pressed && !isSubLoading && styles.destructiveButtonPressed,
+                  isSubLoading && styles.buttonDisabled,
+                ]}
+                onPress={handleOptOutEmail}
+                disabled={isSubLoading}
+              >
+                {({ pressed }) => (
+                  isOptingOutEmail
+                    ? <ActivityIndicator size="small" color={Colors.error} />
+                    : <Text style={[
+                        styles.destructiveButtonText,
+                        pressed && !isSubLoading && styles.destructiveButtonTextPressed,
+                      ]}>
+                        OPT OUT
+                      </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Phone channel */}
+          <View style={styles.inputGroup}>
+            <TextInput
+              style={[styles.input, isSubLoading && styles.inputDisabled]}
+              placeholder="Phone (+15551234567)"
+              value={subPhoneInput}
+              onChangeText={setSubPhoneInput}
+              keyboardType="phone-pad"
+              autoCorrect={false}
+              editable={!isSubLoading}
+            />
+            {subPhoneError ? (
+              <Text style={styles.errorText}>{subPhoneError}</Text>
+            ) : null}
+            <View style={styles.buttonRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  getSecondaryButtonStyle(pressed && !isSubLoading),
+                  isSubLoading && styles.buttonDisabled,
+                ]}
+                onPress={handleOptInPhone}
+                disabled={isSubLoading}
+              >
+                {({ pressed }) => (
+                  isOptingInPhone
+                    ? <ActivityIndicator size="small" color={Colors.primaryText} />
+                    : <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>OPT IN</Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.buttonRowItem,
+                  styles.destructiveButton,
+                  pressed && !isSubLoading && styles.destructiveButtonPressed,
+                  isSubLoading && styles.buttonDisabled,
+                ]}
+                onPress={handleOptOutPhone}
+                disabled={isSubLoading}
+              >
+                {({ pressed }) => (
+                  isOptingOutPhone
+                    ? <ActivityIndicator size="small" color={Colors.error} />
+                    : <Text style={[
+                        styles.destructiveButtonText,
+                        pressed && !isSubLoading && styles.destructiveButtonTextPressed,
+                      ]}>
+                        OPT OUT
+                      </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.divider} />
+
         {/* Add Identifiers Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Add Identifiers</Text>
@@ -864,6 +1002,52 @@ const styles = StyleSheet.create({
     fontSize: Typography.sizes.medium,
     color: Colors.black,
     fontWeight: Typography.weights.bold,
+  },
+  // Marketing Subscriptions section
+  buttonRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.sm,
+  },
+  buttonRowItem: {
+    flex: 1,
+  },
+  errorText: {
+    fontSize: Typography.sizes.small,
+    color: Colors.error,
+    marginBottom: Spacing.sm,
+  },
+  currentValueLabel: {
+    fontSize: Typography.sizes.small,
+    color: Colors.secondaryText,
+    marginTop: Spacing.xs,
+  },
+  destructiveButton: {
+    height: Layout.buttonHeight,
+    borderWidth: 1,
+    borderColor: Colors.error,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: Colors.white,
+  },
+  destructiveButtonPressed: {
+    backgroundColor: Colors.error,
+  },
+  destructiveButtonText: {
+    fontSize: Typography.sizes.medium,
+    fontWeight: Typography.weights.medium,
+    color: Colors.error,
+    letterSpacing: Typography.letterSpacing.normal,
+  },
+  destructiveButtonTextPressed: {
+    color: Colors.white,
+  },
+  buttonDisabled: {
+    opacity: 0.45,
+  },
+  inputDisabled: {
+    opacity: 0.5,
+    backgroundColor: Colors.lightBackground,
   },
 })
 

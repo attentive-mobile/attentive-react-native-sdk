@@ -33,6 +33,8 @@ jest.mock('react-native', () => ({
       handleForegroundPush: jest.fn(),
       handlePushOpen: jest.fn(),
       getInitialPushNotification: jest.fn().mockResolvedValue(null),
+      optInMarketingSubscription: jest.fn().mockResolvedValue(undefined),
+      optOutMarketingSubscription: jest.fn().mockResolvedValue(undefined),
     },
   },
   TurboModuleRegistry: {
@@ -68,8 +70,11 @@ import {
   handleForegroundPush,
   handlePushOpen,
   getInitialPushNotification,
+  // Marketing Subscription Methods
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
 } from '../index';
-import type { AttentiveSdkConfiguration } from '../index';
+import type { AttentiveSdkConfiguration, MarketingSubscriptionParams } from '../index';
 
 describe('Attentive SDK', () => {
   beforeEach(() => {
@@ -361,6 +366,144 @@ describe('Attentive SDK', () => {
         );
 
         await expect(getInitialPushNotification()).rejects.toThrow('INITIAL_PUSH_ERROR');
+      });
+    });
+  });
+
+  describe('Marketing Subscriptions', () => {
+    describe('optInMarketingSubscription', () => {
+      it('should call native module with email and phone', async () => {
+        const params: MarketingSubscriptionParams = {
+          email: 'user@example.com',
+          phone: '+15551234567',
+        };
+
+        await optInMarketingSubscription(params);
+
+        expect(mockNativeModule.optInMarketingSubscription).toHaveBeenCalledWith(
+          'user@example.com',
+          '+15551234567'
+        );
+      });
+
+      it('should call native module with email only', async () => {
+        const params: MarketingSubscriptionParams = { email: 'user@example.com' };
+
+        await optInMarketingSubscription(params);
+
+        expect(mockNativeModule.optInMarketingSubscription).toHaveBeenCalledWith(
+          'user@example.com',
+          undefined
+        );
+      });
+
+      it('should call native module with phone only', async () => {
+        const params: MarketingSubscriptionParams = { phone: '+15551234567' };
+
+        await optInMarketingSubscription(params);
+
+        expect(mockNativeModule.optInMarketingSubscription).toHaveBeenCalledWith(
+          undefined,
+          '+15551234567'
+        );
+      });
+
+      it('should call native module with both undefined when neither is provided', async () => {
+        const params: MarketingSubscriptionParams = {};
+
+        await optInMarketingSubscription(params);
+
+        expect(mockNativeModule.optInMarketingSubscription).toHaveBeenCalledWith(
+          undefined,
+          undefined
+        );
+      });
+
+      it('should resolve when native module resolves', async () => {
+        mockNativeModule.optInMarketingSubscription.mockResolvedValueOnce(undefined);
+
+        await expect(optInMarketingSubscription({ email: 'user@example.com' })).resolves.toBeUndefined();
+      });
+
+      it('should propagate native module rejections', async () => {
+        mockNativeModule.optInMarketingSubscription.mockRejectedValueOnce(
+          new Error('MISSING_CONTACT_INFO')
+        );
+
+        await expect(
+          optInMarketingSubscription({})
+        ).rejects.toThrow('MISSING_CONTACT_INFO');
+      });
+
+      it('should propagate HTTP error rejections from the native layer', async () => {
+        mockNativeModule.optInMarketingSubscription.mockRejectedValueOnce(
+          new Error('HTTP_ERROR: 400')
+        );
+
+        await expect(
+          optInMarketingSubscription({ email: 'bad@' })
+        ).rejects.toThrow('HTTP_ERROR: 400');
+      });
+    });
+
+    describe('optOutMarketingSubscription', () => {
+      it('should call native module with email and phone', async () => {
+        const params: MarketingSubscriptionParams = {
+          email: 'user@example.com',
+          phone: '+15551234567',
+        };
+
+        await optOutMarketingSubscription(params);
+
+        expect(mockNativeModule.optOutMarketingSubscription).toHaveBeenCalledWith(
+          'user@example.com',
+          '+15551234567'
+        );
+      });
+
+      it('should call native module with email only', async () => {
+        const params: MarketingSubscriptionParams = { email: 'user@example.com' };
+
+        await optOutMarketingSubscription(params);
+
+        expect(mockNativeModule.optOutMarketingSubscription).toHaveBeenCalledWith(
+          'user@example.com',
+          undefined
+        );
+      });
+
+      it('should call native module with phone only', async () => {
+        const params: MarketingSubscriptionParams = { phone: '+15551234567' };
+
+        await optOutMarketingSubscription(params);
+
+        expect(mockNativeModule.optOutMarketingSubscription).toHaveBeenCalledWith(
+          undefined,
+          '+15551234567'
+        );
+      });
+
+      it('should resolve when native module resolves', async () => {
+        mockNativeModule.optOutMarketingSubscription.mockResolvedValueOnce(undefined);
+
+        await expect(optOutMarketingSubscription({ phone: '+15551234567' })).resolves.toBeUndefined();
+      });
+
+      it('should propagate native module rejections', async () => {
+        mockNativeModule.optOutMarketingSubscription.mockRejectedValueOnce(
+          new Error('MISSING_CONTACT_INFO')
+        );
+
+        await expect(
+          optOutMarketingSubscription({})
+        ).rejects.toThrow('MISSING_CONTACT_INFO');
+      });
+
+      it('should be distinct from optIn — calls the correct native method', async () => {
+        await optOutMarketingSubscription({ email: 'user@example.com' });
+
+        expect(mockNativeModule.optOutMarketingSubscription).toHaveBeenCalledTimes(1);
+        expect(mockNativeModule.optInMarketingSubscription).not.toHaveBeenCalled();
       });
     });
   });

@@ -165,6 +165,48 @@ export interface Spec extends TurboModule {
    *          launched from a push notification tap.
    */
   getInitialPushNotification: () => Promise<Object | null>
+
+  // ==========================================================================
+  // Marketing Subscription Methods
+  // ==========================================================================
+
+  /**
+   * Opts a user into marketing subscriptions (email and/or SMS).
+   *
+   * On iOS, delegates to the native ATTNSDK which handles input normalisation,
+   * validation that at least one contact identifier is provided, and push-token
+   * queueing when the token is not yet available.
+   *
+   * On Android, calls the Attentive opt-in endpoint directly via OkHttp with
+   * equivalent normalisation and validation logic.
+   *
+   * @param email - Optional email address
+   * @param phone - Optional E.164 phone number
+   * @returns Promise that resolves on success or rejects with an error
+   */
+  optInMarketingSubscription: (
+    email: string | undefined,
+    phone: string | undefined
+  ) => Promise<void>
+
+  /**
+   * Opts a user out of marketing subscriptions (email and/or SMS).
+   *
+   * On iOS, delegates to the native ATTNSDK which handles input normalisation,
+   * validation that at least one contact identifier is provided, and push-token
+   * queueing when the token is not yet available.
+   *
+   * On Android, calls the Attentive opt-out endpoint directly via OkHttp with
+   * equivalent normalisation and validation logic.
+   *
+   * @param email - Optional email address
+   * @param phone - Optional E.164 phone number
+   * @returns Promise that resolves on success or rejects with an error
+   */
+  optOutMarketingSubscription: (
+    email: string | undefined,
+    phone: string | undefined
+  ) => Promise<void>
 }
 
 // Try to load via TurboModule first (new architecture)

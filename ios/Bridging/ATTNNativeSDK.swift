@@ -506,6 +506,116 @@ struct DebugEvent {
     }
   }
 
+  // MARK: - Marketing Subscriptions (React Native Bridge)
+
+  /**
+   * Opts a user into marketing subscriptions via the React Native bridge.
+   *
+   * Delegates to the underlying ATTNSDK which handles input normalisation,
+   * validation that at least one contact identifier is provided, and push-token
+   * queueing when the APNs token is not yet available.
+   *
+   * @param email Optional email address; nil or empty string is treated as absent.
+   * @param phone Optional phone number; nil or empty string is treated as absent.
+   * @param completion Callback invoked on completion — nil on success, NSError on failure.
+   */
+  @objc(optInMarketingSubscriptionWithEmail:phone:completion:)
+  public func optInMarketingSubscription(
+    email: String?,
+    phone: String?,
+    completion: @escaping (NSError?) -> Void
+  ) {
+    NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription called email=%@ phone=%@", email ?? "nil", phone ?? "nil")
+
+    sdk.optInMarketingSubscription(email: email, phone: phone) { [weak self] _, _, response, error in
+      if let error = error {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription FAILED (error): %@", error.localizedDescription)
+        completion(error as NSError)
+        return
+      }
+      if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription FAILED (HTTP %d)", httpResponse.statusCode)
+        completion(NSError(
+          domain: "com.attentive.sdk",
+          code: httpResponse.statusCode,
+          userInfo: [NSLocalizedDescriptionKey: "Marketing opt-in failed with HTTP \(httpResponse.statusCode)"]
+        ))
+        return
+      }
+      NSLog("[AttentiveSDK] ATTNNativeSDK.optInMarketingSubscription succeeded")
+      completion(nil)
+
+      if self?.debuggingEnabled == true {
+        self?.showDebugInfo(event: "Marketing Subscription Opt-In", data: [
+          "email": email ?? "nil",
+          "phone": phone ?? "nil",
+          "status": "success"
+        ])
+      }
+    }
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Marketing Subscription Opt-In Requested", data: [
+        "email": email ?? "nil",
+        "phone": phone ?? "nil"
+      ])
+    }
+  }
+
+  /**
+   * Opts a user out of marketing subscriptions via the React Native bridge.
+   *
+   * Delegates to the underlying ATTNSDK which handles input normalisation,
+   * validation that at least one contact identifier is provided, and push-token
+   * queueing when the APNs token is not yet available.
+   *
+   * @param email Optional email address; nil or empty string is treated as absent.
+   * @param phone Optional phone number; nil or empty string is treated as absent.
+   * @param completion Callback invoked on completion — nil on success, NSError on failure.
+   */
+  @objc(optOutMarketingSubscriptionWithEmail:phone:completion:)
+  public func optOutMarketingSubscription(
+    email: String?,
+    phone: String?,
+    completion: @escaping (NSError?) -> Void
+  ) {
+    NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription called email=%@ phone=%@", email ?? "nil", phone ?? "nil")
+
+    sdk.optOutMarketingSubscription(email: email, phone: phone) { [weak self] _, _, response, error in
+      if let error = error {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription FAILED (error): %@", error.localizedDescription)
+        completion(error as NSError)
+        return
+      }
+      if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+        NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription FAILED (HTTP %d)", httpResponse.statusCode)
+        completion(NSError(
+          domain: "com.attentive.sdk",
+          code: httpResponse.statusCode,
+          userInfo: [NSLocalizedDescriptionKey: "Marketing opt-out failed with HTTP \(httpResponse.statusCode)"]
+        ))
+        return
+      }
+      NSLog("[AttentiveSDK] ATTNNativeSDK.optOutMarketingSubscription succeeded")
+      completion(nil)
+
+      if self?.debuggingEnabled == true {
+        self?.showDebugInfo(event: "Marketing Subscription Opt-Out", data: [
+          "email": email ?? "nil",
+          "phone": phone ?? "nil",
+          "status": "success"
+        ])
+      }
+    }
+
+    if debuggingEnabled {
+      showDebugInfo(event: "Marketing Subscription Opt-Out Requested", data: [
+        "email": email ?? "nil",
+        "phone": phone ?? "nil"
+      ])
+    }
+  }
+
   // MARK: - Push Notification Helpers
 
   private func hexStringToData(_ hexString: String) -> Data? {
