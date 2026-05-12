@@ -15,6 +15,7 @@ Pod::Spec.new do |s|
   s.source       = { :git => "https://github.com/attentive-mobile/attentive-react-native-sdk.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"
+  s.public_header_files = "ios/AttentiveReactNativeSdk.h"
 
   s.dependency 'attentive-ios-sdk', '2.0.13'
   s.swift_versions = ['5']

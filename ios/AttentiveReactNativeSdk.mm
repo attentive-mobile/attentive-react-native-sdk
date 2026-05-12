@@ -8,11 +8,21 @@
 #import "AttentiveReactNativeSdk.h"
 #import <UserNotifications/UserNotifications.h>
 
-#if __has_include(<AttentiveReactNativeSdk-Swift.h>)
+#ifdef RCT_NEW_ARCH_ENABLED
+#import "AttentiveReactNativeSdkSpec.h"
+#endif
+
+#if __has_include(<attentive_react_native_sdk/attentive_react_native_sdk-Swift.h>)
+#import <attentive_react_native_sdk/attentive_react_native_sdk-Swift.h>
+#elif __has_include(<AttentiveReactNativeSdk-Swift.h>)
 #import "AttentiveReactNativeSdk-Swift.h"
 #else
-// Load the headers from the attentive-ios-sdk Pod
 #import "attentive_react_native_sdk-Swift.h"
+#endif
+
+#ifdef RCT_NEW_ARCH_ENABLED
+@interface AttentiveReactNativeSdk () <NativeAttentiveReactNativeSdkSpec>
+@end
 #endif
 
 @implementation AttentiveReactNativeSdk {
