@@ -7,15 +7,15 @@ The Attentive React Native SDK includes powerful debugging features to help deve
 To enable debugging features, set the `enableDebugger` flag to `true` when initializing the SDK:
 
 ```typescript
-import { Attentive, Mode } from '@attentive-mobile/attentive-react-native-sdk';
+import { initialize } from '@attentive-mobile/attentive-react-native-sdk';
 
 const config = {
   attentiveDomain: 'your-domain',
-  mode: Mode.Debug,
+  mode: 'debug',
   enableDebugger: true, // Enable debugging helpers
 };
 
-Attentive.initialize(config);
+initialize(config);
 ```
 
 ## Features
@@ -36,7 +36,7 @@ When debugging is enabled, the SDK will automatically show debug overlays when:
 You can manually invoke the debug helper at any time:
 
 ```typescript
-Attentive.invokeAttentiveDebugHelper();
+invokeAttentiveDebugHelper();
 ```
 
 This will display current debug information and SDK state.
@@ -84,28 +84,36 @@ The debug overlay now features:
 ## Example Usage
 
 ```typescript
+import {
+  initialize,
+  recordProductViewEvent,
+  invokeAttentiveDebugHelper,
+  exportDebugLogs,
+} from '@attentive-mobile/attentive-react-native-sdk';
+
 // Initialize with debugging
 const config = {
   attentiveDomain: 'games',
-  mode: Mode.Debug,
+  mode: 'debug',
   enableDebugger: true,
 };
-Attentive.initialize(config);
+initialize(config);
 
 // Record an event - debug overlay will automatically appear
-Attentive.recordProductViewEvent({
+recordProductViewEvent({
   items: [{
     productId: 'test-product',
     productVariantId: 'test-variant',
-    price: { price: '29.99', currency: 'USD' },
+    price: '29.99',
+    currency: 'USD',
   }],
 });
 
 // Manually show debug info
-Attentive.invokeAttentiveDebugHelper();
+invokeAttentiveDebugHelper();
 
 // Export debug logs programmatically
-const debugLogs = await Attentive.exportDebugLogs();
+const debugLogs = await exportDebugLogs();
 console.log(debugLogs);
 ```
 
@@ -141,8 +149,10 @@ The exported logs include:
 For advanced use cases, logs can also be exported programmatically:
 
 ```typescript
+import { exportDebugLogs } from '@attentive-mobile/attentive-react-native-sdk';
+
 try {
-  const debugLogs = await Attentive.exportDebugLogs();
+  const debugLogs = await exportDebugLogs();
   // Process or share the logs as needed
   console.log('Debug logs exported:', debugLogs.length, 'characters');
 } catch (error) {
@@ -163,7 +173,7 @@ When viewing individual event details (iOS), each event detail view also include
 
 ## Development Tips
 
-1. **Use in Debug Mode**: Combine with `mode: Mode.Debug` for comprehensive debugging
+1. **Use in Debug Mode**: Combine with `mode: 'debug'` for comprehensive debugging
 2. **Test All Events**: Use the example app to test all event types
 3. **Verify Payloads**: Check that all required fields are present and correctly formatted
 4. **Creative Testing**: Test creative triggering with and without specific IDs

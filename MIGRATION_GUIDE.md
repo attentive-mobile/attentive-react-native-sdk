@@ -14,12 +14,12 @@ This guide will help you migrate your application to use the new architecture-co
 
 ## Overview
 
-Starting with version **1.1.0**, the Attentive React Native SDK is compatible with React Native's new architecture (Fabric & TurboModules). This version maintains backward compatibility with the old architecture while introducing some API changes to support the new architecture's requirements.
+Starting with version **1.1.0**, the Attentive React Native SDK requires React Native's new architecture (Fabric & TurboModules). This version introduces API changes to support the new architecture's requirements.
 
 ### What You Need to Know
 
 - **React Native Version**: This SDK now requires React Native 0.74 or higher
-- **New Architecture**: Supports both old and new architecture
+- **New Architecture**: Requires the new architecture (enabled by default in RN 0.76+)
 - **API Changes**: Import structure and event payload structure have changed
 - **TypeScript**: Full TypeScript support with updated type definitions
 

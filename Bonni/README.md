@@ -278,8 +278,8 @@ Use the **Settings** screen to:
 
 This app is built with React Native 0.77 and supports:
 
-- ✅ iOS 13.0+
-- ✅ Android API 21+ (5.0 Lollipop)
+- ✅ iOS 14.0+
+- ✅ Android API 24+ (7.0 Nougat)
 
 All features work identically on both platforms, demonstrating true cross-platform development.
 
