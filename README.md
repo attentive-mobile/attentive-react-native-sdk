@@ -9,6 +9,18 @@ This project uses **npm** as the preferred package manager for consistency and a
 
 **Note on package managers:** Modern npm (v7+) has significantly improved performance and features, making it the recommended choice for React Native projects. Both npm and yarn work well with React Native, but this project standardizes on npm for development workflows.
 
+## Requirements
+
+| Tool | Version |
+|------|---------|
+| Node.js | >= 18.0.0 |
+| React Native | >= 0.74 |
+| Ruby | >= 3.3 |
+| CocoaPods | ~> 1.16 |
+| Xcode | >= 15 |
+| Android SDK | API 24+ |
+| JDK | 17 |
+
 ## Installation
 
 Run `npm install @attentive-mobile/attentive-react-native-sdk` from your app's root directory.
