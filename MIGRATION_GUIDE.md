@@ -14,7 +14,7 @@ This guide will help you migrate your application to use the new architecture-co
 
 ## Overview
 
-Starting with version **1.1.0**, the Attentive React Native SDK requires React Native's new architecture (Fabric & TurboModules). This version introduces API changes to support the new architecture's requirements.
+Starting with version **2.0.0**, the Attentive React Native SDK requires React Native's new architecture (Fabric & TurboModules). This version introduces API changes to support the new architecture's requirements.
 
 ### What You Need to Know
 

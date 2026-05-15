@@ -4,6 +4,10 @@
 //
 //  Created by Wyatt Davis on 2/13/23.
 //
+//  NOTE: This file contains both new arch and old arch implementations. Only the new arch path
+//  (RCT_NEW_ARCH_ENABLED) is functional. The old arch #else branch does not compile and is
+//  retained as scaffolding for future old arch support work (MSDK-350).
+//
 
 #import "AttentiveReactNativeSdk.h"
 #import <UserNotifications/UserNotifications.h>
@@ -200,8 +204,9 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 #else
-// Old Architecture implementation with dictionary parameters.
-// Initialize is invoked only from TypeScript (e.g. Bonni App); native must not auto-initialize.
+// Old Architecture implementation — currently does not compile (missing RCT_EXPORT_METHOD macros,
+// bridge module registration, etc.). Kept here as a starting point for restoring old arch support
+// in a future ticket (MSDK-350).
 - (void)initialize:(NSDictionary*)configuration {
     _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"]
                                             mode:configuration[@"mode"]
