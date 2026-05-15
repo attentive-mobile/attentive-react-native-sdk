@@ -9,6 +9,18 @@ This project uses **npm** as the preferred package manager for consistency and a
 
 **Note on package managers:** Modern npm (v7+) has significantly improved performance and features, making it the recommended choice for React Native projects. Both npm and yarn work well with React Native, but this project standardizes on npm for development workflows.
 
+## Requirements
+
+| Tool | Version |
+|------|---------|
+| Node.js | >= 18.0.0 |
+| React Native | >= 0.74 |
+| Ruby | >= 3.3 |
+| CocoaPods | ~> 1.16 |
+| Xcode | >= 15 |
+| Android SDK | API 24+ |
+| JDK | 17 |
+
 ## Installation
 
 Run `npm install @attentive-mobile/attentive-react-native-sdk` from your app's root directory.
@@ -22,23 +34,23 @@ __*** NOTE: Please refrain from using any private or undocumented classes or met
 ### Import the SDK
 
 ```typescript
-import { Attentive, <other types you need here> } from 'attentive-react-native-sdk';
+import { initialize, identify, triggerCreative, recordPurchaseEvent, /* ... */ } from '@attentive-mobile/attentive-react-native-sdk';
 ```
 
 ### Create the AttentiveConfig
 
 ```typescript
-// Create an AttentiveConfiguration with your attentive domain, in production mode
-const config : AttentiveConfiguration = {
+// Create an AttentiveSdkConfiguration with your attentive domain, in production mode
+const config: AttentiveSdkConfiguration = {
   attentiveDomain: 'YOUR_ATTENTIVE_DOMAIN',
-  mode: Mode.Production,
+  mode: 'production',
 }
 ```
 ```typescript
 // Alternatively, use "debug" mode. When in debug mode, the Creative will not be shown, but instead a popup will show with debug information about your creative and any reason the Creative wouldn't show.
-const config : AttentiveConfiguration = {
+const config: AttentiveSdkConfiguration = {
   attentiveDomain: 'YOUR_ATTENTIVE_DOMAIN',
-  mode: Mode.Debug,
+  mode: 'debug',
 }
 ```
 
@@ -47,9 +59,9 @@ const config : AttentiveConfiguration = {
 The SDK includes debugging helpers to show what data is being sent and received. Enable debugging by setting `enableDebugger: true`:
 
 ```typescript
-const config : AttentiveConfiguration = {
+const config: AttentiveSdkConfiguration = {
   attentiveDomain: 'YOUR_ATTENTIVE_DOMAIN',
-  mode: Mode.Debug,
+  mode: 'debug',
   enableDebugger: true, // Shows debug overlays for events and creatives
 }
 ```
@@ -61,7 +73,7 @@ When enabled, debug overlays will automatically appear when:
 You can also manually invoke the debug helper:
 
 ```typescript
-Attentive.invokeAttentiveDebugHelper();
+invokeAttentiveDebugHelper();
 ```
 
 See [DEBUGGING.md](./DEBUGGING.md) for detailed information about debugging features.
@@ -76,7 +88,7 @@ On iOS, call `initialize` from TypeScript as early as possible (e.g. the root `A
 
 ```typescript
 // Called once per app session, before any other SDK operations.
-Attentive.initialize(config);
+initialize(config);
 ```
 
 #### Android — Initialize from Native Code
@@ -153,22 +165,22 @@ After the native initialization, all other SDK operations (`identify`, `recordAd
 
 ```typescript
 // This will remove the creative along with its web view
-Attentive.destroyCreative();
+destroyCreative();
 ```
 
 
 ### Identify the current user
 ```typescript
 // Before loading the creative or sending events, if you have any user identifiers, they will need to be registered. Each identifier is optional. It is okay to skip this step if you have no identifiers about the user yet.
-const identifiers : UserIdentifiers = {
-  'phone': '+15556667777',
-  'email': 'some_email@gmailfake.com',
-  'klaviyoId': 'userKlaviyoId',
-  'shopifyId': 'userShopifyId',
-  'clientUserId': 'userClientUserId',
-  'customIdentifiers': { 'customIdKey': 'customIdValue' }
+const identifiers: UserIdentifiers = {
+  phone: '+15556667777',
+  email: 'some_email@gmailfake.com',
+  klaviyoId: 'userKlaviyoId',
+  shopifyId: 'userShopifyId',
+  clientUserId: 'userClientUserId',
+  customIdentifiers: { customIdKey: 'customIdValue' }
 };
-Attentive.identify(identifiers);
+identify(identifiers);
 ```
 
 The more identifiers that are passed to `identify`, the better the SDK will function. Here is the list of possible identifiers:
@@ -185,46 +197,34 @@ The more identifiers that are passed to `identify`, the better the SDK will func
 
 ```typescript
 // Trigger the Creative. This will show the Creative as a pop-up over the rest of the app.
-Attentive.triggerCreative();
+triggerCreative();
 ```
 
 ### Record user events
 
-The SDK currently supports `PurchaseEvent`, `AddToCartEvent`, `ProductViewEvent`, and `CustomEvent`.
+The SDK currently supports `Purchase`, `AddToCart`, `ProductView`, and `CustomEvent`.
 
 ```typescript
 // Construct one or more "Item"s, which represents the product(s) purchased
-const items : Item[] = [
-        {
-          productId: '555',
-          productVariantId: '777',
-          price: {
-            price: '14.99',
-            currency: 'USD',
-          },
-        },
-      ];
+const items: Item[] = [
+  {
+    productId: '555',
+    productVariantId: '777',
+    price: '14.99',
+    currency: 'USD',
+  },
+];
 
-// Construct an "Order", which represents the order for the purchase
-const order : Order = {
-  orderId: '88888'
-}
-
-// (Optional) Construct a "Cart", which represents the cart this Purchase was made from
-const cart : Cart = {
-  cartId: '555555',
-  cartCoupon: 'SOME-DISCOUNT'
-}
-
-// Construct a PurchaseEvent, which ties together the preceding objects
-const purchaseEvent : PurchaseEvent = {
+// Construct a Purchase event
+const purchase: Purchase = {
   items: items,
-  order: order,
-  cart: cart
+  orderId: '88888',
+  cartId: '555555',        // optional
+  cartCoupon: 'SOME-DISCOUNT', // optional
 }
 
 // Record the PurchaseEvent
-Attentive.recordPurchaseEvent(purchaseEvent);
+recordPurchaseEvent(purchase);
 ```
 
 The process is similar for the other events. See [eventTypes.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/src/eventTypes.tsx) for all events.
@@ -233,12 +233,12 @@ The process is similar for the other events. See [eventTypes.tsx](https://github
 
 ```typescript
 // If new identifiers are available for the user, register them
-Attentive.identify({email: 'theusersemail@gmail.com'});
+identify({email: 'theusersemail@gmail.com'});
 ```
 
 ```typescript
-Attentive.identify({email: 'theusersemail@gmail.com'});
-Attentive.identify({phone: '+15556667777'};)
+identify({email: 'theusersemail@gmail.com'});
+identify({phone: '+15556667777'});
 // The SDK will have these two identifiers:
 //   email: 'theusersemail@gmail.com'
 //   phone: '+15556667777'

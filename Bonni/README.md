@@ -56,6 +56,8 @@ npm install
 npm run pods
 ```
 
+   This runs `bundle exec pod install` inside `ios/`. Requires Ruby >= 3.3 (managed via `.ruby-version` and rbenv).
+
 3. Run on iOS:
 ```bash
 npm run ios
@@ -114,8 +116,6 @@ This section covers the exact steps to build, run, and debug the Bonni app on bo
     ```bash
     npm run pods
     ```
-
-    This runs `install-pods.sh`, which copies pods from `../example/ios/Pods` when available. This avoids a known `xcodeproj` v1.25.1 hang on macOS Sequoia and Apple Silicon. If it fails, see [`PODS_WORKAROUND.md`](./PODS_WORKAROUND.md) for manual alternatives.
 
 5. **Open the workspace in Xcode** (always use `.xcworkspace`, never `.xcodeproj`):
 
@@ -278,8 +278,8 @@ Use the **Settings** screen to:
 
 This app is built with React Native 0.77 and supports:
 
-- ✅ iOS 13.0+
-- ✅ Android API 21+ (5.0 Lollipop)
+- ✅ iOS 14.0+
+- ✅ Android API 24+ (7.0 Nougat)
 
 All features work identically on both platforms, demonstrating true cross-platform development.
 
