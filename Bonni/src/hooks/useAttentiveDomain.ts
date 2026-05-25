@@ -54,7 +54,10 @@ export function useAttentiveDomain(): AttentiveDomainHook {
   const loadDomain = async () => {
     try {
       const saved = await AsyncStorage.getItem(DOMAIN_STORAGE_KEY)
-      if (saved !== null) { setDomain(saved) }
+      if (saved !== null) {
+        setDomain(saved)
+        updateDomain(saved)
+      }
     } catch (error) {
       console.error('Error loading domain setting:', error)
     }
@@ -70,9 +73,9 @@ export function useAttentiveDomain(): AttentiveDomainHook {
     const trimmed = newDomain.trim()
     if (!trimmed) { return }
     try {
-      setDomain(trimmed)
       await AsyncStorage.setItem(DOMAIN_STORAGE_KEY, trimmed)
       updateDomain(trimmed)
+      setDomain(trimmed)
     } catch (error) {
       console.error('Error saving domain setting:', error)
     }
