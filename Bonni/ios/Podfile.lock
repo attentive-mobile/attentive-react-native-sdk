@@ -1,6 +1,6 @@
 PODS:
   - attentive-ios-sdk (2.0.13)
-  - attentive-react-native-sdk (2.0.1):
+  - attentive-react-native-sdk (2.0.2):
     - attentive-ios-sdk (= 2.0.13)
     - DoubleConversion
     - glog
@@ -1956,7 +1956,7 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   attentive-ios-sdk: 087b97afeefcf0a3a3763bd003f0bb0a166b3ed4
-  attentive-react-native-sdk: 87a75a4255ce4d19b0866feaf2ec2a7362d44cf1
+  attentive-react-native-sdk: 87a2ebc3763f5ba2e6c1e1a98ef4e8a60fa130f1
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6
