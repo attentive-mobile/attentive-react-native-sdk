@@ -792,11 +792,17 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * Opts a user into marketing subscriptions via [AttentiveSdk.optUserIntoMarketingSubscription].
      *
      * Both [email] and [phone] are normalised (trimmed, blank → null) before being forwarded
-     * to the native SDK, which performs its own validation and API call. The SDK rejects
-     * the call if both identifiers are absent.
+     * to the native SDK.
      *
-     * The native method is a Kotlin suspend function; it is invoked on [Dispatchers.IO]
+     * The native method is a Kotlin `suspend` function; it is invoked on [Dispatchers.IO]
      * and the promise is settled back on the UI thread.
+     *
+     * Limitation (attentive-android-sdk 2.1.3): the underlying suspend returns `Unit` and
+     * silently no-ops on missing-contact-info, missing push-token, or HTTP errors — only
+     * Timber-logging the failure. As a result, this bridge can only reject the promise on
+     * a thrown exception (e.g. coroutine cancellation, OOM); the JS layer guards the
+     * missing-contact-info case before the call. The bump to 2.1.8 + switch to the
+     * Result/AttentiveCallback API that exposes real failures is tracked in MSDK-368.
      *
      * @param email Optional email address.
      * @param phone Optional E.164 phone number.
@@ -839,12 +845,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /**
      * Opts a user out of marketing subscriptions via [AttentiveSdk.optUserOutOfMarketingSubscription].
      *
-     * Both [email] and [phone] are normalised (trimmed, blank → null) before being forwarded
-     * to the native SDK, which performs its own validation and API call. The SDK rejects
-     * the call if both identifiers are absent.
-     *
-     * The native method is a Kotlin suspend function; it is invoked on [Dispatchers.IO]
-     * and the promise is settled back on the UI thread.
+     * Same shape and same 2.1.3 limitation as [optInMarketingSubscription] — see that method
+     * for details and the MSDK-368 follow-up.
      *
      * @param email Optional email address.
      * @param phone Optional E.164 phone number.

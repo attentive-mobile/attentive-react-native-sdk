@@ -411,15 +411,12 @@ describe('Attentive SDK', () => {
         );
       });
 
-      it('should call native module with both undefined when neither is provided', async () => {
-        const params: MarketingSubscriptionParams = {};
-
-        await optInMarketingSubscription(params);
-
-        expect(mockNativeModule.optInMarketingSubscription).toHaveBeenCalledWith(
-          undefined,
-          undefined
+      it('should reject without calling native when neither email nor phone is provided', async () => {
+        await expect(optInMarketingSubscription({})).rejects.toThrow(
+          /must contain either email or phone/
         );
+
+        expect(mockNativeModule.optInMarketingSubscription).not.toHaveBeenCalled();
       });
 
       it('should resolve when native module resolves', async () => {
@@ -432,12 +429,12 @@ describe('Attentive SDK', () => {
 
       it('should propagate native module rejections', async () => {
         mockNativeModule.optInMarketingSubscription.mockRejectedValueOnce(
-          new Error('MISSING_CONTACT_INFO')
+          new Error('NATIVE_FAILURE')
         );
 
-        await expect(optInMarketingSubscription({})).rejects.toThrow(
-          'MISSING_CONTACT_INFO'
-        );
+        await expect(
+          optInMarketingSubscription({ email: 'user@example.com' })
+        ).rejects.toThrow('NATIVE_FAILURE');
       });
 
       it('should propagate HTTP error rejections from the native layer', async () => {
@@ -496,14 +493,22 @@ describe('Attentive SDK', () => {
         ).resolves.toBeUndefined();
       });
 
-      it('should propagate native module rejections', async () => {
-        mockNativeModule.optOutMarketingSubscription.mockRejectedValueOnce(
-          new Error('MISSING_CONTACT_INFO')
+      it('should reject without calling native when neither email nor phone is provided', async () => {
+        await expect(optOutMarketingSubscription({})).rejects.toThrow(
+          /must contain either email or phone/
         );
 
-        await expect(optOutMarketingSubscription({})).rejects.toThrow(
-          'MISSING_CONTACT_INFO'
+        expect(mockNativeModule.optOutMarketingSubscription).not.toHaveBeenCalled();
+      });
+
+      it('should propagate native module rejections', async () => {
+        mockNativeModule.optOutMarketingSubscription.mockRejectedValueOnce(
+          new Error('NATIVE_FAILURE')
         );
+
+        await expect(
+          optOutMarketingSubscription({ email: 'user@example.com' })
+        ).rejects.toThrow('NATIVE_FAILURE');
       });
 
       it('should be distinct from optIn — calls the correct native method', async () => {

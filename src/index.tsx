@@ -499,9 +499,16 @@ async function getInitialPushNotification(): Promise<Record<
 /**
  * Opts a user into marketing subscriptions (email and/or SMS).
  *
- * At least one of `email` or `phone` must be provided. The native layer
- * validates this and rejects the promise with a missing-contact-info error
- * if both are absent.
+ * At least one of `email` or `phone` must be provided; otherwise the returned
+ * Promise rejects with a missing-contact-info error before any native call is
+ * made. This guard exists because attentive-android-sdk 2.1.3 silently no-ops
+ * (Timber log only) when both identifiers are absent — see MSDK-368 for the
+ * upstream fix that exposes failure via Result/AttentiveCallback.
+ *
+ * Note: on Android 2.1.3 the SDK also cannot surface push-token-missing or
+ * HTTP-error failures to the bridge, so a resolved Promise is not a strict
+ * guarantee of delivery. iOS uses ATTNSDK's HTTPURLResponse and rejects on
+ * status >= 400 or transport error.
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error
@@ -509,6 +516,14 @@ async function getInitialPushNotification(): Promise<Record<
 function optInMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
+  if (!params || (!params.email && !params.phone)) {
+    return Promise.reject(
+      new Error(
+        'Params are required and must contain either email or phone property'
+      )
+    )
+  }
+
   return AttentiveReactNativeSdk.optInMarketingSubscription(
     params.email,
     params.phone
@@ -518,9 +533,10 @@ function optInMarketingSubscription(
 /**
  * Opts a user out of marketing subscriptions (email and/or SMS).
  *
- * At least one of `email` or `phone` must be provided. The native layer
- * validates this and rejects the promise with a missing-contact-info error
- * if both are absent.
+ * At least one of `email` or `phone` must be provided; otherwise the returned
+ * Promise rejects with a missing-contact-info error before any native call is
+ * made. See `optInMarketingSubscription` for the rationale and the Android
+ * 2.1.3 limitations tracked in MSDK-368.
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error
@@ -528,6 +544,14 @@ function optInMarketingSubscription(
 function optOutMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
+  if (!params || (!params.email && !params.phone)) {
+    return Promise.reject(
+      new Error(
+        'Params are required and must contain either email or phone property'
+      )
+    )
+  }
+
   return AttentiveReactNativeSdk.optOutMarketingSubscription(
     params.email,
     params.phone
