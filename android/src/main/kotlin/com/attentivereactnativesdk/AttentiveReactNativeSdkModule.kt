@@ -34,6 +34,9 @@ import java.math.BigDecimal
 import java.security.InvalidParameterException
 import java.util.Currency
 import java.util.Locale
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     NativeAttentiveReactNativeSdkSpec(reactContext) {
@@ -47,6 +50,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     private var attentiveConfig: AttentiveConfig? = null
     private var creative: Creative? = null
     private val debugHelper: AttentiveDebugHelper
+
+    /** Coroutine scope tied to IO dispatcher for calling AttentiveSdk suspend functions. */
+    private val ioScope = CoroutineScope(Dispatchers.IO)
 
     init {
         debugHelper = AttentiveDebugHelper(reactContext)
@@ -776,6 +782,106 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
 //            Log.e(TAG, "getInitialPushNotification: error — ${e.message}", e)
 //            promise.reject("INITIAL_PUSH_ERROR", "Failed to retrieve initial push notification: ${e.message}", e)
 //        }
+    }
+
+    // ==========================================================================
+    // MARK: - Marketing Subscription Methods
+    // ==========================================================================
+
+    /**
+     * Opts a user into marketing subscriptions via [AttentiveSdk.optUserIntoMarketingSubscription].
+     *
+     * Both [email] and [phone] are normalised (trimmed, blank → null) before being forwarded
+     * to the native SDK, which performs its own validation and API call. The SDK rejects
+     * the call if both identifiers are absent.
+     *
+     * The native method is a Kotlin suspend function; it is invoked on [Dispatchers.IO]
+     * and the promise is settled back on the UI thread.
+     *
+     * @param email Optional email address.
+     * @param phone Optional E.164 phone number.
+     * @param promise Resolved with null on success; rejected with an error on failure.
+     */
+    override fun optInMarketingSubscription(email: String?, phone: String?, promise: Promise) {
+        Log.i(TAG, "📬 [AttentiveSDK] optInMarketingSubscription called (Android)")
+
+        val normalizedEmail = email?.trim()?.takeIf { it.isNotEmpty() }
+        val normalizedPhone = phone?.trim()?.takeIf { it.isNotEmpty() }
+
+        ioScope.launch {
+            try {
+                AttentiveSdk.optUserIntoMarketingSubscription(
+                    email = normalizedEmail ?: "",
+                    phoneNumber = normalizedPhone ?: "",
+                )
+                Log.i(TAG, "✅ [AttentiveSDK] optInMarketingSubscription succeeded")
+                UiThreadUtil.runOnUiThread { promise.resolve(null) }
+
+                if (debugHelper.isDebuggingEnabled()) {
+                    val debugData = mutableMapOf<String, Any>(
+                        "email" to (normalizedEmail ?: "nil"),
+                        "phone" to (normalizedPhone ?: "nil"),
+                        "status" to "success",
+                    )
+                    UiThreadUtil.runOnUiThread {
+                        debugHelper.showDebugInfo("Marketing Subscription Opt-In", debugData)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ [AttentiveSDK] optInMarketingSubscription failed: ${e.message}", e)
+                UiThreadUtil.runOnUiThread {
+                    promise.reject("OPT_IN_ERROR", e.message ?: "Unknown error", e)
+                }
+            }
+        }
+    }
+
+    /**
+     * Opts a user out of marketing subscriptions via [AttentiveSdk.optUserOutOfMarketingSubscription].
+     *
+     * Both [email] and [phone] are normalised (trimmed, blank → null) before being forwarded
+     * to the native SDK, which performs its own validation and API call. The SDK rejects
+     * the call if both identifiers are absent.
+     *
+     * The native method is a Kotlin suspend function; it is invoked on [Dispatchers.IO]
+     * and the promise is settled back on the UI thread.
+     *
+     * @param email Optional email address.
+     * @param phone Optional E.164 phone number.
+     * @param promise Resolved with null on success; rejected with an error on failure.
+     */
+    override fun optOutMarketingSubscription(email: String?, phone: String?, promise: Promise) {
+        Log.i(TAG, "📬 [AttentiveSDK] optOutMarketingSubscription called (Android)")
+
+        val normalizedEmail = email?.trim()?.takeIf { it.isNotEmpty() }
+        val normalizedPhone = phone?.trim()?.takeIf { it.isNotEmpty() }
+
+        ioScope.launch {
+            try {
+                AttentiveSdk.optUserOutOfMarketingSubscription(
+                    email = normalizedEmail ?: "",
+                    phoneNumber = normalizedPhone ?: "",
+                )
+                Log.i(TAG, "✅ [AttentiveSDK] optOutMarketingSubscription succeeded")
+                UiThreadUtil.runOnUiThread { promise.resolve(null) }
+
+                if (debugHelper.isDebuggingEnabled()) {
+                    val debugData = mutableMapOf<String, Any>(
+                        "email" to (normalizedEmail ?: "nil"),
+                        "phone" to (normalizedPhone ?: "nil"),
+                        "status" to "success",
+                    )
+                    UiThreadUtil.runOnUiThread {
+                        debugHelper.showDebugInfo("Marketing Subscription Opt-Out", debugData)
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "❌ [AttentiveSDK] optOutMarketingSubscription failed: ${e.message}", e)
+                UiThreadUtil.runOnUiThread {
+                    promise.reject("OPT_OUT_ERROR", e.message ?: "Unknown error", e)
+                }
+            }
+        }
     }
 
     // ==========================================================================

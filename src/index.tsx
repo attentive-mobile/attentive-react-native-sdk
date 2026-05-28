@@ -11,6 +11,7 @@ import type {
   ApplicationState,
   PushNotificationUserInfo,
   PushRegistrationResult,
+  MarketingSubscriptionParams,
 } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
@@ -491,6 +492,58 @@ async function getInitialPushNotification(): Promise<Record<
   return result as Record<string, string> | null
 }
 
+// =============================================================================
+// Marketing Subscription Methods (iOS and Android)
+// =============================================================================
+
+/**
+ * Opts a user into marketing subscriptions (email and/or SMS).
+ *
+ * At least one of `email` or `phone` must be provided. The native layer
+ * validates this and rejects the promise with a missing-contact-info error
+ * if both are absent.
+ *
+ * @param params - Object containing optional `email` and/or `phone`
+ * @returns Promise that resolves on success or rejects with an error
+ */
+function optInMarketingSubscription(
+  params: MarketingSubscriptionParams
+): Promise<void> {
+  if (!params.email && !params.phone) {
+    return Promise.reject(
+      new Error('At least one of email or phone must be provided')
+    )
+  }
+  return AttentiveReactNativeSdk.optInMarketingSubscription(
+    params.email,
+    params.phone
+  )
+}
+
+/**
+ * Opts a user out of marketing subscriptions (email and/or SMS).
+ *
+ * At least one of `email` or `phone` must be provided. The native layer
+ * validates this and rejects the promise with a missing-contact-info error
+ * if both are absent.
+ *
+ * @param params - Object containing optional `email` and/or `phone`
+ * @returns Promise that resolves on success or rejects with an error
+ */
+function optOutMarketingSubscription(
+  params: MarketingSubscriptionParams
+): Promise<void> {
+  if (!params.email && !params.phone) {
+    return Promise.reject(
+      new Error('At least one of email or phone must be provided')
+    )
+  }
+  return AttentiveReactNativeSdk.optOutMarketingSubscription(
+    params.email,
+    params.phone
+  )
+}
+
 export {
   initialize,
   triggerCreative,
@@ -515,6 +568,9 @@ export {
   handleForegroundPush,
   handlePushOpen,
   getInitialPushNotification,
+  // Marketing Subscription Methods
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
 }
 
 export type {
@@ -530,4 +586,6 @@ export type {
   ApplicationState,
   PushNotificationUserInfo,
   PushRegistrationResult,
+  // Marketing Subscription Types
+  MarketingSubscriptionParams,
 }
