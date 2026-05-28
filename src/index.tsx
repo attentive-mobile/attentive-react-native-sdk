@@ -509,11 +509,6 @@ async function getInitialPushNotification(): Promise<Record<
 function optInMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
-  if (!params.email && !params.phone) {
-    return Promise.reject(
-      new Error('At least one of email or phone must be provided')
-    )
-  }
   return AttentiveReactNativeSdk.optInMarketingSubscription(
     params.email,
     params.phone
@@ -533,11 +528,6 @@ function optInMarketingSubscription(
 function optOutMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
-  if (!params.email && !params.phone) {
-    return Promise.reject(
-      new Error('At least one of email or phone must be provided')
-    )
-  }
   return AttentiveReactNativeSdk.optOutMarketingSubscription(
     params.email,
     params.phone
