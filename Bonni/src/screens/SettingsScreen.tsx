@@ -30,8 +30,6 @@ import { useMarketingSubscriptions } from '../hooks/useMarketingSubscriptions'
 import {
   registerForPushNotifications,
   registerDeviceToken,
-  handlePushOpened,
-  handleForegroundNotification,
   clearUser as sdkClearUser,
 } from '@attentive-mobile/attentive-react-native-sdk'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -55,6 +53,14 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const { showPrompt: showScreenPrompt, PromptModal: ScreenPromptModal } = useTextPrompt()
   const { identifyUser, clearUserIdentification } = useAttentiveUser()
   const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions()
+  const handleSubSuccess = useCallback(
+    (message: string) => Alert.alert('Success', message),
+    []
+  )
+  const handleSubError = useCallback(
+    (message: string) => Alert.alert('Error', message),
+    []
+  )
   const {
     emailInput: subEmailInput,
     phoneInput: subPhoneInput,
@@ -71,10 +77,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     handleOptOutEmail,
     handleOptInPhone,
     handleOptOutPhone,
-  } = useMarketingSubscriptions({
-    onSuccess: (message) => Alert.alert('Success', message),
-    onError: (message) => Alert.alert('Error', message),
-  })
+  } = useMarketingSubscriptions(handleSubSuccess, handleSubError)
 
   // Load device token and configuration on mount
   useEffect(() => {

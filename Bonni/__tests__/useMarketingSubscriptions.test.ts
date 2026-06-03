@@ -57,7 +57,7 @@ describe('useMarketingSubscriptions', () => {
     it('should commit a valid email and call identify', () => {
       const onSuccess = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onSuccess })
+        useMarketingSubscriptions(onSuccess)
       )
 
       act(() => result.current.setEmailInput('user@example.com'))
@@ -72,7 +72,7 @@ describe('useMarketingSubscriptions', () => {
     it('should set emailError for an invalid email', () => {
       const onError = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onError })
+        useMarketingSubscriptions(undefined, onError)
       )
 
       act(() => result.current.setEmailInput('not-an-email'))
@@ -88,7 +88,7 @@ describe('useMarketingSubscriptions', () => {
     it('should commit a valid phone and call identify', () => {
       const onSuccess = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onSuccess })
+        useMarketingSubscriptions(onSuccess)
       )
 
       act(() => result.current.setPhoneInput('+15551234567'))
@@ -119,7 +119,7 @@ describe('useMarketingSubscriptions', () => {
     it('should call optInMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onSuccess })
+        useMarketingSubscriptions(onSuccess)
       )
 
       act(() => result.current.setEmailInput('user@example.com'))
@@ -135,7 +135,7 @@ describe('useMarketingSubscriptions', () => {
     it('should invoke onError and set emailError when email input is empty', async () => {
       const onError = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onError })
+        useMarketingSubscriptions(undefined, onError)
       )
 
       await act(() => result.current.handleOptInEmail())
@@ -150,7 +150,7 @@ describe('useMarketingSubscriptions', () => {
     it('should call optOutMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onSuccess })
+        useMarketingSubscriptions(onSuccess)
       )
 
       act(() => result.current.setEmailInput('user@example.com'))
@@ -168,7 +168,7 @@ describe('useMarketingSubscriptions', () => {
     it('should call optInMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onSuccess })
+        useMarketingSubscriptions(onSuccess)
       )
 
       act(() => result.current.setPhoneInput('+15551234567'))
@@ -184,7 +184,7 @@ describe('useMarketingSubscriptions', () => {
     it('should invoke onError and set phoneError when phone input is empty', async () => {
       const onError = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onError })
+        useMarketingSubscriptions(undefined, onError)
       )
 
       await act(() => result.current.handleOptInPhone())
@@ -199,7 +199,7 @@ describe('useMarketingSubscriptions', () => {
     it('should call optOutMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onSuccess })
+        useMarketingSubscriptions(onSuccess)
       )
 
       act(() => result.current.setPhoneInput('+15551234567'))
@@ -222,7 +222,7 @@ describe('useMarketingSubscriptions', () => {
       mockOptIn.mockRejectedValueOnce(new Error('network'))
       const onError = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onError })
+        useMarketingSubscriptions(undefined, onError)
       )
 
       act(() => result.current.setEmailInput('user@example.com'))
@@ -238,7 +238,7 @@ describe('useMarketingSubscriptions', () => {
       mockOptOut.mockRejectedValueOnce(new Error('timeout'))
       const onError = jest.fn()
       const { result } = renderHook(() =>
-        useMarketingSubscriptions({ onError })
+        useMarketingSubscriptions(undefined, onError)
       )
 
       act(() => result.current.setPhoneInput('+15551234567'))

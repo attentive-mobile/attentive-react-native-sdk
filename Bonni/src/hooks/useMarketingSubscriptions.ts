@@ -15,18 +15,6 @@ import { validateEmail, validatePhone } from '../utils/validation'
 const TAG = '[Marketing]'
 
 /**
- * Callbacks that the hook invokes after each operation completes so the caller
- * can display platform-appropriate feedback (e.g. `Alert.alert`) without the
- * hook depending on React Native's `Alert` directly.
- */
-export interface MarketingSubscriptionCallbacks {
-  /** Called with a success message after an operation succeeds. */
-  onSuccess?: (message: string) => void
-  /** Called with an error message when an operation fails or is blocked. */
-  onError?: (message: string) => void
-}
-
-/**
  * Shape returned by `useMarketingSubscriptions`.
  */
 export interface UseMarketingSubscriptionsResult {
@@ -54,10 +42,12 @@ export interface UseMarketingSubscriptionsResult {
 /**
  * Manages the state and SDK operations for the Marketing Subscriptions form.
  *
- * @param callbacks - Optional success / error callbacks for user-facing feedback.
+ * @param onSuccess - Called with a success message after an operation succeeds.
+ * @param onError - Called with an error message when an operation fails or is blocked.
  */
 export function useMarketingSubscriptions(
-  callbacks?: MarketingSubscriptionCallbacks
+  onSuccess?: (message: string) => void,
+  onError?: (message: string) => void
 ): UseMarketingSubscriptionsResult {
   const [emailInput, setEmailInput] = useState('')
   const [phoneInput, setPhoneInput] = useState('')
@@ -87,8 +77,8 @@ export function useMarketingSubscriptions(
     setEmailError(null)
     setCurrentEmail(trimmed)
     identify({ email: trimmed })
-    callbacks?.onSuccess?.(`Email set to ${trimmed}`)
-  }, [emailInput, callbacks])
+    onSuccess?.(`Email set to ${trimmed}`)
+  }, [emailInput, onSuccess])
 
   const handleSetPhone = useCallback(() => {
     const error = validatePhone(phoneInput)
@@ -100,14 +90,14 @@ export function useMarketingSubscriptions(
     setPhoneError(null)
     setCurrentPhone(trimmed)
     identify({ phone: trimmed })
-    callbacks?.onSuccess?.(`Phone set to ${trimmed}`)
-  }, [phoneInput, callbacks])
+    onSuccess?.(`Phone set to ${trimmed}`)
+  }, [phoneInput, onSuccess])
 
   const handleOptInEmail = useCallback(async () => {
     const error = validateEmail(emailInput)
     if (error) {
       setEmailError(error)
-      callbacks?.onError?.(error)
+      onError?.(error)
       return
     }
     const trimmed = emailInput.trim()
@@ -118,20 +108,20 @@ export function useMarketingSubscriptions(
       identify({ email: trimmed })
       await optInMarketingSubscription({ email: trimmed })
       console.log(TAG, 'optInEmail succeeded')
-      callbacks?.onSuccess?.('Email opt-in successful')
+      onSuccess?.('Email opt-in successful')
     } catch (e) {
       console.warn(TAG, 'optInEmail failed:', e)
-      callbacks?.onError?.('Email opt-in failed')
+      onError?.('Email opt-in failed')
     } finally {
       setIsOptingInEmail(false)
     }
-  }, [emailInput, callbacks])
+  }, [emailInput, onSuccess, onError])
 
   const handleOptInPhone = useCallback(async () => {
     const error = validatePhone(phoneInput)
     if (error) {
       setPhoneError(error)
-      callbacks?.onError?.(error)
+      onError?.(error)
       return
     }
     const trimmed = phoneInput.trim()
@@ -142,20 +132,20 @@ export function useMarketingSubscriptions(
       identify({ phone: trimmed })
       await optInMarketingSubscription({ phone: trimmed })
       console.log(TAG, 'optInPhone succeeded')
-      callbacks?.onSuccess?.('Phone opt-in successful')
+      onSuccess?.('Phone opt-in successful')
     } catch (e) {
       console.warn(TAG, 'optInPhone failed:', e)
-      callbacks?.onError?.('Phone opt-in failed')
+      onError?.('Phone opt-in failed')
     } finally {
       setIsOptingInPhone(false)
     }
-  }, [phoneInput, callbacks])
+  }, [phoneInput, onSuccess, onError])
 
   const handleOptOutEmail = useCallback(async () => {
     const error = validateEmail(emailInput)
     if (error) {
       setEmailError(error)
-      callbacks?.onError?.(error)
+      onError?.(error)
       return
     }
     const trimmed = emailInput.trim()
@@ -166,20 +156,20 @@ export function useMarketingSubscriptions(
       identify({ email: trimmed })
       await optOutMarketingSubscription({ email: trimmed })
       console.log(TAG, 'optOutEmail succeeded')
-      callbacks?.onSuccess?.('Email opt-out successful')
+      onSuccess?.('Email opt-out successful')
     } catch (e) {
       console.warn(TAG, 'optOutEmail failed:', e)
-      callbacks?.onError?.('Email opt-out failed')
+      onError?.('Email opt-out failed')
     } finally {
       setIsOptingOutEmail(false)
     }
-  }, [emailInput, callbacks])
+  }, [emailInput, onSuccess, onError])
 
   const handleOptOutPhone = useCallback(async () => {
     const error = validatePhone(phoneInput)
     if (error) {
       setPhoneError(error)
-      callbacks?.onError?.(error)
+      onError?.(error)
       return
     }
     const trimmed = phoneInput.trim()
@@ -190,14 +180,14 @@ export function useMarketingSubscriptions(
       identify({ phone: trimmed })
       await optOutMarketingSubscription({ phone: trimmed })
       console.log(TAG, 'optOutPhone succeeded')
-      callbacks?.onSuccess?.('Phone opt-out successful')
+      onSuccess?.('Phone opt-out successful')
     } catch (e) {
       console.warn(TAG, 'optOutPhone failed:', e)
-      callbacks?.onError?.('Phone opt-out failed')
+      onError?.('Phone opt-out failed')
     } finally {
       setIsOptingOutPhone(false)
     }
-  }, [phoneInput, callbacks])
+  }, [phoneInput, onSuccess, onError])
 
   return {
     emailInput,
