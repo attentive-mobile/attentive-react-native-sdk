@@ -21,12 +21,12 @@ export function validateEmail(email: string): string | null {
 }
 
 /**
- * E.164 pattern: optional leading `+`, then 7–15 digits.
- * Examples of valid values: `+15551234567`, `15551234567`.
- * The leading `+` is strongly recommended; we accept its omission but show a
- * hint in the placeholder so users know the preferred format.
+ * E.164 pattern: a required leading `+`, then 7–15 digits.
+ * Example of a valid value: `+15551234567`.
+ * The leading `+` is mandatory — Attentive's `addSubscriptions` API rejects
+ * numbers without it (https://docs.attentive.com/reference/addsubscriptions).
  */
-const PHONE_REGEX = /^\+?[1-9]\d{6,14}$/
+const PHONE_REGEX = /^\+[1-9]\d{6,14}$/
 
 /**
  * Validates a phone number string against the E.164 format.
