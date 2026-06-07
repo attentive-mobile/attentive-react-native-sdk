@@ -499,16 +499,9 @@ async function getInitialPushNotification(): Promise<Record<
 /**
  * Opts a user into marketing subscriptions (email and/or SMS).
  *
- * At least one of `email` or `phone` must be provided; otherwise the returned
- * Promise rejects with a missing-contact-info error before any native call is
- * made. This guard exists because attentive-android-sdk 2.1.3 silently no-ops
- * (Timber log only) when both identifiers are absent — see MSDK-368 for the
- * upstream fix that exposes failure via Result/AttentiveCallback.
- *
- * Note: on Android 2.1.3 the SDK also cannot surface push-token-missing or
- * HTTP-error failures to the bridge, so a resolved Promise is not a strict
- * guarantee of delivery. iOS uses ATTNSDK's HTTPURLResponse and rejects on
- * status >= 400 or transport error.
+ * At least one of `email` or `phone` must be provided; whitespace-only values
+ * count as missing. Otherwise the returned Promise rejects with a
+ * missing-contact-info error before any native call is made.
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error
@@ -533,10 +526,8 @@ function optInMarketingSubscription(
 /**
  * Opts a user out of marketing subscriptions (email and/or SMS).
  *
- * At least one of `email` or `phone` must be provided; otherwise the returned
- * Promise rejects with a missing-contact-info error before any native call is
- * made. See `optInMarketingSubscription` for the rationale and the Android
- * 2.1.3 limitations tracked in MSDK-368.
+ * Same contract as [optInMarketingSubscription]: at least one of `email` or
+ * `phone` must be provided (whitespace-only values count as missing).
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error

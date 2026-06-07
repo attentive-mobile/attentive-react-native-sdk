@@ -34,9 +34,6 @@ import java.math.BigDecimal
 import java.security.InvalidParameterException
 import java.util.Currency
 import java.util.Locale
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     NativeAttentiveReactNativeSdkSpec(reactContext) {
@@ -50,9 +47,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     private var attentiveConfig: AttentiveConfig? = null
     private var creative: Creative? = null
     private val debugHelper: AttentiveDebugHelper
-
-    /** Coroutine scope tied to IO dispatcher for calling AttentiveSdk suspend functions. */
-    private val ioScope = CoroutineScope(Dispatchers.IO)
 
     init {
         debugHelper = AttentiveDebugHelper(reactContext)
@@ -789,101 +783,89 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     // ==========================================================================
 
     /**
-     * Opts a user into marketing subscriptions via [AttentiveSdk.optUserIntoMarketingSubscription].
+     * Opts a user into marketing subscriptions via the callback variant of
+     * [AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback].
      *
-     * Both [email] and [phone] are normalised (trimmed, blank → null) before being forwarded
-     * to the native SDK.
+     * Failures (missing contact info, missing push token, HTTP errors) are surfaced via
+     * [AttentiveSdk.AttentiveCallback.onFailure] and reject the promise. The SDK launches
+     * its own coroutine internally, so the bridge does not own a CoroutineScope.
      *
-     * The native method is a Kotlin `suspend` function; it is invoked on [Dispatchers.IO]
-     * and the promise is settled back on the UI thread.
-     *
-     * Limitation (attentive-android-sdk 2.1.3): the underlying suspend returns `Unit` and
-     * silently no-ops on missing-contact-info, missing push-token, or HTTP errors — only
-     * Timber-logging the failure. As a result, this bridge can only reject the promise on
-     * a thrown exception (e.g. coroutine cancellation, OOM); the JS layer guards the
-     * missing-contact-info case before the call. The bump to 2.1.8 + switch to the
-     * Result/AttentiveCallback API that exposes real failures is tracked in MSDK-368.
-     *
-     * @param email Optional email address.
-     * @param phone Optional E.164 phone number.
+     * @param email Optional email address; the JS layer trims and rejects blanks before this call.
+     * @param phone Optional E.164 phone number; same trimming guarantee.
      * @param promise Resolved with null on success; rejected with an error on failure.
      */
     override fun optInMarketingSubscription(email: String?, phone: String?, promise: Promise) {
         Log.i(TAG, "📬 [AttentiveSDK] optInMarketingSubscription called (Android)")
 
-        val normalizedEmail = email?.trim()?.takeIf { it.isNotEmpty() }
-        val normalizedPhone = phone?.trim()?.takeIf { it.isNotEmpty() }
+        AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback(
+            email = email.orEmpty(),
+            phoneNumber = phone.orEmpty(),
+            callback = object : AttentiveSdk.AttentiveCallback {
+                override fun onSuccess() {
+                    Log.i(TAG, "✅ [AttentiveSDK] optInMarketingSubscription succeeded")
+                    UiThreadUtil.runOnUiThread { promise.resolve(null) }
 
-        ioScope.launch {
-            try {
-                AttentiveSdk.optUserIntoMarketingSubscription(
-                    email = normalizedEmail ?: "",
-                    phoneNumber = normalizedPhone ?: "",
-                )
-                Log.i(TAG, "✅ [AttentiveSDK] optInMarketingSubscription succeeded")
-                UiThreadUtil.runOnUiThread { promise.resolve(null) }
-
-                if (debugHelper.isDebuggingEnabled()) {
-                    val debugData = mutableMapOf<String, Any>(
-                        "email" to (normalizedEmail ?: "nil"),
-                        "phone" to (normalizedPhone ?: "nil"),
-                        "status" to "success",
-                    )
-                    UiThreadUtil.runOnUiThread {
-                        debugHelper.showDebugInfo("Marketing Subscription Opt-In", debugData)
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf<String, Any>(
+                            "email" to (email ?: "nil"),
+                            "phone" to (phone ?: "nil"),
+                            "status" to "success",
+                        )
+                        UiThreadUtil.runOnUiThread {
+                            debugHelper.showDebugInfo("Marketing Subscription Opt-In", debugData)
+                        }
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ [AttentiveSDK] optInMarketingSubscription failed: ${e.message}", e)
-                UiThreadUtil.runOnUiThread {
-                    promise.reject("OPT_IN_ERROR", e.message ?: "Unknown error", e)
+
+                override fun onFailure(exception: Exception) {
+                    Log.e(TAG, "❌ [AttentiveSDK] optInMarketingSubscription failed: ${exception.message}", exception)
+                    UiThreadUtil.runOnUiThread {
+                        promise.reject("OPT_IN_ERROR", exception.message ?: "Unknown error", exception)
+                    }
                 }
-            }
-        }
+            },
+        )
     }
 
     /**
-     * Opts a user out of marketing subscriptions via [AttentiveSdk.optUserOutOfMarketingSubscription].
+     * Opts a user out of marketing subscriptions via the callback variant of
+     * [AttentiveSdk.optUserOutOfMarketingSubscriptionWithCallback].
      *
-     * Same shape and same 2.1.3 limitation as [optInMarketingSubscription] — see that method
-     * for details and the MSDK-368 follow-up.
-     *
-     * @param email Optional email address.
-     * @param phone Optional E.164 phone number.
+     * @param email Optional email address; the JS layer trims and rejects blanks before this call.
+     * @param phone Optional E.164 phone number; same trimming guarantee.
      * @param promise Resolved with null on success; rejected with an error on failure.
      */
     override fun optOutMarketingSubscription(email: String?, phone: String?, promise: Promise) {
         Log.i(TAG, "📬 [AttentiveSDK] optOutMarketingSubscription called (Android)")
 
-        val normalizedEmail = email?.trim()?.takeIf { it.isNotEmpty() }
-        val normalizedPhone = phone?.trim()?.takeIf { it.isNotEmpty() }
+        AttentiveSdk.optUserOutOfMarketingSubscriptionWithCallback(
+            email = email.orEmpty(),
+            phoneNumber = phone.orEmpty(),
+            callback = object : AttentiveSdk.AttentiveCallback {
+                override fun onSuccess() {
+                    Log.i(TAG, "✅ [AttentiveSDK] optOutMarketingSubscription succeeded")
+                    UiThreadUtil.runOnUiThread { promise.resolve(null) }
 
-        ioScope.launch {
-            try {
-                AttentiveSdk.optUserOutOfMarketingSubscription(
-                    email = normalizedEmail ?: "",
-                    phoneNumber = normalizedPhone ?: "",
-                )
-                Log.i(TAG, "✅ [AttentiveSDK] optOutMarketingSubscription succeeded")
-                UiThreadUtil.runOnUiThread { promise.resolve(null) }
-
-                if (debugHelper.isDebuggingEnabled()) {
-                    val debugData = mutableMapOf<String, Any>(
-                        "email" to (normalizedEmail ?: "nil"),
-                        "phone" to (normalizedPhone ?: "nil"),
-                        "status" to "success",
-                    )
-                    UiThreadUtil.runOnUiThread {
-                        debugHelper.showDebugInfo("Marketing Subscription Opt-Out", debugData)
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf<String, Any>(
+                            "email" to (email ?: "nil"),
+                            "phone" to (phone ?: "nil"),
+                            "status" to "success",
+                        )
+                        UiThreadUtil.runOnUiThread {
+                            debugHelper.showDebugInfo("Marketing Subscription Opt-Out", debugData)
+                        }
                     }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "❌ [AttentiveSDK] optOutMarketingSubscription failed: ${e.message}", e)
-                UiThreadUtil.runOnUiThread {
-                    promise.reject("OPT_OUT_ERROR", e.message ?: "Unknown error", e)
+
+                override fun onFailure(exception: Exception) {
+                    Log.e(TAG, "❌ [AttentiveSDK] optOutMarketingSubscription failed: ${exception.message}", exception)
+                    UiThreadUtil.runOnUiThread {
+                        promise.reject("OPT_OUT_ERROR", exception.message ?: "Unknown error", exception)
+                    }
                 }
-            }
-        }
+            },
+        )
     }
 
     // ==========================================================================
