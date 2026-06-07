@@ -499,9 +499,9 @@ async function getInitialPushNotification(): Promise<Record<
 /**
  * Opts a user into marketing subscriptions (email and/or SMS).
  *
- * At least one of `email` or `phone` must be provided; whitespace-only values
- * count as missing. Otherwise the returned Promise rejects with a
- * missing-contact-info error before any native call is made.
+ * Forwards the call to the native SDK on each platform. At least one of
+ * `email` or `phone` must be a valid value; the underlying native SDK
+ * rejects the call if neither is provided.
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error
@@ -509,25 +509,16 @@ async function getInitialPushNotification(): Promise<Record<
 function optInMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
-  const email = params?.email?.trim() || undefined
-  const phone = params?.phone?.trim() || undefined
-
-  if (!email && !phone) {
-    return Promise.reject(
-      new Error(
-        'Params are required and must contain either email or phone property'
-      )
-    )
-  }
-
-  return AttentiveReactNativeSdk.optInMarketingSubscription(email, phone)
+  return AttentiveReactNativeSdk.optInMarketingSubscription(
+    params?.email,
+    params?.phone
+  )
 }
 
 /**
  * Opts a user out of marketing subscriptions (email and/or SMS).
  *
- * Same contract as [optInMarketingSubscription]: at least one of `email` or
- * `phone` must be provided (whitespace-only values count as missing).
+ * Same contract as [optInMarketingSubscription].
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error
@@ -535,18 +526,10 @@ function optInMarketingSubscription(
 function optOutMarketingSubscription(
   params: MarketingSubscriptionParams
 ): Promise<void> {
-  const email = params?.email?.trim() || undefined
-  const phone = params?.phone?.trim() || undefined
-
-  if (!email && !phone) {
-    return Promise.reject(
-      new Error(
-        'Params are required and must contain either email or phone property'
-      )
-    )
-  }
-
-  return AttentiveReactNativeSdk.optOutMarketingSubscription(email, phone)
+  return AttentiveReactNativeSdk.optOutMarketingSubscription(
+    params?.email,
+    params?.phone
+  )
 }
 
 export {

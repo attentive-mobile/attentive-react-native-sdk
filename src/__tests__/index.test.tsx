@@ -433,58 +433,6 @@ describe('Attentive SDK', () => {
         ).toHaveBeenCalledWith(undefined, '+15551234567')
       })
 
-      it('should reject without calling native when neither email nor phone is provided', async () => {
-        await expect(optInMarketingSubscription({})).rejects.toThrow(
-          /must contain either email or phone/
-        )
-
-        expect(
-          mockNativeModule.optInMarketingSubscription
-        ).not.toHaveBeenCalled()
-      })
-
-      it('should reject without calling native when email is whitespace only', async () => {
-        await expect(
-          optInMarketingSubscription({ email: '   ' })
-        ).rejects.toThrow(/must contain either email or phone/)
-
-        expect(
-          mockNativeModule.optInMarketingSubscription
-        ).not.toHaveBeenCalled()
-      })
-
-      it('should reject without calling native when phone is whitespace only', async () => {
-        await expect(
-          optInMarketingSubscription({ phone: ' \t ' })
-        ).rejects.toThrow(/must contain either email or phone/)
-
-        expect(
-          mockNativeModule.optInMarketingSubscription
-        ).not.toHaveBeenCalled()
-      })
-
-      it('should forward trimmed values to native module', async () => {
-        await optInMarketingSubscription({
-          email: '  user@example.com  ',
-          phone: '  +15551234567  ',
-        })
-
-        expect(
-          mockNativeModule.optInMarketingSubscription
-        ).toHaveBeenCalledWith('user@example.com', '+15551234567')
-      })
-
-      it('should treat whitespace-only field as missing when other field is valid', async () => {
-        await optInMarketingSubscription({
-          email: '   ',
-          phone: '+15551234567',
-        })
-
-        expect(
-          mockNativeModule.optInMarketingSubscription
-        ).toHaveBeenCalledWith(undefined, '+15551234567')
-      })
-
       it('should resolve when native module resolves', async () => {
         mockNativeModule.optInMarketingSubscription.mockResolvedValueOnce(
           undefined
@@ -560,58 +508,6 @@ describe('Attentive SDK', () => {
         await expect(
           optOutMarketingSubscription({ phone: '+15551234567' })
         ).resolves.toBeUndefined()
-      })
-
-      it('should reject without calling native when neither email nor phone is provided', async () => {
-        await expect(optOutMarketingSubscription({})).rejects.toThrow(
-          /must contain either email or phone/
-        )
-
-        expect(
-          mockNativeModule.optOutMarketingSubscription
-        ).not.toHaveBeenCalled()
-      })
-
-      it('should reject without calling native when email is whitespace only', async () => {
-        await expect(
-          optOutMarketingSubscription({ email: '   ' })
-        ).rejects.toThrow(/must contain either email or phone/)
-
-        expect(
-          mockNativeModule.optOutMarketingSubscription
-        ).not.toHaveBeenCalled()
-      })
-
-      it('should reject without calling native when phone is whitespace only', async () => {
-        await expect(
-          optOutMarketingSubscription({ phone: ' \t ' })
-        ).rejects.toThrow(/must contain either email or phone/)
-
-        expect(
-          mockNativeModule.optOutMarketingSubscription
-        ).not.toHaveBeenCalled()
-      })
-
-      it('should forward trimmed values to native module', async () => {
-        await optOutMarketingSubscription({
-          email: '  user@example.com  ',
-          phone: '  +15551234567  ',
-        })
-
-        expect(
-          mockNativeModule.optOutMarketingSubscription
-        ).toHaveBeenCalledWith('user@example.com', '+15551234567')
-      })
-
-      it('should treat whitespace-only field as missing when other field is valid', async () => {
-        await optOutMarketingSubscription({
-          email: '   ',
-          phone: '+15551234567',
-        })
-
-        expect(
-          mockNativeModule.optOutMarketingSubscription
-        ).toHaveBeenCalledWith(undefined, '+15551234567')
       })
 
       it('should propagate native module rejections', async () => {
