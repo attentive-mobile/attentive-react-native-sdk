@@ -257,6 +257,7 @@ function App(): React.JSX.Element {
       registerPushAndTrackRegularOpen().catch((error) => {
         console.error('❌ [Attentive] Android push registration flow failed:', error)
       })
+      // TODO(MSDK-352): wire up killed-state push tap via getInitialPushNotification
     }
 
     // Android: listen for foreground push events emitted by AttentiveFirebaseMessagingService
