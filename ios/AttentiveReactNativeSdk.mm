@@ -417,9 +417,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
                                         phone:normalizedPhone
                                    completion:^(NSError * _Nullable error) {
         if (error) {
-            reject([NSString stringWithFormat:@"%ld", (long)error.code],
-                   error.localizedDescription,
-                   error);
+            reject(@"OPT_IN_ERROR", error.localizedDescription, error);
         } else {
             resolve(nil);
         }
@@ -442,9 +440,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
                                          phone:normalizedPhone
                                     completion:^(NSError * _Nullable error) {
         if (error) {
-            reject([NSString stringWithFormat:@"%ld", (long)error.code],
-                   error.localizedDescription,
-                   error);
+            reject(@"OPT_OUT_ERROR", error.localizedDescription, error);
         } else {
             resolve(nil);
         }
