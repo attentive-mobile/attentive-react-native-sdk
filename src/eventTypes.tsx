@@ -79,3 +79,16 @@ export type PushRegistrationResult = {
   token?: string;
   error?: string;
 };
+
+/**
+ * Parameters for marketing subscription opt-in and opt-out operations.
+ * At least one of email or phone must be provided; the native layer
+ * validates this and rejects the promise with a missing-contact-info error
+ * if both are absent.
+ */
+export interface MarketingSubscriptionParams {
+  /** Email address to subscribe / unsubscribe */
+  email?: string;
+  /** E.164 phone number to subscribe / unsubscribe */
+  phone?: string;
+}

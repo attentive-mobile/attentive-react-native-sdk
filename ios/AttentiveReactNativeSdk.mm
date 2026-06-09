@@ -397,6 +397,56 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     }];
 }
 
+// =============================================================================
+// Marketing Subscription Methods (both architectures)
+// =============================================================================
+
+- (void)optInMarketingSubscription:(NSString *)email
+                              phone:(NSString *)phone
+                            resolve:(RCTPromiseResolveBlock)resolve
+                             reject:(RCTPromiseRejectBlock)reject {
+    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    if (!_sdk) {
+        reject(@"OPT_IN_ERROR", @"SDK not initialized", nil);
+        return;
+    }
+
+    [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
+                                        phone:normalizedPhone
+                                   completion:^(NSError * _Nullable error) {
+        if (error) {
+            reject(@"OPT_IN_ERROR", error.localizedDescription, error);
+        } else {
+            resolve(nil);
+        }
+    }];
+}
+
+- (void)optOutMarketingSubscription:(NSString *)email
+                               phone:(NSString *)phone
+                             resolve:(RCTPromiseResolveBlock)resolve
+                              reject:(RCTPromiseRejectBlock)reject {
+    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    if (!_sdk) {
+        reject(@"OPT_OUT_ERROR", @"SDK not initialized", nil);
+        return;
+    }
+
+    [_sdk optOutMarketingSubscriptionWithEmail:normalizedEmail
+                                         phone:normalizedPhone
+                                    completion:^(NSError * _Nullable error) {
+        if (error) {
+            reject(@"OPT_OUT_ERROR", error.localizedDescription, error);
+        } else {
+            resolve(nil);
+        }
+    }];
+}
+
 - (void)triggerCreative:(NSString *)creativeId {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];

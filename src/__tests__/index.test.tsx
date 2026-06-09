@@ -5,7 +5,8 @@
 jest.mock('react-native', () => ({
   Platform: {
     OS: 'ios',
-    select: (options: Record<string, unknown>) => options.ios ?? options.default,
+    select: (options: Record<string, unknown>) =>
+      options.ios ?? options.default,
   },
   // NativeAttentiveReactNativeSdk.ts falls back to NativeModules when __turboModuleProxy
   // is absent (the case in a Jest environment with no TurboModule support).
@@ -33,16 +34,19 @@ jest.mock('react-native', () => ({
       handleForegroundPush: jest.fn(),
       handlePushOpen: jest.fn(),
       getInitialPushNotification: jest.fn().mockResolvedValue(null),
+      optInMarketingSubscription: jest.fn().mockResolvedValue(undefined),
+      optOutMarketingSubscription: jest.fn().mockResolvedValue(undefined),
     },
   },
   TurboModuleRegistry: {
     get: () => null,
   },
-}));
+}))
 
 // Retrieve a stable reference to the mock after jest.mock is evaluated.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const mockNativeModule = require('react-native').NativeModules.AttentiveReactNativeSdk;
+const mockNativeModule =
+  require('react-native').NativeModules.AttentiveReactNativeSdk
 
 import {
   initialize,
@@ -61,20 +65,25 @@ import {
   registerForPushNotifications,
   getPushAuthorizationStatus,
   registerDeviceToken,
-  registerDeviceTokenWithCallback,
   handleRegularOpen,
   handlePushOpened,
   handleForegroundNotification,
   handleForegroundPush,
   handlePushOpen,
   getInitialPushNotification,
-} from '../index';
-import type { AttentiveSdkConfiguration } from '../index';
+  // Marketing Subscription Methods
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
+} from '../index'
+import type {
+  AttentiveSdkConfiguration,
+  MarketingSubscriptionParams,
+} from '../index'
 
 describe('Attentive SDK', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-  });
+    jest.clearAllMocks()
+  })
 
   describe('Initialization', () => {
     it('should initialize with all configuration options', () => {
@@ -83,34 +92,34 @@ describe('Attentive SDK', () => {
         mode: 'debug',
         enableDebugger: true,
         skipFatigueOnCreatives: true,
-      };
+      }
 
-      initialize(config);
+      initialize(config)
 
       expect(mockNativeModule.initialize).toHaveBeenCalledWith(
         'test-domain',
         'debug',
         true,
         true
-      );
-    });
+      )
+    })
 
     it('should initialize with minimal configuration', () => {
       const config: AttentiveSdkConfiguration = {
         attentiveDomain: 'test-domain',
         mode: 'production',
-      };
+      }
 
-      initialize(config);
+      initialize(config)
 
       expect(mockNativeModule.initialize).toHaveBeenCalledWith(
         'test-domain',
         'production',
         false,
         false
-      );
-    });
-  });
+      )
+    })
+  })
 
   describe('User identification', () => {
     it('should identify user with all identifiers', () => {
@@ -121,7 +130,7 @@ describe('Attentive SDK', () => {
         shopifyId: 'shopify-123',
         clientUserId: 'client-123',
         customIdentifiers: { custom1: 'value1' },
-      });
+      })
 
       expect(mockNativeModule.identify).toHaveBeenCalledWith(
         '+1234567890',
@@ -130,15 +139,15 @@ describe('Attentive SDK', () => {
         'shopify-123',
         'client-123',
         { custom1: 'value1' }
-      );
-    });
+      )
+    })
 
     it('should clear user', () => {
-      clearUser();
+      clearUser()
 
-      expect(mockNativeModule.clearUser).toHaveBeenCalled();
-    });
-  });
+      expect(mockNativeModule.clearUser).toHaveBeenCalled()
+    })
+  })
 
   describe('Event recording', () => {
     it('should record product view event', () => {
@@ -149,15 +158,15 @@ describe('Attentive SDK', () => {
           price: '10.00',
           currency: 'USD',
         },
-      ];
+      ]
 
-      recordProductViewEvent({ items, deeplink: 'test://product' });
+      recordProductViewEvent({ items, deeplink: 'test://product' })
 
       expect(mockNativeModule.recordProductViewEvent).toHaveBeenCalledWith(
         items,
         'test://product'
-      );
-    });
+      )
+    })
 
     it('should record add to cart event', () => {
       const items = [
@@ -167,15 +176,15 @@ describe('Attentive SDK', () => {
           price: '10.00',
           currency: 'USD',
         },
-      ];
+      ]
 
-      recordAddToCartEvent({ items, deeplink: 'test://cart' });
+      recordAddToCartEvent({ items, deeplink: 'test://cart' })
 
       expect(mockNativeModule.recordAddToCartEvent).toHaveBeenCalledWith(
         items,
         'test://cart'
-      );
-    });
+      )
+    })
 
     it('should record purchase event', () => {
       const items = [
@@ -185,160 +194,176 @@ describe('Attentive SDK', () => {
           price: '10.00',
           currency: 'USD',
         },
-      ];
+      ]
 
       recordPurchaseEvent({
         items,
         orderId: 'test-order-123',
         cartId: 'cart-123',
         cartCoupon: 'DISCOUNT10',
-      });
+      })
 
       expect(mockNativeModule.recordPurchaseEvent).toHaveBeenCalledWith(
         items,
         'test-order-123',
         'cart-123',
         'DISCOUNT10'
-      );
-    });
+      )
+    })
 
     it('should record custom event', () => {
       recordCustomEvent({
         type: 'test-event',
         properties: { key1: 'value1', key2: 'value2' },
-      });
+      })
 
       expect(mockNativeModule.recordCustomEvent).toHaveBeenCalledWith(
         'test-event',
         { key1: 'value1', key2: 'value2' }
-      );
-    });
-  });
+      )
+    })
+  })
 
   describe('Creative management', () => {
     it('should trigger creative without specific ID', () => {
-      triggerCreative();
+      triggerCreative()
 
-      expect(mockNativeModule.triggerCreative).toHaveBeenCalledWith(undefined);
-    });
+      expect(mockNativeModule.triggerCreative).toHaveBeenCalledWith(undefined)
+    })
 
     it('should trigger creative with specific ID', () => {
-      const creativeId = 'test-creative-123';
-      triggerCreative(creativeId);
+      const creativeId = 'test-creative-123'
+      triggerCreative(creativeId)
 
-      expect(mockNativeModule.triggerCreative).toHaveBeenCalledWith(
-        creativeId
-      );
-    });
+      expect(mockNativeModule.triggerCreative).toHaveBeenCalledWith(creativeId)
+    })
 
     it('should destroy creative', () => {
-      destroyCreative();
+      destroyCreative()
 
-      expect(mockNativeModule.destroyCreative).toHaveBeenCalled();
-    });
-  });
+      expect(mockNativeModule.destroyCreative).toHaveBeenCalled()
+    })
+  })
 
   describe('Domain management', () => {
     it('should update domain', () => {
-      updateDomain('new-domain.com');
+      updateDomain('new-domain.com')
 
       expect(mockNativeModule.updateDomain).toHaveBeenCalledWith(
         'new-domain.com'
-      );
-    });
-  });
+      )
+    })
+  })
 
   describe('Debugging', () => {
     it('should invoke debug helper', () => {
-      invokeAttentiveDebugHelper();
+      invokeAttentiveDebugHelper()
 
-      expect(mockNativeModule.invokeAttentiveDebugHelper).toHaveBeenCalled();
-    });
+      expect(mockNativeModule.invokeAttentiveDebugHelper).toHaveBeenCalled()
+    })
 
     it('should export debug logs', async () => {
-      const logs = await exportDebugLogs();
+      const logs = await exportDebugLogs()
 
-      expect(mockNativeModule.exportDebugLogs).toHaveBeenCalled();
-      expect(logs).toBe('debug logs');
-    });
-  });
+      expect(mockNativeModule.exportDebugLogs).toHaveBeenCalled()
+      expect(logs).toBe('debug logs')
+    })
+  })
 
   describe('Push Notifications', () => {
     it('should register for push notifications', () => {
-      registerForPushNotifications();
+      registerForPushNotifications()
 
-      expect(mockNativeModule.registerForPushNotifications).toHaveBeenCalled();
-    });
+      expect(mockNativeModule.registerForPushNotifications).toHaveBeenCalled()
+    })
 
     it('should get push authorization status', async () => {
-      const status = await getPushAuthorizationStatus();
+      const status = await getPushAuthorizationStatus()
 
-      expect(mockNativeModule.getPushAuthorizationStatus).toHaveBeenCalled();
-      expect(status).toBe('authorized');
-    });
+      expect(mockNativeModule.getPushAuthorizationStatus).toHaveBeenCalled()
+      expect(status).toBe('authorized')
+    })
 
     it('should register device token', () => {
-      registerDeviceToken('abc123def456', 'authorized');
+      registerDeviceToken('abc123def456', 'authorized')
 
       expect(mockNativeModule.registerDeviceToken).toHaveBeenCalledWith(
         'abc123def456',
         'authorized'
-      );
-    });
+      )
+    })
 
     it('should handle push opened', () => {
-      const userInfo = { messageId: '123', title: 'Test notification' };
+      const userInfo = { messageId: '123', title: 'Test notification' }
 
-      handlePushOpened(userInfo, 'background', 'authorized');
+      handlePushOpened(userInfo, 'background', 'authorized')
 
       expect(mockNativeModule.handlePushOpened).toHaveBeenCalledWith(
         userInfo,
         'background',
         'authorized'
-      );
-    });
+      )
+    })
 
     it('should handle foreground notification', () => {
-      const userInfo = { messageId: '123', title: 'Test notification' };
+      const userInfo = { messageId: '123', title: 'Test notification' }
 
-      handleForegroundNotification(userInfo);
+      handleForegroundNotification(userInfo)
 
-      expect(mockNativeModule.handleForegroundNotification).toHaveBeenCalledWith(
-        userInfo
-      );
-    });
+      expect(
+        mockNativeModule.handleForegroundNotification
+      ).toHaveBeenCalledWith(userInfo)
+    })
 
     it('should handle regular open', () => {
-      handleRegularOpen('authorized');
+      handleRegularOpen('authorized')
 
-      expect(mockNativeModule.handleRegularOpen).toHaveBeenCalledWith('authorized');
-    });
+      expect(mockNativeModule.handleRegularOpen).toHaveBeenCalledWith(
+        'authorized'
+      )
+    })
 
     it('should call handleForegroundPush with userInfo and authorizationStatus', () => {
-      const userInfo = { messageId: 'msg-1', title: 'Summer Sale', body: '20% off today' };
+      const userInfo = {
+        messageId: 'msg-1',
+        title: 'Summer Sale',
+        body: '20% off today',
+      }
 
-      handleForegroundPush(userInfo, 'authorized');
+      handleForegroundPush(userInfo, 'authorized')
 
-      expect(mockNativeModule.handleForegroundPush).toHaveBeenCalledWith(userInfo, 'authorized');
-    });
+      expect(mockNativeModule.handleForegroundPush).toHaveBeenCalledWith(
+        userInfo,
+        'authorized'
+      )
+    })
 
     it('should call handlePushOpen with userInfo and authorizationStatus', () => {
-      const userInfo = { messageId: 'msg-2', title: 'New arrivals', body: 'Check them out' };
+      const userInfo = {
+        messageId: 'msg-2',
+        title: 'New arrivals',
+        body: 'Check them out',
+      }
 
-      handlePushOpen(userInfo, 'authorized');
+      handlePushOpen(userInfo, 'authorized')
 
-      expect(mockNativeModule.handlePushOpen).toHaveBeenCalledWith(userInfo, 'authorized');
-    });
+      expect(mockNativeModule.handlePushOpen).toHaveBeenCalledWith(
+        userInfo,
+        'authorized'
+      )
+    })
 
     describe('getInitialPushNotification', () => {
       it('should return null when no initial notification is pending', async () => {
-        mockNativeModule.getInitialPushNotification.mockResolvedValueOnce(null);
+        mockNativeModule.getInitialPushNotification.mockResolvedValueOnce(null)
 
-        const result = await getInitialPushNotification();
+        const result = await getInitialPushNotification()
 
-        expect(mockNativeModule.getInitialPushNotification).toHaveBeenCalledTimes(1);
-        expect(result).toBeNull();
-      });
+        expect(
+          mockNativeModule.getInitialPushNotification
+        ).toHaveBeenCalledTimes(1)
+        expect(result).toBeNull()
+      })
 
       it('should return the stored notification payload when app was launched from a push tap', async () => {
         const expectedPayload = {
@@ -346,22 +371,165 @@ describe('Attentive SDK', () => {
           title: 'Flash Sale',
           body: '40% off for 2 hours',
           campaignId: 'camp-456',
-        };
-        mockNativeModule.getInitialPushNotification.mockResolvedValueOnce(expectedPayload);
+        }
+        mockNativeModule.getInitialPushNotification.mockResolvedValueOnce(
+          expectedPayload
+        )
 
-        const result = await getInitialPushNotification();
+        const result = await getInitialPushNotification()
 
-        expect(mockNativeModule.getInitialPushNotification).toHaveBeenCalledTimes(1);
-        expect(result).toEqual(expectedPayload);
-      });
+        expect(
+          mockNativeModule.getInitialPushNotification
+        ).toHaveBeenCalledTimes(1)
+        expect(result).toEqual(expectedPayload)
+      })
 
       it('should propagate native module rejections as errors', async () => {
         mockNativeModule.getInitialPushNotification.mockRejectedValueOnce(
-          new Error('INITIAL_PUSH_ERROR'),
-        );
+          new Error('INITIAL_PUSH_ERROR')
+        )
 
-        await expect(getInitialPushNotification()).rejects.toThrow('INITIAL_PUSH_ERROR');
-      });
-    });
-  });
-});
+        await expect(getInitialPushNotification()).rejects.toThrow(
+          'INITIAL_PUSH_ERROR'
+        )
+      })
+    })
+  })
+
+  describe('Marketing Subscriptions', () => {
+    describe('optInMarketingSubscription', () => {
+      it('should call native module with email and phone', async () => {
+        const params: MarketingSubscriptionParams = {
+          email: 'user@example.com',
+          phone: '+15551234567',
+        }
+
+        await optInMarketingSubscription(params)
+
+        expect(
+          mockNativeModule.optInMarketingSubscription
+        ).toHaveBeenCalledWith('user@example.com', '+15551234567')
+      })
+
+      it('should call native module with email only', async () => {
+        const params: MarketingSubscriptionParams = {
+          email: 'user@example.com',
+        }
+
+        await optInMarketingSubscription(params)
+
+        expect(
+          mockNativeModule.optInMarketingSubscription
+        ).toHaveBeenCalledWith('user@example.com', undefined)
+      })
+
+      it('should call native module with phone only', async () => {
+        const params: MarketingSubscriptionParams = { phone: '+15551234567' }
+
+        await optInMarketingSubscription(params)
+
+        expect(
+          mockNativeModule.optInMarketingSubscription
+        ).toHaveBeenCalledWith(undefined, '+15551234567')
+      })
+
+      it('should resolve when native module resolves', async () => {
+        mockNativeModule.optInMarketingSubscription.mockResolvedValueOnce(
+          undefined
+        )
+
+        await expect(
+          optInMarketingSubscription({ email: 'user@example.com' })
+        ).resolves.toBeUndefined()
+      })
+
+      it('should propagate native module rejections', async () => {
+        mockNativeModule.optInMarketingSubscription.mockRejectedValueOnce(
+          new Error('NATIVE_FAILURE')
+        )
+
+        await expect(
+          optInMarketingSubscription({ email: 'user@example.com' })
+        ).rejects.toThrow('NATIVE_FAILURE')
+      })
+
+      it('should propagate HTTP error rejections from the native layer', async () => {
+        mockNativeModule.optInMarketingSubscription.mockRejectedValueOnce(
+          new Error('HTTP_ERROR: 400')
+        )
+
+        await expect(
+          optInMarketingSubscription({ email: 'bad@' })
+        ).rejects.toThrow('HTTP_ERROR: 400')
+      })
+    })
+
+    describe('optOutMarketingSubscription', () => {
+      it('should call native module with email and phone', async () => {
+        const params: MarketingSubscriptionParams = {
+          email: 'user@example.com',
+          phone: '+15551234567',
+        }
+
+        await optOutMarketingSubscription(params)
+
+        expect(
+          mockNativeModule.optOutMarketingSubscription
+        ).toHaveBeenCalledWith('user@example.com', '+15551234567')
+      })
+
+      it('should call native module with email only', async () => {
+        const params: MarketingSubscriptionParams = {
+          email: 'user@example.com',
+        }
+
+        await optOutMarketingSubscription(params)
+
+        expect(
+          mockNativeModule.optOutMarketingSubscription
+        ).toHaveBeenCalledWith('user@example.com', undefined)
+      })
+
+      it('should call native module with phone only', async () => {
+        const params: MarketingSubscriptionParams = { phone: '+15551234567' }
+
+        await optOutMarketingSubscription(params)
+
+        expect(
+          mockNativeModule.optOutMarketingSubscription
+        ).toHaveBeenCalledWith(undefined, '+15551234567')
+      })
+
+      it('should resolve when native module resolves', async () => {
+        mockNativeModule.optOutMarketingSubscription.mockResolvedValueOnce(
+          undefined
+        )
+
+        await expect(
+          optOutMarketingSubscription({ phone: '+15551234567' })
+        ).resolves.toBeUndefined()
+      })
+
+      it('should propagate native module rejections', async () => {
+        mockNativeModule.optOutMarketingSubscription.mockRejectedValueOnce(
+          new Error('NATIVE_FAILURE')
+        )
+
+        await expect(
+          optOutMarketingSubscription({ email: 'user@example.com' })
+        ).rejects.toThrow('NATIVE_FAILURE')
+      })
+
+      it('should be distinct from optIn — calls the correct native method', async () => {
+        await optOutMarketingSubscription({ email: 'user@example.com' })
+
+        expect(
+          mockNativeModule.optOutMarketingSubscription
+        ).toHaveBeenCalledTimes(1)
+        expect(
+          mockNativeModule.optInMarketingSubscription
+        ).not.toHaveBeenCalled()
+      })
+    })
+  })
+})

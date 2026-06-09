@@ -11,6 +11,7 @@ import type {
   ApplicationState,
   PushNotificationUserInfo,
   PushRegistrationResult,
+  MarketingSubscriptionParams,
 } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
@@ -491,6 +492,46 @@ async function getInitialPushNotification(): Promise<Record<
   return result as Record<string, string> | null
 }
 
+// =============================================================================
+// Marketing Subscription Methods (iOS and Android)
+// =============================================================================
+
+/**
+ * Opts a user into marketing subscriptions (email and/or SMS).
+ *
+ * Forwards the call to the native SDK on each platform. At least one of
+ * `email` or `phone` must be a valid value; the underlying native SDK
+ * rejects the call if neither is provided.
+ *
+ * @param params - Object containing optional `email` and/or `phone`
+ * @returns Promise that resolves on success or rejects with an error
+ */
+function optInMarketingSubscription(
+  params: MarketingSubscriptionParams
+): Promise<void> {
+  return AttentiveReactNativeSdk.optInMarketingSubscription(
+    params?.email,
+    params?.phone
+  )
+}
+
+/**
+ * Opts a user out of marketing subscriptions (email and/or SMS).
+ *
+ * Same contract as [optInMarketingSubscription].
+ *
+ * @param params - Object containing optional `email` and/or `phone`
+ * @returns Promise that resolves on success or rejects with an error
+ */
+function optOutMarketingSubscription(
+  params: MarketingSubscriptionParams
+): Promise<void> {
+  return AttentiveReactNativeSdk.optOutMarketingSubscription(
+    params?.email,
+    params?.phone
+  )
+}
+
 export {
   initialize,
   triggerCreative,
@@ -515,6 +556,9 @@ export {
   handleForegroundPush,
   handlePushOpen,
   getInitialPushNotification,
+  // Marketing Subscription Methods
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
 }
 
 export type {
@@ -530,4 +574,6 @@ export type {
   ApplicationState,
   PushNotificationUserInfo,
   PushRegistrationResult,
+  // Marketing Subscription Types
+  MarketingSubscriptionParams,
 }

@@ -779,6 +779,96 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     }
 
     // ==========================================================================
+    // MARK: - Marketing Subscription Methods
+    // ==========================================================================
+
+    /**
+     * Opts a user into marketing subscriptions via the callback variant of
+     * [AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback].
+     *
+     * Failures (missing contact info, missing push token, HTTP errors) are surfaced via
+     * [AttentiveSdk.AttentiveCallback.onFailure] and reject the promise. The SDK launches
+     * its own coroutine internally, so the bridge does not own a CoroutineScope.
+     *
+     * @param email Optional email address; the JS layer trims and rejects blanks before this call.
+     * @param phone Optional E.164 phone number; same trimming guarantee.
+     * @param promise Resolved with null on success; rejected with an error on failure.
+     */
+    override fun optInMarketingSubscription(email: String?, phone: String?, promise: Promise) {
+        Log.i(TAG, "📬 [AttentiveSDK] optInMarketingSubscription called (Android)")
+
+        AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback(
+            email = email.orEmpty(),
+            phoneNumber = phone.orEmpty(),
+            callback = object : AttentiveSdk.AttentiveCallback {
+                override fun onSuccess() {
+                    Log.i(TAG, "✅ [AttentiveSDK] optInMarketingSubscription succeeded")
+                    UiThreadUtil.runOnUiThread { promise.resolve(null) }
+
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf<String, Any>(
+                            "email" to (email ?: "nil"),
+                            "phone" to (phone ?: "nil"),
+                            "status" to "success",
+                        )
+                        UiThreadUtil.runOnUiThread {
+                            debugHelper.showDebugInfo("Marketing Subscription Opt-In", debugData)
+                        }
+                    }
+                }
+
+                override fun onFailure(exception: Exception) {
+                    Log.e(TAG, "❌ [AttentiveSDK] optInMarketingSubscription failed: ${exception.message}", exception)
+                    UiThreadUtil.runOnUiThread {
+                        promise.reject("OPT_IN_ERROR", exception.message ?: "Unknown error", exception)
+                    }
+                }
+            },
+        )
+    }
+
+    /**
+     * Opts a user out of marketing subscriptions via the callback variant of
+     * [AttentiveSdk.optUserOutOfMarketingSubscriptionWithCallback].
+     *
+     * @param email Optional email address; the JS layer trims and rejects blanks before this call.
+     * @param phone Optional E.164 phone number; same trimming guarantee.
+     * @param promise Resolved with null on success; rejected with an error on failure.
+     */
+    override fun optOutMarketingSubscription(email: String?, phone: String?, promise: Promise) {
+        Log.i(TAG, "📬 [AttentiveSDK] optOutMarketingSubscription called (Android)")
+
+        AttentiveSdk.optUserOutOfMarketingSubscriptionWithCallback(
+            email = email.orEmpty(),
+            phoneNumber = phone.orEmpty(),
+            callback = object : AttentiveSdk.AttentiveCallback {
+                override fun onSuccess() {
+                    Log.i(TAG, "✅ [AttentiveSDK] optOutMarketingSubscription succeeded")
+                    UiThreadUtil.runOnUiThread { promise.resolve(null) }
+
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf<String, Any>(
+                            "email" to (email ?: "nil"),
+                            "phone" to (phone ?: "nil"),
+                            "status" to "success",
+                        )
+                        UiThreadUtil.runOnUiThread {
+                            debugHelper.showDebugInfo("Marketing Subscription Opt-Out", debugData)
+                        }
+                    }
+                }
+
+                override fun onFailure(exception: Exception) {
+                    Log.e(TAG, "❌ [AttentiveSDK] optOutMarketingSubscription failed: ${exception.message}", exception)
+                    UiThreadUtil.runOnUiThread {
+                        promise.reject("OPT_OUT_ERROR", exception.message ?: "Unknown error", exception)
+                    }
+                }
+            },
+        )
+    }
+
+    // ==========================================================================
     // MARK: - NativeEventEmitter support
     // ==========================================================================
     // These stubs are required by React Native's NativeEventEmitter on the old

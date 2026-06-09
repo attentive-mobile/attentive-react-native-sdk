@@ -68,7 +68,7 @@ class MainActivity : ReactActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate: checking for initial push notification intent")
-        // handleNotificationIntent(intent, isInitialLaunch = true)
+        // TODO(MSDK-352): handle killed-state push tap intent here
     }
 
     /**
@@ -85,7 +85,7 @@ class MainActivity : ReactActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         Log.d(TAG, "onNewIntent: checking for push notification intent")
-        // handleNotificationIntent(intent, isInitialLaunch = false)
+        // TODO(MSDK-352): handle background-state push tap intent here
     }
 
     // -------------------------------------------------------------------------
