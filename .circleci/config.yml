@@ -1,0 +1,120 @@
+# CircleCI configuration for the React Native SDK
+# See: https://circleci.com/docs/reference/configuration-reference
+version: 2.1
+
+orbs:
+  slack: circleci/slack@6.1.3
+
+# ========================
+# Constants
+# ========================
+slack_channel_ci_alerts: &slack_channel_ci_alerts "eng-mobile-sdk-ci-alerts-rn"
+default_context: &default_context org-global
+
+# ========================
+# Executor
+# ========================
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:20.20
+    resource_class: medium
+
+# ========================
+# Commands (Reusable)
+# ========================
+commands:
+  notify-slack-on-failure:
+    description: "Send Slack notification on job failure"
+    steps:
+      - run:
+          name: Build Slack failure payload
+          when: on_fail
+          command: .circleci/slack-notify-failure.sh
+      - slack/notify:
+          channel: *slack_channel_ci_alerts
+          event: fail
+          custom: |
+            ${SLACK_FAILURE_PAYLOAD}
+
+# ========================
+# Jobs
+# ========================
+jobs:
+  # Check out the repo and install dependencies once, then hand the populated
+  # working directory (source + node_modules) to the downstream jobs via the
+  # workspace so they don't each repeat checkout + npm ci.
+  checkout-and-setup:
+    executor: node-executor
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - npm-v1-{{ checksum "package-lock.json" }}
+            - npm-v1-
+      - run:
+          name: Install Dependencies
+          command: npm ci
+      - save_cache:
+          key: npm-v1-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.npm
+      - persist_to_workspace:
+          root: .
+          paths:
+            - .
+      - notify-slack-on-failure
+
+  lint:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run ESLint
+          command: npm run lint
+      - notify-slack-on-failure
+
+  typecheck:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run TypeScript type check
+          command: npm run typecheck
+      - notify-slack-on-failure
+
+  unit-test:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Unit Tests with Coverage
+          command: npm test -- --coverage --ci
+      - store_artifacts:
+          path: coverage
+          destination: coverage-report
+      - notify-slack-on-failure
+
+# ========================
+# Workflows
+# ========================
+workflows:
+  lint-typecheck-test:
+    jobs:
+      - checkout-and-setup:
+          context: *default_context
+      - lint:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - typecheck:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - unit-test:
+          context: *default_context
+          requires:
+            - checkout-and-setup
