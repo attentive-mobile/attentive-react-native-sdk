@@ -44,7 +44,6 @@ jest.mock('react-native', () => ({
 }))
 
 // Retrieve a stable reference to the mock after jest.mock is evaluated.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const mockNativeModule =
   require('react-native').NativeModules.AttentiveReactNativeSdk
 

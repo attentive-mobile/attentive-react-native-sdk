@@ -1,53 +1,53 @@
 export type UserIdentifiers = {
-  phone?: string;
-  email?: string;
-  klaviyoId?: string;
-  shopifyId?: string;
-  clientUserId?: string;
-  customIdentifiers?: Record<string, string>;
-};
+  phone?: string
+  email?: string
+  klaviyoId?: string
+  shopifyId?: string
+  clientUserId?: string
+  customIdentifiers?: Record<string, string>
+}
 
 export type AttentiveSdkConfiguration = {
-  attentiveDomain: string;
-  mode: string; // "production" or "debug"
-  skipFatigueOnCreatives?: boolean;
-  enableDebugger?: boolean;
-};
+  attentiveDomain: string
+  mode: string // "production" or "debug"
+  skipFatigueOnCreatives?: boolean
+  enableDebugger?: boolean
+}
 
 // Codegen does not support nested objects inside of arrays. We must flatten the Item type.
 export type Item = {
-  productId: string;
-  productVariantId: string;
-  price: string;
-  currency: string;
-  productImage?: string;
-  name?: string;
-  quantity?: number;
-  category?: string;
-};
+  productId: string
+  productVariantId: string
+  price: string
+  currency: string
+  productImage?: string
+  name?: string
+  quantity?: number
+  category?: string
+}
 
 export type ProductView = {
-  items: Item[];
-  deeplink?: string;
-};
+  items: Item[]
+  deeplink?: string
+}
 
 // Codegen does not support nested objects. We must flatten the Purchase type.
 export type Purchase = {
-  items: Item[];
-  orderId: string;
-  cartId?: string;
-  cartCoupon?: string;
-};
+  items: Item[]
+  orderId: string
+  cartId?: string
+  cartCoupon?: string
+}
 
 export type AddToCart = {
-  items: Item[];
-  deeplink?: string;
-};
+  items: Item[]
+  deeplink?: string
+}
 
 export type CustomEvent = {
-  type: string;
-  properties: Record<string, string>;
-};
+  type: string
+  properties: Record<string, string>
+}
 
 /**
  * Push notification authorization status
@@ -58,27 +58,27 @@ export type PushAuthorizationStatus =
   | 'denied'
   | 'notDetermined'
   | 'provisional'
-  | 'ephemeral';
+  | 'ephemeral'
 
 /**
  * Application state when handling push notifications
  */
-export type ApplicationState = 'active' | 'inactive' | 'background';
+export type ApplicationState = 'active' | 'inactive' | 'background'
 
 /**
  * Push notification user info payload
  * Contains data from the remote notification
  */
-export type PushNotificationUserInfo = Record<string, unknown>;
+export type PushNotificationUserInfo = Record<string, unknown>
 
 /**
  * Result of registering for push notifications
  */
 export type PushRegistrationResult = {
-  success: boolean;
-  token?: string;
-  error?: string;
-};
+  success: boolean
+  token?: string
+  error?: string
+}
 
 /**
  * Parameters for marketing subscription opt-in and opt-out operations.
@@ -88,7 +88,7 @@ export type PushRegistrationResult = {
  */
 export interface MarketingSubscriptionParams {
   /** Email address to subscribe / unsubscribe */
-  email?: string;
+  email?: string
   /** E.164 phone number to subscribe / unsubscribe */
-  phone?: string;
+  phone?: string
 }
