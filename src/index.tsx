@@ -533,6 +533,14 @@ function optOutMarketingSubscription(
   )
 }
 
+/**
+ * Updates the current user's identifiers (email and/or phone).
+ *
+ * Forwards the call to the native SDK on each platform.
+ *
+ * @param params - Object containing optional `email` and/or `phone`
+ * @returns Promise that resolves on success or rejects with an error
+ */
 function updateUser(params: UpdateUserParams): Promise<void> {
   return AttentiveReactNativeSdk.updateUser(params?.email, params?.phone)
 }

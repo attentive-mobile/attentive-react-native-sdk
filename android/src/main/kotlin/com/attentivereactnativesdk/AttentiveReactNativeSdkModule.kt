@@ -868,6 +868,14 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         )
     }
 
+    /**
+     * Updates the current user's identifiers via the callback variant of
+     * [AttentiveSdk.updateUserWithCallback].
+     *
+     * @param email Optional email address for the user.
+     * @param phone Optional E.164 phone number for the user.
+     * @param promise Resolved with null on success; rejected with an error on failure.
+     */
     override fun updateUser(email: String?, phone: String?, promise: Promise) {
         Log.i(TAG, "👤 [AttentiveSDK] updateUser called")
 

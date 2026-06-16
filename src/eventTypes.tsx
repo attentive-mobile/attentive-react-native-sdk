@@ -93,7 +93,13 @@ export interface MarketingSubscriptionParams {
   phone?: string;
 }
 
+/**
+ * Parameters for the updateUser operation. Provide the email and/or
+ * E.164 phone number identifying the user to update.
+ */
 export interface UpdateUserParams {
-  email?: string
-  phone?: string
+  /** Email address to set for the user */
+  email?: string;
+  /** E.164 phone number to set for the user */
+  phone?: string;
 }
