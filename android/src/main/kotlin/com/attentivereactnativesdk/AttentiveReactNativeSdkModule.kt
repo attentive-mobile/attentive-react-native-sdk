@@ -868,6 +868,52 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         )
     }
 
+    override fun updateUser(email: String?, phone: String?, promise: Promise) {
+        Log.i(TAG, "👤 [AttentiveSDK] updateUser called")
+
+        AttentiveSdk.updateUserWithCallback(
+            email = email.orEmpty(),
+            phoneNumber = phone.orEmpty(),
+            callback = object : AttentiveSdk.AttentiveCallback {
+                override fun onSuccess() {
+                    Log.i(TAG, "✅ [AttentiveSDK] updateUser succeeded")
+                    UiThreadUtil.runOnUiThread { promise.resolve(null) }
+
+                    if (debugHelper.isDebuggingEnabled()) {
+                        val debugData = mutableMapOf(
+                            "email" to (email ?: "nil"),
+                            "phone" to (phone ?: "nil"),
+                            "status" to "success",
+                        )
+                        UiThreadUtil.runOnUiThread {
+                            debugHelper.showDebugInfo("Update User", debugData)
+                        }
+                    }
+                }
+
+                override fun onFailure(exception: Exception) {
+                    Log.e(TAG, "❌ [AttentiveSDK] updateUser failed: ${exception.message}", exception)
+
+                    val message = exception.message ?: "Unknown error"
+
+                    UiThreadUtil.runOnUiThread {
+                        promise.reject("UPDATE_USER_ERROR", message, exception)
+
+                        if (debugHelper.isDebuggingEnabled()) {
+                            val debugData = mapOf(
+                                "email" to (email ?: "nil"),
+                                "phone" to (phone ?: "nil"),
+                                "status" to "error",
+                                "error" to message,
+                            )
+                            debugHelper.showDebugInfo("Update User Error", debugData)
+                        }
+                    }
+                }
+            },
+        )
+    }
+
     // ==========================================================================
     // MARK: - NativeEventEmitter support
     // ==========================================================================

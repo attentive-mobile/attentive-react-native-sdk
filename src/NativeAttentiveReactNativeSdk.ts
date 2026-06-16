@@ -20,6 +20,10 @@ export interface Spec extends TurboModule {
     customIdentifiers?: Object
   ) => void
   clearUser: () => void
+  updateUser: (
+    email: string | undefined,
+    phone: string | undefined
+  ) => Promise<void>
   recordAddToCartEvent: (
     items: Array<{
       productId: string

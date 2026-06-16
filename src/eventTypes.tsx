@@ -92,3 +92,8 @@ export interface MarketingSubscriptionParams {
   /** E.164 phone number to subscribe / unsubscribe */
   phone?: string;
 }
+
+export interface UpdateUserParams {
+  email?: string
+  phone?: string
+}
