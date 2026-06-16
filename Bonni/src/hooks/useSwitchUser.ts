@@ -73,6 +73,8 @@ export function useSwitchUser(
         phone: trimmedPhone || undefined,
       })
       const label = [trimmedEmail, trimmedPhone].filter(Boolean).join(' / ')
+      setEmail('')
+      setPhone('')
       onSuccess?.(label)
     } catch (error) {
       onError?.(error instanceof Error ? error.message : 'User update failed')
