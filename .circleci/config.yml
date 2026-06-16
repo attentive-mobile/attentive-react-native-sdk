@@ -55,6 +55,14 @@ jobs:
       - run:
           name: Install Dependencies
           command: npm ci
+      # Build the SDK's lib/ output. Bonni (and any package-name consumer)
+      # resolves @attentive-mobile/attentive-react-native-sdk through the root
+      # package.json's main/types fields (lib/commonjs, lib/typescript), which
+      # only the `react-native` field skips in favor of src/. lib/ is gitignored,
+      # so without this step the Bonni typecheck/test jobs fail to resolve the SDK.
+      - run:
+          name: Build SDK
+          command: npm run build
       - save_cache:
           key: npm-v1-{{ checksum "package-lock.json" }}
           paths:

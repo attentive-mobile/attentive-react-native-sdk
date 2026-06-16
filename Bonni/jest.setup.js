@@ -30,17 +30,24 @@ const nativeModuleStub = () =>
 // bundles its own), so a NativeModules stub set here wouldn't reach it. Instead
 // mock the SDK's native-module file directly: it default-exports the native
 // module, and the public API (src/index.tsx) wraps that export. Stubbing it lets
-// the real JS wrappers run while the bridge calls become no-ops. Both import
-// styles used in Bonni — '../src' and '@attentive-mobile/attentive-react-native-sdk'
-// — resolve through this same file.
+// the real JS wrappers run while the bridge calls become no-ops.
+//
+// This only covers the '../src' import style (App.tsx). Imports by package name
+// — '@attentive-mobile/attentive-react-native-sdk', used by the screen hooks —
+// resolve through the file:.. symlink to the root package's main field
+// (lib/commonjs/index), whose own NativeAttentiveReactNativeSdk is a *different*
+// module this mock does not intercept. That path is covered instead by the
+// NativeModules stub below, which the built native-module file reads from.
 jest.mock('../src/NativeAttentiveReactNativeSdk', () => ({
   __esModule: true,
   default: nativeModuleStub(),
 }))
 
-// App.tsx builds `new NativeEventEmitter(NativeModules.AttentiveReactNativeSdk)`
-// against Bonni's own react-native copy, so stub that module here too (needs
-// addListener / removeListeners, which the proxy provides).
+// Covers two things: (1) App.tsx builds
+// `new NativeEventEmitter(NativeModules.AttentiveReactNativeSdk)` against Bonni's
+// own react-native copy (needs addListener / removeListeners, which the proxy
+// provides), and (2) the package-name import path above, whose built
+// NativeAttentiveReactNativeSdk reads the native module off NativeModules.
 NativeModules.AttentiveReactNativeSdk = nativeModuleStub()
 
 // AsyncStorage ships an official jest mock.
