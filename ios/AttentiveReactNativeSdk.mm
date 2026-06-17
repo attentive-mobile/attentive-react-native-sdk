@@ -447,6 +447,29 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     }];
 }
 
+- (void)updateUser:(NSString * _Nullable)email
+             phone:(NSString * _Nullable)phone
+           resolve:(RCTPromiseResolveBlock)resolve
+            reject:(RCTPromiseRejectBlock)reject {
+    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+
+    if (!_sdk) {
+        reject(@"UPDATE_USER_ERROR", @"SDK not initialized", nil);
+        return;
+    }
+
+    [_sdk updateUserWithEmail:normalizedEmail
+                        phone:normalizedPhone
+                   completion:^(NSError * _Nullable error) {
+        if (error) {
+            reject(@"UPDATE_USER_ERROR", error.localizedDescription, error);
+        } else {
+            resolve(nil);
+        }
+    }];
+}
+
 - (void)triggerCreative:(NSString *)creativeId {
   dispatch_async(dispatch_get_main_queue(), ^{
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];
@@ -485,4 +508,3 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 @end
-

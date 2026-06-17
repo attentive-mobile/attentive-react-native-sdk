@@ -170,8 +170,14 @@ destroyCreative();
 
 
 ### Identify the current user
+
+Use `identify` to **add or enrich** information about the **current** user. As you gather identifiers (client user ID, email, phone, etc.), pass them to Attentive via `identify`. Each identifier is optional, and you can call `identify` repeatedly as you learn more about the user — **multiple calls combine the identifiers** rather than replacing them. The more identifiers you provide, the better the SDK functions.
+
+`identify` only enriches the *current* user; it does **not** switch users. When a **different** user logs in on the same device, use [`updateUser`](#switch-the-current-user-updateuser) instead — it clears the previous user's identifiers first.
+
 ```typescript
-// Before loading the creative or sending events, if you have any user identifiers, they will need to be registered. Each identifier is optional. It is okay to skip this step if you have no identifiers about the user yet.
+// If you have any user identifiers, register them before loading the creative or
+// sending events. Each identifier is optional — skip this step if you have none yet.
 const identifiers: UserIdentifiers = {
   phone: '+15556667777',
   email: 'some_email@gmailfake.com',
@@ -183,7 +189,7 @@ const identifiers: UserIdentifiers = {
 identify(identifiers);
 ```
 
-The more identifiers that are passed to `identify`, the better the SDK will function. Here is the list of possible identifiers:
+Here is the list of possible identifiers:
 | Identifier Name    | Type                  | Description                                                                                                             |
 | ------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Client User ID     | String                | Your unique identifier for the user. This should be consistent across the user's lifetime. For example, a database id.  |
@@ -192,6 +198,33 @@ The more identifiers that are passed to `identify`, the better the SDK will func
 | Shopify ID         | String                | The users's Shopify ID                                                                                                  |
 | Klaviyo ID         | String                | The users's Klaviyo ID                                                                                                  |
 | Custom Identifiers | Map<String,String>    | Key-value pairs of custom identifier names and values. The values should be unique to this user.                        |
+
+Because identifiers accumulate, you can register them as they become available — later calls add to the set rather than overwriting it:
+
+```typescript
+identify({ email: 'theusersemail@gmail.com' });
+identify({ phone: '+15556667777' });
+// The SDK now has both identifiers:
+//   email: 'theusersemail@gmail.com'
+//   phone: '+15556667777'
+```
+
+### Switch the current user (`updateUser`)
+
+Use `updateUser` to **switch to a different user** on the same device — for example, when one user logs out and a different user logs in. At least one of `email` or `phone` must be provided.
+
+Calling `updateUser` automatically clears the identifiers previously associated with the current user — including detaching any push token from them — and associates the app with the new identifier(s) you provide, so all subsequent events and messages are attributed to the new user. It returns a `Promise` that resolves on success and rejects with an error on failure.
+
+```typescript
+try {
+  // Switch to a different user on the same device
+  await updateUser({ email: 'newuser@example.com', phone: '+15559876543' });
+} catch (error) {
+  // Handle the failure (e.g. surface an error to the user)
+}
+```
+
+> Use `updateUser` only when switching to a different user. To add or enrich identifiers for the **current** user, prefer `identify` (shown above).
 
 ### Load the Creative
 
@@ -228,21 +261,6 @@ recordPurchaseEvent(purchase);
 ```
 
 The process is similar for the other events. See [eventTypes.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/src/eventTypes.tsx) for all events.
-
-### Update the current user when new identifiers are available
-
-```typescript
-// If new identifiers are available for the user, register them
-identify({email: 'theusersemail@gmail.com'});
-```
-
-```typescript
-identify({email: 'theusersemail@gmail.com'});
-identify({phone: '+15556667777'});
-// The SDK will have these two identifiers:
-//   email: 'theusersemail@gmail.com'
-//   phone: '+15556667777'
-```
 
 ### Push Notifications (iOS and Android)
 

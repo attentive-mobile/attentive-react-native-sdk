@@ -12,6 +12,7 @@ import type {
   PushNotificationUserInfo,
   PushRegistrationResult,
   MarketingSubscriptionParams,
+  UpdateUserParams,
 } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
@@ -532,6 +533,18 @@ function optOutMarketingSubscription(
   )
 }
 
+/**
+ * Updates the current user's identifiers (email and/or phone).
+ *
+ * Forwards the call to the native SDK on each platform.
+ *
+ * @param params - Object containing optional `email` and/or `phone`
+ * @returns Promise that resolves on success or rejects with an error
+ */
+function updateUser(params: UpdateUserParams): Promise<void> {
+  return AttentiveReactNativeSdk.updateUser(params?.email, params?.phone)
+}
+
 export {
   initialize,
   triggerCreative,
@@ -559,6 +572,7 @@ export {
   // Marketing Subscription Methods
   optInMarketingSubscription,
   optOutMarketingSubscription,
+  updateUser,
 }
 
 export type {
@@ -576,4 +590,5 @@ export type {
   PushRegistrationResult,
   // Marketing Subscription Types
   MarketingSubscriptionParams,
+  UpdateUserParams,
 }

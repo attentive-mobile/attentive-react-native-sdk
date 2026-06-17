@@ -20,6 +20,20 @@ export interface Spec extends TurboModule {
     customIdentifiers?: Object
   ) => void
   clearUser: () => void
+  /**
+   * Updates the current user's identifiers (email and/or phone).
+   *
+   * On iOS, delegates to the native ATTNSDK's updateUser; on Android, calls
+   * AttentiveSdk.updateUserWithCallback.
+   *
+   * @param email - Optional email address
+   * @param phone - Optional E.164 phone number
+   * @returns Promise that resolves on success or rejects with an error
+   */
+  updateUser: (
+    email: string | undefined,
+    phone: string | undefined
+  ) => Promise<void>
   recordAddToCartEvent: (
     items: Array<{
       productId: string

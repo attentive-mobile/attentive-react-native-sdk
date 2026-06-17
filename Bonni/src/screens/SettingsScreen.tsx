@@ -27,6 +27,7 @@ import { useAttentiveActions } from '../hooks/useAttentiveActions'
 import { useAttentiveDomain } from '../hooks/useAttentiveDomain'
 import { useTextPrompt } from '../hooks/useTextPrompt'
 import { useMarketingSubscriptions } from '../hooks/useMarketingSubscriptions'
+import { useSwitchUser } from '../hooks/useSwitchUser'
 import {
   registerForPushNotifications,
   registerDeviceToken,
@@ -46,6 +47,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [deviceToken, setDeviceToken] = useState<string>('Not saved')
   const [currentUser, setCurrentUser] = useState<string>('Guest')
   const [responseModalVisible, setResponseModalVisible] = useState(false)
+  const [switchUserFormVisible, setSwitchUserFormVisible] = useState(false)
   const [responseData, setResponseData] = useState<string>('')
   const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true)
   const [displayAlerts, setDisplayAlerts] = useState<boolean>(true)
@@ -78,6 +80,35 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     handleOptInPhone,
     handleOptOutPhone,
   } = useMarketingSubscriptions(handleSubSuccess, handleSubError)
+  const handleSwitchUserSuccess = useCallback(
+    (label: string) => {
+      setCurrentUser(label)
+      setSwitchUserFormVisible(false)
+      if (displayAlerts) {
+        Alert.alert('Success', 'User update successful')
+      }
+    },
+    [displayAlerts]
+  )
+  const handleSwitchUserError = useCallback(
+    (message: string) => {
+      if (displayAlerts) {
+        Alert.alert('Error', message)
+      }
+    },
+    [displayAlerts]
+  )
+  const {
+    email: switchEmail,
+    phone: switchPhone,
+    emailError: switchEmailError,
+    phoneError: switchPhoneError,
+    isUpdating: isUpdatingUser,
+    setEmail: setSwitchEmail,
+    setPhone: setSwitchPhone,
+    clearErrors: clearSwitchUserErrors,
+    handleUpdateUser,
+  } = useSwitchUser(handleSwitchUserSuccess, handleSwitchUserError)
 
   // Load device token and configuration on mount
   useEffect(() => {
@@ -154,25 +185,22 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   }, [])
 
   const handleSwitchUser = useCallback(() => {
-    showScreenPrompt({
-      title: 'Switch Account',
-      message: 'Enter email or phone to identify a new user',
-      placeholder: 'email or phone',
-      confirmText: 'Identify',
-      cancelText: 'Log Out',
-      onConfirm: (value) => {
-        const isEmail = value.includes('@')
-        identifyUser(isEmail ? { email: value } : { phone: value })
-        setCurrentUser(value)
-        Alert.alert('Success', 'User identified!')
-      },
-      onCancel: () => {
-        clearUserIdentification()
-        setCurrentUser('Guest')
-        Alert.alert('Success', 'Logged out successfully')
-      },
-    })
-  }, [identifyUser, clearUserIdentification, showScreenPrompt])
+    setSwitchUserFormVisible((visible) => !visible)
+    clearSwitchUserErrors()
+  }, [clearSwitchUserErrors])
+
+  const handleCancelSwitchUser = useCallback(() => {
+    setSwitchUserFormVisible(false)
+    clearSwitchUserErrors()
+  }, [clearSwitchUserErrors])
+
+  const handleLogOut = useCallback(() => {
+    clearUserIdentification()
+    setCurrentUser('Guest')
+    if (displayAlerts) {
+      Alert.alert('Success', 'Logged out successfully')
+    }
+  }, [clearUserIdentification, displayAlerts])
 
   const handleManageAddresses = useCallback(() => {
     // TODO: Implement address management
@@ -388,7 +416,85 @@ The SDK will handle the API request internally.`
             onPress={handleSwitchUser}
           >
             {({ pressed }) => (
-              <Text style={getPrimaryButtonTextStyle(pressed)}>Switch Account / Log Out</Text>
+              <Text style={getPrimaryButtonTextStyle(pressed)}>Switch User</Text>
+            )}
+          </Pressable>
+
+          {switchUserFormVisible ? (
+            <View style={styles.switchUserInlineForm}>
+              <TextInput
+                style={[styles.input, isUpdatingUser && styles.inputDisabled]}
+                placeholder="name@example.com"
+                value={switchEmail}
+                onChangeText={setSwitchEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                editable={!isUpdatingUser}
+              />
+              {switchEmailError ? (
+                <Text style={styles.errorText}>{switchEmailError}</Text>
+              ) : null}
+
+              <TextInput
+                style={[styles.input, isUpdatingUser && styles.inputDisabled]}
+                placeholder="+15551234567"
+                value={switchPhone}
+                onChangeText={setSwitchPhone}
+                keyboardType="phone-pad"
+                autoCorrect={false}
+                editable={!isUpdatingUser}
+              />
+              {switchPhoneError ? (
+                <Text style={styles.errorText}>{switchPhoneError}</Text>
+              ) : null}
+
+              <View style={styles.switchUserActions}>
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.switchUserActionButton,
+                    getSecondaryButtonStyle(pressed),
+                    isUpdatingUser && styles.buttonDisabled,
+                  ]}
+                  onPress={handleCancelSwitchUser}
+                  disabled={isUpdatingUser}
+                >
+                  {({ pressed }) => (
+                    <Text style={getSecondaryButtonTextStyle(pressed)}>
+                      Cancel
+                    </Text>
+                  )}
+                </Pressable>
+
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.switchUserActionButton,
+                    getPrimaryButtonStyle(pressed),
+                    isUpdatingUser && styles.buttonDisabled,
+                  ]}
+                  onPress={handleUpdateUser}
+                  disabled={isUpdatingUser}
+                >
+                  {({ pressed }) =>
+                    isUpdatingUser ? (
+                      <ActivityIndicator size="small" color={Colors.white} />
+                    ) : (
+                      <Text style={getPrimaryButtonTextStyle(pressed)}>
+                        Update User
+                      </Text>
+                    )
+                  }
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
+          <Pressable
+            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            onPress={handleLogOut}
+          >
+            {({ pressed }) => (
+              <Text style={getSecondaryButtonTextStyle(pressed)}>Log Out</Text>
             )}
           </Pressable>
 
@@ -945,6 +1051,17 @@ const styles = StyleSheet.create({
   inputDisabled: {
     opacity: 0.5,
     backgroundColor: Colors.lightBackground,
+  },
+  switchUserInlineForm: {
+    marginBottom: Spacing.md,
+  },
+  switchUserActions: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+  },
+  switchUserActionButton: {
+    flex: 1,
   },
 })
 

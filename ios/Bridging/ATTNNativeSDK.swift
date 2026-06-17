@@ -616,6 +616,63 @@ struct DebugEvent {
     }
   }
 
+  @objc(updateUserWithEmail:phone:completion:)
+  public func updateUser(
+    email: String?,
+    phone: String?,
+    completion: @escaping (NSError?) -> Void
+  ) {
+    if debuggingEnabled {
+      showDebugInfo(event: "Update User Requested", data: [
+        "email": email ?? "nil",
+        "phone": phone ?? "nil"
+      ])
+    }
+
+    sdk.updateUser(email: email, phone: phone) { [weak self] _, _, response, error in
+      if let error = error {
+        completion(error as NSError)
+        if self?.debuggingEnabled == true {
+          self?.showDebugInfo(event: "Update User Failed", data: [
+            "email": email ?? "nil",
+            "phone": phone ?? "nil",
+            "status": "error",
+            "error": error.localizedDescription
+          ])
+        }
+        return
+      }
+
+      if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode >= 400 {
+        completion(NSError(
+          domain: "com.attentive.sdk",
+          code: httpResponse.statusCode,
+          userInfo: [NSLocalizedDescriptionKey: "Update user failed with HTTP \(httpResponse.statusCode)"]
+        ))
+
+        if self?.debuggingEnabled == true {
+          self?.showDebugInfo(event: "Update User Failed", data: [
+            "email": email ?? "nil",
+            "phone": phone ?? "nil",
+            "status": "http_error",
+            "httpStatusCode": "\(httpResponse.statusCode)"
+          ])
+        }
+        return
+      }
+
+      completion(nil)
+
+      if self?.debuggingEnabled == true {
+        self?.showDebugInfo(event: "Update User Success", data: [
+          "email": email ?? "nil",
+          "phone": phone ?? "nil",
+          "status": "success"
+        ])
+      }
+    }
+  }
+
   // MARK: - Push Notification Helpers
 
   private func hexStringToData(_ hexString: String) -> Data? {
