@@ -57,23 +57,11 @@ android {
 
 }
 
-//Properties ghProperties = new Properties()
-//File ghPropertiesFile = file("github.properties")
-//if (!ghPropertiesFile.exists()) {
-//  throw new GradleException('Could not find github.properties file.')
-//}
-//ghProperties.load(ghPropertiesFile.newDataInputStream())
-
 repositories {
+  // attentive-android-sdk is published to Maven Central (it's the latest release there),
+  // so mavenCentral() resolves it with no credentials. No GitHub Packages repo needed.
   mavenCentral()
   google()
-  maven {
-    url = uri("https://maven.pkg.github.com/attentive-mobile/attentive-android-sdk")
-    credentials {
-//      username = ghProperties.getProperty('gpr.user')
-//      password = ghProperties.getProperty('gpr.key')
-    }
-  }
 }
 
 

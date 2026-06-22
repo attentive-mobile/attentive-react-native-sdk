@@ -41,10 +41,16 @@ const AttentiveReactNativeSdk = (
 
 /**
  * Initialize the Attentive SDK with the provided configuration.
- * This is the only supported entry point: the app (e.g. Bonni) must call this from TypeScript
- * once at startup; the call is forwarded to the native module on each platform (iOS/Android),
- * which then initializes the platform Attentive SDK. Native code must not initialize the SDK
- * on its own (e.g. in Application onCreate or AppDelegate).
+ *
+ * Initialization is asymmetric across platforms:
+ * - **iOS:** call this once at startup (e.g. in the root component's `useEffect`). The call is
+ *   forwarded to the native module, which initializes the native iOS Attentive SDK.
+ * - **Android:** this call is a no-op. The Android SDK must be initialized in native code from
+ *   your `Application.onCreate()` via `AttentiveSdk.initialize(AttentiveConfig...)`, so that
+ *   lifecycle observers register on the main thread before the React Native bridge is ready.
+ *   See the README "Android — Initialize from Native Code" section.
+ *
+ * Calling this unconditionally is safe; it is harmless on Android.
  *
  * @param configuration - Configuration object for the Attentive SDK
  */
