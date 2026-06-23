@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import androidx.annotation.NonNull
 import androidx.annotation.Nullable
 import com.attentive.androidsdk.AttentiveConfig
+import com.attentive.androidsdk.AttentiveEventTracker
 import com.attentive.androidsdk.AttentiveSdk
 import com.attentive.androidsdk.UserIdentifiers
 import com.attentive.androidsdk.creatives.Creative
@@ -97,6 +98,38 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         )
     }
 
+    /**
+     * Returns the SDK's active [AttentiveConfig] — the one the host app installed via
+     * [AttentiveSdk.initialize] in Application.onCreate() — reached through the public
+     * [AttentiveEventTracker] handle so we operate on the *same* config the SDK uses (events, push,
+     * lifecycle), never a second divergent one. Returns null (logging, and surfacing [errorEvent] in
+     * the debugger) if the SDK has not been initialized yet, so callers no-op instead of crashing.
+     *
+     * @param errorEvent Debug-overlay label shown if the SDK is not initialized (e.g. "Identify Error").
+     */
+    private fun currentConfig(errorEvent: String): AttentiveConfig? {
+        return try {
+            AttentiveEventTracker.instance.config
+        } catch (e: Exception) {
+            // lateinit `config` throws UninitializedPropertyAccessException until the host app calls
+            // AttentiveSdk.initialize(); log the class so init issues are distinguishable.
+            Log.e(
+                TAG,
+                "$errorEvent — AttentiveSdk not initialized; call AttentiveSdk.initialize(config) in " +
+                    "Application.onCreate(). ${e.javaClass.simpleName}: ${e.message}"
+            )
+            if (debugHelper.isDebuggingEnabled()) {
+                UiThreadUtil.runOnUiThread {
+                    debugHelper.showDebugInfo(
+                        errorEvent,
+                        mapOf("error" to "AttentiveSdk not initialized in Application.onCreate()")
+                    )
+                }
+            }
+            null
+        }
+    }
+
     override fun triggerCreative(creativeId: String?) {
         Log.i(TAG, "Native Attentive module was called to trigger the creative.")
         try {
@@ -106,7 +139,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                     currentActivity.window.decorView.rootView as ViewGroup
                 // The following calls edit the view hierarchy so they must run on the UI thread
                 UiThreadUtil.runOnUiThread {
-                    creative = Creative(attentiveConfig!!, rootView, currentActivity)
+                    val config = currentConfig("Creative Error") ?: return@runOnUiThread
+                    creative = Creative(config, rootView, currentActivity)
                     creative?.trigger(null, creativeId)
                     if (debugHelper.isDebuggingEnabled()) {
                         val debugData = mutableMapOf<String, Any>()
@@ -134,7 +168,13 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     }
 
     override fun updateDomain(domain: String) {
-        attentiveConfig?.changeDomain(domain)
+        val config = currentConfig("Update Domain Error") ?: return
+        config.changeDomain(domain)
+        if (debugHelper.isDebuggingEnabled()) {
+            UiThreadUtil.runOnUiThread {
+                debugHelper.showDebugInfo("Domain Updated", mapOf("domain" to domain))
+            }
+        }
     }
 
     override fun clearUser() {
@@ -176,7 +216,20 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             idsBuilder.withCustomIdentifiers(customIds)
         }
 
-        attentiveConfig?.identify(idsBuilder.build())
+        val config = currentConfig("Identify Error") ?: return
+        config.identify(idsBuilder.build())
+
+        if (debugHelper.isDebuggingEnabled()) {
+            val debugData = mutableMapOf<String, Any>()
+            if (!phone.isNullOrEmpty()) debugData["phone"] = phone
+            if (!email.isNullOrEmpty()) debugData["email"] = email
+            if (!klaviyoId.isNullOrEmpty()) debugData["klaviyoId"] = klaviyoId
+            if (!shopifyId.isNullOrEmpty()) debugData["shopifyId"] = shopifyId
+            if (!clientUserId.isNullOrEmpty()) debugData["clientUserId"] = clientUserId
+            UiThreadUtil.runOnUiThread {
+                debugHelper.showDebugInfo("User Identified", debugData)
+            }
+        }
     }
 
     override fun recordProductViewEvent(items: ReadableArray, deeplink: String?) {
