@@ -98,6 +98,71 @@ jobs:
           destination: coverage-report
       - notify-slack-on-failure
 
+  # Bonni (the sample app) has its own toolchain and node_modules. Install them
+  # once on top of the shared workspace, then hand them to the Bonni checks below.
+  # The SDK's example/ app is intentionally excluded (it has no tests, mirroring
+  # iOS which excludes its Example app).
+  setup-bonni:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      # Build the SDK's lib/ output here rather than in checkout-and-setup so the
+      # SDK-only jobs (lint/typecheck/unit-test) don't wait on it -- they consume
+      # src/ via the package's `react-native` field. Bonni resolves the SDK by
+      # package name through main/types (lib/commonjs, lib/typescript), which is
+      # gitignored, so it must be built and persisted for the Bonni jobs below.
+      - run:
+          name: Build SDK
+          command: npm run build
+      - restore_cache:
+          keys:
+            - npm-bonni-v1-{{ checksum "Bonni/package-lock.json" }}
+            - npm-bonni-v1-
+      - run:
+          name: Install Bonni Dependencies
+          command: npm --prefix Bonni ci
+      - save_cache:
+          key: npm-bonni-v1-{{ checksum "Bonni/package-lock.json" }}
+          paths:
+            - ~/.npm
+      - persist_to_workspace:
+          root: .
+          paths:
+            - Bonni/node_modules
+            - lib
+      - notify-slack-on-failure
+
+  lint-bonni:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run ESLint (Bonni)
+          command: npm --prefix Bonni run lint
+      - notify-slack-on-failure
+
+  typecheck-bonni:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run TypeScript type check (Bonni)
+          command: npm --prefix Bonni run typecheck
+      - notify-slack-on-failure
+
+  test-bonni:
+    executor: node-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Run Unit Tests (Bonni)
+          command: npm --prefix Bonni test -- --ci
+      - notify-slack-on-failure
+
 # ========================
 # Workflows
 # ========================
@@ -118,3 +183,19 @@ workflows:
           context: *default_context
           requires:
             - checkout-and-setup
+      - setup-bonni:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - lint-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - typecheck-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - test-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni

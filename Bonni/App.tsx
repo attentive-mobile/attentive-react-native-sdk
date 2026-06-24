@@ -17,7 +17,6 @@ import {
   handlePushOpen,
   getPushAuthorizationStatus,
   registerForPushNotifications,
-  getInitialPushNotification,
   type AttentiveSdkConfiguration,
   type PushAuthorizationStatus,
   type PushNotificationUserInfo,
