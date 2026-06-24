@@ -45,7 +45,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         private const val PUSH_PERMISSION_REQUEST_CODE = 3901
     }
 
-    private var attentiveConfig: AttentiveConfig? = null
     private var creative: Creative? = null
     private val debugHelper: AttentiveDebugHelper
 
