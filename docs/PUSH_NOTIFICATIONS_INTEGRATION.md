@@ -248,7 +248,7 @@ if let sdk = AttentiveSDKManager.shared.sdk as? ATTNNativeSDK {
 If you prefer to avoid the React Native bridge entirely, you can use the Attentive iOS SDK directly. Note that this requires a separate initialization call in native code and may duplicate configuration.
 
 ```swift
-import attentive_ios_sdk
+import ATTNSDKFramework
 
 ATTNSDK.shared.registerDeviceToken(
     deviceToken,
