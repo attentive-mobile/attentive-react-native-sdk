@@ -100,10 +100,19 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
 
     /**
      * Returns the SDK's active [AttentiveConfig] — the one the host app installed via
-     * [AttentiveSdk.initialize] in Application.onCreate() — reached through the public
+     * [AttentiveSdk.initialize] in `Application.onCreate()` — reached through the public
      * [AttentiveEventTracker] handle so we operate on the *same* config the SDK uses (events, push,
-     * lifecycle), never a second divergent one. Returns null (logging, and surfacing [errorEvent] in
-     * the debugger) if the SDK has not been initialized yet, so callers no-op instead of crashing.
+     * lifecycle), never a second divergent one.
+     *
+     * Contract: the SDK must be initialized in `Application.onCreate()` (see [initialize]) before any
+     * bridge call. That happens-before the React Native bridge thread starts, so the config write is
+     * visible here. A host that instead initializes lazily / off the main thread (e.g. behind a
+     * consent gate) can race this read and briefly observe an uninitialized config — handled
+     * gracefully (returns null, logs, and surfaces [errorEvent] in the debugger), never a crash.
+     *
+     * Detection uses try/catch rather than `lateinit`'s `isInitialized`: that intrinsic needs the
+     * property's backing field, which Kotlin exposes only inside the declaring class, so it cannot be
+     * used on [AttentiveEventTracker]'s `config` from this module (public read access is not enough).
      *
      * @param errorEvent Debug-overlay label shown if the SDK is not initialized (e.g. "Identify Error").
      */
