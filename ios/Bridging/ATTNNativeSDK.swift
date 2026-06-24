@@ -7,7 +7,7 @@
 //
 
 import Foundation
-import attentive_ios_sdk
+import ATTNSDKFramework
 import UIKit
 import UserNotifications
 
