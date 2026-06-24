@@ -99,7 +99,7 @@ export interface MarketingSubscriptionParams {
  */
 export interface UpdateUserParams {
   /** Email address to set for the user */
-  email?: string;
+  email?: string
   /** E.164 phone number to set for the user */
-  phone?: string;
+  phone?: string
 }
