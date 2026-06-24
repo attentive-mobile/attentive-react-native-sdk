@@ -55,7 +55,7 @@ Do not invent a domain. Always initialize in `'debug'` mode for first-time integ
 
 Before editing anything, determine:
 
-1. **Is this a React Native app?** Confirm `react-native` is in the host `package.json` dependencies. The SDK requires **React Native >= 0.74**, Node >= 18, and (for iOS) Ruby >= 3.3 / CocoaPods ~> 1.16 / Xcode >= 15. For Android: Android SDK API 24+ and JDK 17.
+1. **Is this a React Native app?** Confirm `react-native` is in the host `package.json` dependencies. The SDK requires **React Native >= 0.74**, Node >= 18, and (for iOS) Ruby >= 3.3 / CocoaPods ~> 1.16 / Xcode >= 15. For Android: **Android SDK API 26+** and JDK 17. The wrapped Attentive Android SDK supports **API 26+** — it will build below 26 but its functionality **no-ops at runtime**, so if the host's `minSdkVersion` is below 26, warn the user that Attentive will silently do nothing for users on API 25 and below.
 2. **Bare React Native or Expo?** This SDK ships native modules, so it is **not compatible with Expo Go**. A plain (bare) React Native app is fine. An Expo app must use a development build / config plugin prebuild (i.e. it must have `ios/` and `android/` native directories). If the project is Expo *managed* with no native projects and the user won't prebuild, **stop and tell the user** — you cannot complete the native steps without the native projects.
 3. **Package manager**: detect from the lockfile (`package-lock.json` → npm, `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm). Use the matching install command.
 4. **iOS project**: confirm an `ios/` directory with a `Podfile` (and a `Podfile` referencing `use_native_modules!` / autolinking, which RN apps have by default).
