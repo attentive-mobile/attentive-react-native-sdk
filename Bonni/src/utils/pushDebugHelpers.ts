@@ -25,7 +25,7 @@ export async function checkPushPermissions(): Promise<void> {
             console.log('   Sound:', permissions.sound ? '✅' : '❌')
             console.log('   Lock Screen:', permissions.lockScreen ? '✅' : '❌')
             console.log('   Notification Center:', permissions.notificationCenter ? '✅' : '❌')
-            console.log('   Critical Alert:', permissions.criticalAlert ? '✅' : '❌')
+            console.log('   Critical Alert:', permissions.critical ? '✅' : '❌')
             console.log('   Authorization Status:', permissions.authorizationStatus)
             
             resolve()

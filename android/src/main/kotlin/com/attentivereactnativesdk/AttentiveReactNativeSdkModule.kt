@@ -186,8 +186,41 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Clears the current user on logout. Routes to [AttentiveSdk.clearUser] (not the deprecated
+     * [AttentiveConfig.clearUser], which only clears local state) so the backend also detaches the
+     * push token from the prior user. On failure (e.g. the SDK was not initialized via
+     * [AttentiveSdk.initialize] in Application.onCreate()) it logs and surfaces a "Clear User Error"
+     * debug overlay rather than crashing.
+     */
     override fun clearUser() {
-        attentiveConfig?.clearUser()
+        try {
+            AttentiveSdk.clearUser()
+        } catch (e: Exception) {
+            // Include the exception class so an uninitialized SDK (IllegalStateException /
+            // UninitializedPropertyAccessException) is distinguishable from other failures.
+            Log.e(
+                TAG,
+                "clearUser failed — is AttentiveSdk.initialize() called in Application.onCreate()? " +
+                    "${e.javaClass.simpleName}: ${e.message}",
+                e
+            )
+            if (debugHelper.isDebuggingEnabled()) {
+                UiThreadUtil.runOnUiThread {
+                    debugHelper.showDebugInfo(
+                        "Clear User Error",
+                        mapOf("action" to "clearUser", "error" to (e.message ?: e.javaClass.simpleName))
+                    )
+                }
+            }
+            return
+        }
+
+        if (debugHelper.isDebuggingEnabled()) {
+            UiThreadUtil.runOnUiThread {
+                debugHelper.showDebugInfo("User Cleared", mapOf("action" to "clearUser"))
+            }
+        }
     }
 
     override fun identify(
