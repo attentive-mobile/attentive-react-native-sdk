@@ -4,20 +4,50 @@ version: 2.1
 
 orbs:
   slack: circleci/slack@6.1.3
+  github-cli: circleci/github-cli@2.7.2
+  attentive: attentive-mobile/circleci-orb@0.0.11
+
+# ========================
+# Pipeline parameters
+# ========================
+# These are false/empty for normal push & PR builds. The release pipeline is
+# triggered via the CircleCI API from the GitHub Actions "Release" workflow,
+# which sets run_release=true plus the release inputs. Mirrors the iOS/Android
+# SDK release pipelines.
+parameters:
+  run_release:
+    type: boolean
+    default: false
+  release_version:
+    type: string
+    default: ""
+  is_prerelease:
+    type: string
+    default: "false"
+  release_notes:
+    type: string
+    default: ""
 
 # ========================
 # Constants
 # ========================
 slack_channel_ci_alerts: &slack_channel_ci_alerts "eng-mobile-sdk-ci-alerts-rn"
+slack_channel_releases: &slack_channel_releases "eng-mobile-sdk-releases"
 default_context: &default_context org-global
 
 # ========================
-# Executor
+# Executors
 # ========================
 executors:
   node-executor:
     docker:
       - image: cimg/node:20.20
+    resource_class: medium
+  # npm Trusted Publishing (OIDC) requires npm >= 11.5.1 and Node >= 22.14.0,
+  # so the release job runs on a newer image than the rest of the pipeline.
+  node-release-executor:
+    docker:
+      - image: cimg/node:22.14.0
     resource_class: medium
 
 # ========================
@@ -36,6 +66,21 @@ commands:
           event: fail
           custom: |
             ${SLACK_FAILURE_PAYLOAD}
+
+  notify-slack-on-release-success:
+    description: "Announce a successful SDK release to #eng-mobile-sdk-releases"
+    steps:
+      - run:
+          name: Build Slack release payload
+          command: .circleci/slack-notify-release.sh
+      - slack/notify:
+          channel: *slack_channel_releases
+          # `pass` (not `always`): only announce a release when the job actually
+          # succeeded. `always` would also fire on a post-publish failure and
+          # double-post alongside notify-slack-on-failure.
+          event: pass
+          custom: |
+            ${SLACK_RELEASE_PAYLOAD}
 
 # ========================
 # Jobs
@@ -163,11 +208,122 @@ jobs:
           command: npm --prefix Bonni test -- --ci
       - notify-slack-on-failure
 
+  # -----------------------
+  # Release SDK to npm
+  # -----------------------
+  # Runs only in the release-sdk workflow (run_release=true), after all
+  # validation jobs pass. Drives the existing release-it config: bump version,
+  # regenerate CHANGELOG.md, tag, GitHub Release, and publish to npm via Trusted
+  # Publishing (OIDC -- no NPM_TOKEN). Then opens a version-bump PR to main.
+  release:
+    executor: node-release-executor
+    steps:
+      - run:
+          name: Export release params to env (for git + Slack steps)
+          command: |
+            echo "export RELEASE_VERSION='<< pipeline.parameters.release_version >>'" >> "$BASH_ENV"
+            echo "export IS_PRERELEASE='<< pipeline.parameters.is_prerelease >>'" >> "$BASH_ENV"
+      # Mint a short-lived GitHub App token (attentive-mobile-sdk[bot]) so we can
+      # clone with write access and let release-it push the tag/branch + create
+      # the GitHub Release. API-triggered pipelines don't get a write-capable
+      # checkout by default, so we clone manually with the App token (mirrors iOS).
+      - attentive/app-based-github-token:
+          github_app_client_id: ${GITHUB_APP_CLIENT_ID}
+          github_app_private_key_base64: ${GITHUB_APP_PRIVATE_KEY_BASE64}
+          github_app_installation_id: ${GITHUB_APP_INSTALLATION_ID}
+      - github-cli/setup
+      - run:
+          name: Checkout main via GitHub App token
+          command: |
+            AUTH_HEADER="http.https://github.com/.extraheader=Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
+            git -c "${AUTH_HEADER}" clone --filter=blob:none \
+              "https://github.com/attentive-mobile/attentive-react-native-sdk.git" .
+            git -c "${AUTH_HEADER}" fetch --filter=blob:none origin "${CIRCLE_SHA1}"
+            git checkout "${CIRCLE_SHA1}"
+            # Persist the auth header locally so release-it's pushes are authenticated.
+            git config --local --replace-all \
+              "http.https://github.com/.extraheader" \
+              "Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
+            git config --local user.name "attentive-mobile-sdk[bot]"
+            git config --local user.email "attentive-mobile-sdk[bot]@users.noreply.github.com"
+      - run:
+          name: Ensure npm >= 11.5.1 (required for OIDC Trusted Publishing)
+          command: |
+            npm install -g npm@^11.5.1
+            node -v && npm -v
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - run:
+          name: Release SDK (release-it + npm Trusted Publishing)
+          command: |
+            set -euo pipefail
+            VERSION="<< pipeline.parameters.release_version >>"
+            IS_PRERELEASE="<< pipeline.parameters.is_prerelease >>"
+            if [ -z "${VERSION}" ]; then
+              echo "release_version is required" >&2
+              exit 1
+            fi
+
+            # Cut a release branch; the version-bump commit + CHANGELOG land here
+            # and are PR'd to main (mirrors iOS/Android -- we never push to a
+            # protected main directly).
+            git checkout -b "release/${VERSION}"
+            git push -u origin "release/${VERSION}"
+
+            # npm Trusted Publishing: exchange a CircleCI OIDC token for a
+            # short-lived npm publish credential. No NPM_TOKEN/OTP involved.
+            export NPM_ID_TOKEN=$(circleci run oidc get --claims '{"aud": "npm:registry.npmjs.org"}')
+
+            RELEASE_ARGS="${VERSION} --ci"
+            if [ "${IS_PRERELEASE}" = "true" ]; then
+              RELEASE_ARGS="${RELEASE_ARGS} --github.preRelease --npm.tag=beta"
+            fi
+            npx release-it ${RELEASE_ARGS}
+      - run:
+          name: Open version-bump PR to main
+          # NON-FATAL by design: release-it has already published to npm
+          # (irreversible) before this step runs, so a PR hiccup must never fail
+          # an otherwise-successful release. No `set -e`; always exit 0.
+          command: |
+            set -uo pipefail
+            VERSION="<< pipeline.parameters.release_version >>"
+            IS_PRERELEASE="<< pipeline.parameters.is_prerelease >>"
+            if [ "${IS_PRERELEASE}" = "true" ]; then
+              echo "Prerelease -- skipping PR to main (mirrors iOS/Android)."
+              exit 0
+            fi
+            # Create the PR first so it always exists, then assign the reviewer
+            # separately (best-effort) -- a reviewer-access issue must not block
+            # the PR. Uses the team-mobile-sdk team (mirrors iOS's team_reviewers),
+            # which is stable vs individual reviewers that can lose access.
+            # Merge with a MERGE COMMIT (not squash) so the release tag stays
+            # reachable from main -- a squash orphans the tag and breaks the next
+            # release's changelog range.
+            PR_URL=$(gh pr create \
+              --base main \
+              --head "release/${VERSION}" \
+              --title "chore: release ${VERSION}" \
+              --body "Automated version bump + CHANGELOG for \`${VERSION}\` (already published to npm by CI). **Merge with a merge commit, not squash**, so the \`${VERSION}\` tag stays reachable from main.")
+            if [ -n "${PR_URL}" ]; then
+              echo "Opened bump PR: ${PR_URL}"
+              gh pr edit "${PR_URL}" --add-reviewer attentive-mobile/team-mobile-sdk \
+                || echo "::warning::Could not assign team-mobile-sdk as reviewer; add reviewers manually on ${PR_URL}"
+            else
+              echo "::warning::gh pr create failed. ${VERSION} is ALREADY published to npm + tagged; open the bump PR manually from the release/${VERSION} branch to bring main up to date."
+            fi
+            exit 0
+      - notify-slack-on-release-success
+      - notify-slack-on-failure
+
 # ========================
 # Workflows
 # ========================
 workflows:
+  # Normal CI: runs on every push/PR. Disabled during a release pipeline.
   lint-typecheck-test:
+    when:
+      not: << pipeline.parameters.run_release >>
     jobs:
       - checkout-and-setup:
           context: *default_context
@@ -199,3 +355,49 @@ workflows:
           context: *default_context
           requires:
             - setup-bonni
+
+  # Release: triggered via the CircleCI API from the GitHub Actions "Release"
+  # workflow (run_release=true). Runs the full validation suite as gates, then
+  # publishes. Never publishes a build that failed lint/typecheck/tests.
+  release-sdk:
+    when: << pipeline.parameters.run_release >>
+    jobs:
+      - checkout-and-setup:
+          context: *default_context
+      - lint:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - typecheck:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - unit-test:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - setup-bonni:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - lint-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - typecheck-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - test-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - release:
+          context: *default_context
+          requires:
+            - lint
+            - typecheck
+            - unit-test
+            - lint-bonni
+            - typecheck-bonni
+            - test-bonni
