@@ -23,6 +23,10 @@ on:
 
 jobs:
   trigger-release:
+    # Only allow releases to be dispatched from main. This prevents an operator
+    # from running "Release SDK" against a feature branch and publishing unmerged
+    # code to npm, bypassing the main-branch review path.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - name: Validate version format
