@@ -46,7 +46,7 @@ jobs:
             --arg notes "$RELEASE_NOTES" \
             --arg is_prerelease "${{ inputs.is_prerelease }}" \
             '{
-              branch: "${{ github.ref_name }}",
+              branch: "main",
               parameters: {
                 run_release: true,
                 release_version: $version,
