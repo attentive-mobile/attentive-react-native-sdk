@@ -27,6 +27,9 @@ Run `npm install @attentive-mobile/attentive-react-native-sdk` from your app's r
 
 ## Setup with an AI coding agent
 
+> [!WARNING]
+> **Experimental.** Agent-assisted setup is a new, experimental feature. The [`AGENTS.md`](./AGENTS.md) guide and this flow may change, and results can vary by agent and project. Review whatever the agent changes before committing, and fall back to the manual steps below if anything looks off.
+
 If you use Claude Code, Cursor, Copilot, Codex, or another AI coding agent, you can have the agent walk you through setup. Point it at [`AGENTS.md`](./AGENTS.md) in this repo — it's a step-by-step integration guide written for agents that handles the npm install, iOS `pod install` + TypeScript `initialize()`, and the **native** Android initialization in `MainApplication.onCreate()`.
 
 **To trigger the flow**, open your project in your agent of choice and paste:
