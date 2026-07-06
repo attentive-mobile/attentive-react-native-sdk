@@ -6,6 +6,8 @@ orbs:
   slack: circleci/slack@6.1.3
   github-cli: circleci/github-cli@2.7.2
   attentive: attentive-mobile/circleci-orb@0.0.11
+  macos: circleci/macos@2
+  aws-cli: circleci/aws-cli@4.0.0
 
 # ========================
 # Pipeline parameters
@@ -27,6 +29,11 @@ parameters:
   release_notes:
     type: string
     default: ""
+  # Set true by the GitHub Actions "Deploy TestFlight" workflow to build + upload the
+  # Bonni app to TestFlight without cutting an SDK release. Mirrors the iOS SDK pipeline.
+  run_testflight_deploy:
+    type: boolean
+    default: false
 
 # ========================
 # Constants
@@ -49,6 +56,18 @@ executors:
     docker:
       - image: cimg/node:22.14.0
     resource_class: medium
+  # macOS runner for building/signing/uploading the Bonni iOS app to TestFlight.
+  # Xcode 26.1.1 + m4pro.medium match the native iOS SDK pipeline (and the Bonni
+  # Podfile's fmt C++17 / Xcode 26 workaround).
+  macos-xcode:
+    macos:
+      xcode: "26.1.1"
+    resource_class: m4pro.medium
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      FASTLANE_SKIP_UPDATE_CHECK: "YES"
+      LC_ALL: "en_US.UTF-8"
+      LANG: "en_US.UTF-8"
 
 # ========================
 # Commands (Reusable)
@@ -81,6 +100,23 @@ commands:
           event: pass
           custom: |
             ${SLACK_RELEASE_PAYLOAD}
+
+  notify-slack-on-testflight-success:
+    description: "Announce a successful Bonni TestFlight upload to #eng-mobile-sdk-releases"
+    steps:
+      - slack/notify:
+          channel: *slack_channel_releases
+          event: pass
+          custom: |
+            {
+              "blocks": [
+                { "type": "header", "text": { "type": "plain_text", "text": "✅ Bonni TestFlight Build Deployed", "emoji": true } },
+                { "type": "section", "fields": [
+                  { "type": "mrkdwn", "text": "*Build:*\n${TESTFLIGHT_BUILD_NUMBER}" },
+                  { "type": "mrkdwn", "text": "*Branch:*\n${CIRCLE_BRANCH}" }
+                ] }
+              ]
+            }
 
 # ========================
 # Jobs
@@ -316,14 +352,102 @@ jobs:
       - notify-slack-on-release-success
       - notify-slack-on-failure
 
+  # -----------------------
+  # Deploy Bonni to TestFlight (iOS)
+  # -----------------------
+  # macOS job: builds + signs the Bonni RN app and uploads it to TestFlight via fastlane.
+  # Runs only in the deploy-testflight workflow (run_testflight_deploy=true); skipped for
+  # prereleases. Self-contained (build + upload in one job) to avoid passing the IPA + gems
+  # + repo across macOS jobs. Mirrors the iOS SDK's build_bonni_release + deploy_testflight.
+  deploy-bonni-testflight:
+    executor: macos-xcode
+    steps:
+      - run:
+          name: Check prerelease
+          command: echo "is_prerelease=<< pipeline.parameters.is_prerelease >>"
+      - unless:
+          condition:
+            equal: ["true", << pipeline.parameters.is_prerelease >>]
+          steps:
+            # API-triggered pipelines don't get a write-capable checkout by default; clone
+            # with the GitHub App token (read is enough here, but keeps parity with release).
+            - attentive/app-based-github-token:
+                github_app_client_id: ${GITHUB_APP_CLIENT_ID}
+                github_app_private_key_base64: ${GITHUB_APP_PRIVATE_KEY_BASE64}
+                github_app_installation_id: ${GITHUB_APP_INSTALLATION_ID}
+            - run:
+                name: Checkout via GitHub App token
+                command: |
+                  AUTH_HEADER="http.https://github.com/.extraheader=Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
+                  git -c "${AUTH_HEADER}" clone --filter=blob:none \
+                    "https://github.com/attentive-mobile/attentive-react-native-sdk.git" .
+                  git -c "${AUTH_HEADER}" fetch --filter=blob:none origin "${CIRCLE_SHA1}"
+                  git checkout "${CIRCLE_SHA1}"
+            # Temporary AWS creds (OIDC) so fastlane match can read certs/profiles from S3.
+            - aws-cli/setup:
+                region: AWS_REGION
+                role_arn: $AWS_ROLE_ARN
+                role_session_name: $CIRCLE_JOB-<< pipeline.number >>
+            - macos/switch-ruby:
+                version: "3.3"
+            - run:
+                name: Select Node 20 (RN toolchain)
+                command: |
+                  export NVM_DIR="$HOME/.nvm"
+                  # shellcheck disable=SC1090
+                  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+                  nvm install 20
+                  nvm alias default 20
+                  # Persist the selected node on PATH for later steps.
+                  echo "export NVM_DIR=$NVM_DIR" >> "$BASH_ENV"
+                  echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 20 >/dev/null' >> "$BASH_ENV"
+                  node -v && npm -v
+            - run:
+                name: Install SDK deps + build lib/
+                # Bonni resolves the SDK via `file:..`; its gitignored lib/ must be built first.
+                command: |
+                  npm ci
+                  npm run build
+            - run:
+                name: Install Bonni JS deps
+                command: npm --prefix Bonni ci
+            - run:
+                name: Install Ruby gems (fastlane + cocoapods)
+                command: |
+                  cd Bonni
+                  bundle config set --local path 'vendor/bundle'
+                  bundle install
+            - run:
+                name: Install Pods
+                command: |
+                  cd Bonni/ios
+                  bundle exec pod install
+            - run:
+                name: Build Bonni release IPA (fastlane match + gym)
+                command: |
+                  cd Bonni/ios
+                  bundle exec fastlane build_bonni_release
+            - run:
+                name: Upload to TestFlight (fastlane pilot)
+                command: |
+                  cd Bonni/ios
+                  bundle exec fastlane deploy_testflight
+            - store_artifacts:
+                path: Bonni/ios/build
+                destination: bonni-ios
+            - notify-slack-on-testflight-success
+            - notify-slack-on-failure
+
 # ========================
 # Workflows
 # ========================
 workflows:
-  # Normal CI: runs on every push/PR. Disabled during a release pipeline.
+  # Normal CI: runs on every push/PR. Disabled during a release or TestFlight pipeline.
   lint-typecheck-test:
     when:
-      not: << pipeline.parameters.run_release >>
+      and:
+        - not: << pipeline.parameters.run_release >>
+        - not: << pipeline.parameters.run_testflight_deploy >>
     jobs:
       - checkout-and-setup:
           context: *default_context
@@ -401,3 +525,12 @@ workflows:
             - lint-bonni
             - typecheck-bonni
             - test-bonni
+
+  # Deploy Bonni to TestFlight: triggered via the CircleCI API from the GitHub Actions
+  # "Deploy TestFlight" workflow (run_testflight_deploy=true). Builds + uploads the Bonni
+  # app; does not cut an SDK release.
+  deploy-testflight:
+    when: << pipeline.parameters.run_testflight_deploy >>
+    jobs:
+      - deploy-bonni-testflight:
+          context: *default_context
