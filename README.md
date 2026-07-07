@@ -25,8 +25,21 @@ This project uses **npm** as the preferred package manager for consistency and a
 
 Run `npm install @attentive-mobile/attentive-react-native-sdk` from your app's root directory.
 
+## Setup with an AI coding agent
+
+> [!WARNING]
+> **Experimental.** Agent-assisted setup is a new, experimental feature. The [`AGENTS.md`](./AGENTS.md) guide and this flow may change, and results can vary by agent and project. Review whatever the agent changes before committing, and fall back to the manual steps below if anything looks off.
+
+If you use Claude Code, Cursor, Copilot, Codex, or another AI coding agent, you can have the agent walk you through setup. Point it at [`AGENTS.md`](./AGENTS.md) in this repo — it's a step-by-step integration guide written for agents that handles the npm install, iOS `pod install` + TypeScript `initialize()`, and the **native** Android initialization in `MainApplication.onCreate()`.
+
+**To trigger the flow**, open your project in your agent of choice and paste:
+
+> Integrate the Attentive React Native SDK into this app. Follow the guide at https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/AGENTS.md top-to-bottom and ask me any questions it tells you to ask before writing code.
+
+The agent flow intentionally stops at base integration. It does **not** wire up identify/clearUser, event recording, Creatives, marketing subscriptions, or push notifications — see the sections below for those.
+
 ## Usage
-See the [Example Project](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/example)
+See the [Bonni example app](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/Bonni)
 for a sample of how the Attentive React Native SDK is used.
 
 __*** NOTE: Please refrain from using any private or undocumented classes or methods as they may change between releases. ***__
