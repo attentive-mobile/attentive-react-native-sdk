@@ -456,8 +456,12 @@ jobs:
           name: Skip unless Bonni versionCode changed
           command: |
             CURRENT=$(grep -E "versionCode\s+[0-9]+" Bonni/android/app/build.gradle | grep -oE "[0-9]+" | head -1)
-            git fetch origin "$CIRCLE_BRANCH" >/dev/null 2>&1 || true
-            PREVIOUS=$(git show "origin/${CIRCLE_BRANCH}^:Bonni/android/app/build.gradle" 2>/dev/null | grep -E "versionCode\s+[0-9]+" | grep -oE "[0-9]+" | head -1 || echo "")
+            # Compare against the parent of THIS pipeline's commit ($CIRCLE_SHA1~1), which is
+            # immutable, rather than the live-moving origin/$CIRCLE_BRANCH^: a concurrent push to
+            # main between trigger and this step could advance the branch ref onto our own commit,
+            # making a real versionCode bump read as "unchanged" and silently halting the upload.
+            # The full git history is present here (checkout-and-setup persists .git), so no fetch.
+            PREVIOUS=$(git show "${CIRCLE_SHA1}~1:Bonni/android/app/build.gradle" 2>/dev/null | grep -E "versionCode\s+[0-9]+" | grep -oE "[0-9]+" | head -1 || echo "")
             echo "Bonni versionCode: previous='${PREVIOUS}' current='${CURRENT}'"
             if [ "$CURRENT" = "$PREVIOUS" ]; then
               echo "versionCode unchanged -- skipping Bonni distribution."
@@ -539,8 +543,15 @@ workflows:
       # when its versionCode was bumped. The job itself self-halts if it wasn't.
       - distribute-bonni-android:
           context: *default_context
+          # Gate on the full validation suite (same as release / deploy-bonni-testflight) so a
+          # Bonni build that fails CI can't ship to Firebase testers on a versionCode bump.
           requires:
-            - setup-bonni
+            - lint
+            - typecheck
+            - unit-test
+            - lint-bonni
+            - typecheck-bonni
+            - test-bonni
           filters:
             branches:
               only: main
