@@ -362,87 +362,83 @@ jobs:
   # Deploy Bonni to TestFlight (iOS)
   # -----------------------
   # macOS job: builds + signs the Bonni RN app and uploads it to TestFlight via fastlane.
-  # Runs only in the deploy-testflight workflow (run_testflight_deploy=true); skipped for
-  # prereleases. Self-contained (build + upload in one job) to avoid passing the IPA + gems
-  # + repo across macOS jobs. Mirrors the iOS SDK's build_bonni_release + deploy_testflight.
+  # Runs only in the deploy-testflight workflow (run_testflight_deploy=true), after the
+  # validation jobs pass. Self-contained (build + upload in one job) to avoid passing the
+  # IPA + gems + repo across macOS jobs. Mirrors the iOS SDK's build_bonni_release +
+  # deploy_testflight lanes. (No is_prerelease guard: this workflow is only ever triggered
+  # by the Deploy TestFlight GitHub Action, which never sets is_prerelease -- a guard here
+  # would be dead code that could silently no-op the whole job while reporting success.)
   deploy-bonni-testflight:
     executor: macos-xcode
     steps:
+      # API-triggered pipelines don't get a write-capable checkout by default; clone
+      # with the GitHub App token (read is enough here, but keeps parity with release).
+      - attentive/app-based-github-token:
+          github_app_client_id: ${GITHUB_APP_CLIENT_ID}
+          github_app_private_key_base64: ${GITHUB_APP_PRIVATE_KEY_BASE64}
+          github_app_installation_id: ${GITHUB_APP_INSTALLATION_ID}
       - run:
-          name: Check prerelease
-          command: echo "is_prerelease=<< pipeline.parameters.is_prerelease >>"
-      - unless:
-          condition:
-            equal: ["true", << pipeline.parameters.is_prerelease >>]
-          steps:
-            # API-triggered pipelines don't get a write-capable checkout by default; clone
-            # with the GitHub App token (read is enough here, but keeps parity with release).
-            - attentive/app-based-github-token:
-                github_app_client_id: ${GITHUB_APP_CLIENT_ID}
-                github_app_private_key_base64: ${GITHUB_APP_PRIVATE_KEY_BASE64}
-                github_app_installation_id: ${GITHUB_APP_INSTALLATION_ID}
-            - run:
-                name: Checkout via GitHub App token
-                command: |
-                  AUTH_HEADER="http.https://github.com/.extraheader=Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
-                  git -c "${AUTH_HEADER}" clone --filter=blob:none \
-                    "https://github.com/attentive-mobile/attentive-react-native-sdk.git" .
-                  git -c "${AUTH_HEADER}" fetch --filter=blob:none origin "${CIRCLE_SHA1}"
-                  git checkout "${CIRCLE_SHA1}"
-            # Temporary AWS creds (OIDC) so fastlane match can read certs/profiles from S3.
-            - aws-cli/setup:
-                region: AWS_REGION
-                role_arn: $AWS_ROLE_ARN
-                role_session_name: $CIRCLE_JOB-<< pipeline.number >>
-            - macos/switch-ruby:
-                version: "3.3"
-            - run:
-                name: Select Node 20 (RN toolchain)
-                command: |
-                  export NVM_DIR="$HOME/.nvm"
-                  # shellcheck disable=SC1090
-                  [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-                  nvm install 20
-                  nvm alias default 20
-                  # Persist the selected node on PATH for later steps.
-                  echo "export NVM_DIR=$NVM_DIR" >> "$BASH_ENV"
-                  echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 20 >/dev/null' >> "$BASH_ENV"
-                  node -v && npm -v
-            - run:
-                name: Install SDK deps + build lib/
-                # Bonni resolves the SDK via `file:..`; its gitignored lib/ must be built first.
-                command: |
-                  npm ci
-                  npm run build
-            - run:
-                name: Install Bonni JS deps
-                command: npm --prefix Bonni ci
-            - run:
-                name: Install Ruby gems (fastlane + cocoapods)
-                command: |
-                  cd Bonni
-                  bundle config set --local path 'vendor/bundle'
-                  bundle install
-            - run:
-                name: Install Pods
-                command: |
-                  cd Bonni/ios
-                  bundle exec pod install
-            - run:
-                name: Build Bonni release IPA (fastlane match + gym)
-                command: |
-                  cd Bonni/ios
-                  bundle exec fastlane build_bonni_release
-            - run:
-                name: Upload to TestFlight (fastlane pilot)
-                command: |
-                  cd Bonni/ios
-                  bundle exec fastlane deploy_testflight
-            - store_artifacts:
-                path: Bonni/ios/build
-                destination: bonni-ios
-            - notify-slack-on-testflight-success
-            - notify-slack-on-failure
+          name: Checkout via GitHub App token
+          command: |
+            AUTH_HEADER="http.https://github.com/.extraheader=Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
+            git -c "${AUTH_HEADER}" clone --filter=blob:none \
+              "https://github.com/attentive-mobile/attentive-react-native-sdk.git" .
+            git -c "${AUTH_HEADER}" fetch --filter=blob:none origin "${CIRCLE_SHA1}"
+            git checkout "${CIRCLE_SHA1}"
+      # Temporary AWS creds (OIDC) so fastlane match can read certs/profiles from S3.
+      - aws-cli/setup:
+          region: $AWS_REGION
+          role_arn: $AWS_ROLE_ARN
+          role_session_name: $CIRCLE_JOB-<< pipeline.number >>
+      - macos/switch-ruby:
+          version: "3.3"
+      - run:
+          name: Select Node 20 (RN toolchain)
+          command: |
+            export NVM_DIR="$HOME/.nvm"
+            # shellcheck disable=SC1090
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install 20
+            nvm alias default 20
+            # Persist the selected node on PATH for later steps.
+            echo "export NVM_DIR=$NVM_DIR" >> "$BASH_ENV"
+            echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 20 >/dev/null' >> "$BASH_ENV"
+            node -v && npm -v
+      - run:
+          name: Install SDK deps + build lib/
+          # Bonni resolves the SDK via `file:..`; its gitignored lib/ must be built first.
+          command: |
+            npm ci
+            npm run build
+      - run:
+          name: Install Bonni JS deps
+          command: npm --prefix Bonni ci
+      - run:
+          name: Install Ruby gems (fastlane + cocoapods)
+          command: |
+            cd Bonni
+            bundle config set --local path 'vendor/bundle'
+            bundle install
+      - run:
+          name: Install Pods
+          command: |
+            cd Bonni/ios
+            bundle exec pod install
+      - run:
+          name: Build Bonni release IPA (fastlane match + gym)
+          command: |
+            cd Bonni/ios
+            bundle exec fastlane build_bonni_release
+      - run:
+          name: Upload to TestFlight (fastlane pilot)
+          command: |
+            cd Bonni/ios
+            bundle exec fastlane deploy_testflight
+      - store_artifacts:
+          path: Bonni/ios/build
+          destination: bonni-ios
+      - notify-slack-on-testflight-success
+      - notify-slack-on-failure
 
   # -----------------------
   # Distribute Bonni to Firebase App Distribution (Android)
@@ -596,10 +592,51 @@ workflows:
             - test-bonni
 
   # Deploy Bonni to TestFlight: triggered via the CircleCI API from the GitHub Actions
-  # "Deploy TestFlight" workflow (run_testflight_deploy=true). Builds + uploads the Bonni
-  # app; does not cut an SDK release.
+  # "Deploy TestFlight" workflow (run_testflight_deploy=true). Validation gates run first so a
+  # broken build can't ship to testers; `not run_release` keeps it mutually exclusive with the
+  # release-sdk workflow if both params are ever set in one pipeline.
   deploy-testflight:
-    when: << pipeline.parameters.run_testflight_deploy >>
+    when:
+      and:
+        - << pipeline.parameters.run_testflight_deploy >>
+        - not: << pipeline.parameters.run_release >>
     jobs:
+      - checkout-and-setup:
+          context: *default_context
+      - lint:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - typecheck:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - unit-test:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - setup-bonni:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - lint-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - typecheck-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - test-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
       - deploy-bonni-testflight:
           context: *default_context
+          requires:
+            - lint
+            - typecheck
+            - unit-test
+            - lint-bonni
+            - typecheck-bonni
+            - test-bonni

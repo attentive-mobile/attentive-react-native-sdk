@@ -14,15 +14,26 @@ on:
         default: "main"
         type: string
 
+# Two overlapping TestFlight dispatches would race on the App Store Connect build number
+# (the second upload gets rejected with ITMS-90062). Serialize them.
+concurrency:
+  group: bonni-testflight
+  cancel-in-progress: false
+
 jobs:
   trigger-testflight:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger CircleCI deploy-testflight pipeline
         id: trigger
+        env:
+          # Pass the input through env, not direct ${{ }} interpolation into the script:
+          # GHA substitutes ${{ }} as literal text before bash runs, so a crafted branch
+          # name would inject shell (jq --arg does NOT protect against that).
+          BRANCH: ${{ inputs.branch }}
         run: |
           payload=$(jq -n \
-            --arg branch "${{ inputs.branch }}" \
+            --arg branch "$BRANCH" \
             '{
               branch: $branch,
               parameters: {
@@ -55,14 +66,14 @@ jobs:
 
           echo "pipeline_id=$pipeline_id" >> "$GITHUB_OUTPUT"
           echo "pipeline_number=$pipeline_number" >> "$GITHUB_OUTPUT"
-          echo "CircleCI TestFlight pipeline triggered for branch ${{ inputs.branch }} (pipeline: $pipeline_number)"
+          echo "CircleCI TestFlight pipeline triggered for branch $BRANCH (pipeline: $pipeline_number)"
 
       - name: Wait for CircleCI pipeline to complete
         run: |
           pipeline_id="${{ steps.trigger.outputs.pipeline_id }}"
           pipeline_number="${{ steps.trigger.outputs.pipeline_number }}"
           poll_interval=30
-          timeout=2700  # 45 minutes
+          timeout=3600  # 60 minutes (cold-cache RN iOS builds are slow)
           elapsed=0
 
           echo "Waiting for CircleCI pipeline $pipeline_number to complete..."
@@ -104,7 +115,7 @@ jobs:
 
               case "$status" in
                 success) ;;
-                failed|error|canceled|unauthorized)
+                failed|error|canceled|unauthorized|not_run|on_hold)
                   any_failed=true
                   ;;
                 *)
