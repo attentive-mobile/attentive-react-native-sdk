@@ -2,6 +2,34 @@
 
 Guidance for AI coding agents working **on** the Attentive React Native SDK itself (this repo). If you are instead helping a client integrate the SDK into their app, use [`AGENTS.md`](./AGENTS.md) — that is the consumer-facing guide. Do not conflate the two.
 
+## Internal API Documentation
+
+Internal Attentive API documentation and instructions live in the private [`attentive-mobile/claude-plugins`](https://github.com/attentive-mobile/claude-plugins) repo as the `mobile-sdk-internal` plugin. To load this context into Claude Code:
+
+```
+/plugin marketplace add attentive-mobile/claude-plugins
+/plugin install mobile-sdk-internal@attentive-marketplace
+```
+
+If you've previously added the marketplace but don't see `mobile-sdk-internal`, refresh the local cache first:
+
+```
+/plugin marketplace update attentive-marketplace
+```
+
+This keeps internal details out of the public SDK repo while letting Claude Code pull them in at runtime.
+
+### Drafting a PR description
+
+Once the `mobile-sdk-internal` plugin is installed, use its `write-pr` skill to draft PR descriptions that meet the mobile SDK team's expectations (verification with RN version coverage across iOS and Android, public API impact, host-app rollback):
+
+```
+/mobile-sdk-internal:write-pr           # new PR
+/mobile-sdk-internal:write-pr --update  # update existing PR on this branch
+```
+
+The skill detects this repo from the git remote, confirms the base branch, reads the diff, and asks targeted questions before drafting. For this repo it will push on both JS API and native module/bridge changes, and on old- vs. new-architecture coverage where relevant.
+
 ## What this package is
 
 `@attentive-mobile/attentive-react-native-sdk` is a React Native wrapper around Attentive's native iOS and Android SDKs. It exposes a TypeScript API (creatives, events, identify, push, marketing subscriptions) and bridges each call to the corresponding native SDK.
