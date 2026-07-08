@@ -68,6 +68,12 @@ executors:
       FASTLANE_SKIP_UPDATE_CHECK: "YES"
       LC_ALL: "en_US.UTF-8"
       LANG: "en_US.UTF-8"
+  # Android runner for building the signed Bonni APK + Firebase App Distribution upload.
+  # The "-node" cimg/android variant bundles Node.js (needed for the RN JS bundle step).
+  android-executor:
+    docker:
+      - image: cimg/android:2026.02.1-node
+    resource_class: large
 
 # ========================
 # Commands (Reusable)
@@ -438,6 +444,60 @@ jobs:
             - notify-slack-on-testflight-success
             - notify-slack-on-failure
 
+  # -----------------------
+  # Distribute Bonni to Firebase App Distribution (Android)
+  # -----------------------
+  # Builds the signed Bonni APK and uploads it to Firebase App Distribution, mirroring the
+  # native Android SDK's distribute-bonni job. Reuses the workspace from setup-bonni (SDK lib/
+  # + Bonni node_modules + git history), then self-halts unless the Bonni versionCode changed
+  # — so a build ships to testers only on an explicit bump.
+  distribute-bonni-android:
+    executor: android-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Skip unless Bonni versionCode changed
+          command: |
+            CURRENT=$(grep -E "versionCode\s+[0-9]+" Bonni/android/app/build.gradle | grep -oE "[0-9]+" | head -1)
+            git fetch origin "$CIRCLE_BRANCH" >/dev/null 2>&1 || true
+            PREVIOUS=$(git show "origin/${CIRCLE_BRANCH}^:Bonni/android/app/build.gradle" 2>/dev/null | grep -E "versionCode\s+[0-9]+" | grep -oE "[0-9]+" | head -1 || echo "")
+            echo "Bonni versionCode: previous='${PREVIOUS}' current='${CURRENT}'"
+            if [ "$CURRENT" = "$PREVIOUS" ]; then
+              echo "versionCode unchanged -- skipping Bonni distribution."
+              circleci-agent step halt
+            fi
+      - run:
+          name: Decode release keystore
+          command: echo "$BONNI_KEYSTORE_BASE64" | base64 -d > Bonni/android/app/bonni-release.keystore
+      - run:
+          name: Build Bonni release APK
+          command: |
+            cd Bonni/android
+            ./gradlew :app:assembleRelease
+      - run:
+          name: Install Firebase CLI
+          command: |
+            if ! command -v firebase >/dev/null 2>&1; then
+              npm install -g firebase-tools
+            fi
+      - run:
+          name: Upload to Firebase App Distribution
+          command: |
+            firebase appdistribution:distribute \
+              Bonni/android/app/build/outputs/apk/release/app-release.apk \
+              --app "$FIREBASE_APP_ID" \
+              --token "$FIREBASE_TOKEN" \
+              --groups "dev, product-+-eng"
+      - run:
+          name: Cleanup keystore
+          when: always
+          command: rm -f Bonni/android/app/bonni-release.keystore
+      - store_artifacts:
+          path: Bonni/android/app/build/outputs/apk/release
+          destination: bonni-android-apk
+      - notify-slack-on-failure
+
 # ========================
 # Workflows
 # ========================
@@ -479,6 +539,15 @@ workflows:
           context: *default_context
           requires:
             - setup-bonni
+      # On main only, ship a new Bonni build to testers (Firebase App Distribution)
+      # when its versionCode was bumped. The job itself self-halts if it wasn't.
+      - distribute-bonni-android:
+          context: *default_context
+          requires:
+            - setup-bonni
+          filters:
+            branches:
+              only: main
 
   # Release: triggered via the CircleCI API from the GitHub Actions "Release"
   # workflow (run_release=true). Runs the full validation suite as gates, then
