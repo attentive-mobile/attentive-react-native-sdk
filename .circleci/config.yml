@@ -484,11 +484,14 @@ jobs:
       - run:
           name: Upload to Firebase App Distribution
           command: |
+            # Group aliases: comma-separated with NO spaces. "product-+-eng" is a real alias
+            # (verified via appdistribution:group:list); some firebase-tools versions don't trim,
+            # so a stray space could look up " product-+-eng" and silently miss that group.
             firebase appdistribution:distribute \
               Bonni/android/app/build/outputs/apk/release/app-release.apk \
               --app "$FIREBASE_APP_ID" \
               --token "$FIREBASE_TOKEN" \
-              --groups "dev, product-+-eng"
+              --groups "dev,product-+-eng"
       - run:
           name: Cleanup keystore
           when: always
