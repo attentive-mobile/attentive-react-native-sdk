@@ -31,7 +31,6 @@ import { useSwitchUser } from '../hooks/useSwitchUser'
 import {
   registerForPushNotifications,
   registerDeviceToken,
-  clearUser as sdkClearUser,
 } from '@attentive-mobile/attentive-react-native-sdk'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import PushNotificationIOS from '@react-native-community/push-notification-ios'
@@ -347,8 +346,6 @@ The SDK will handle the API request internally.`
   }, [identifyUser, displayAlerts, showScreenPrompt])
 
   const handleClearUser = useCallback(() => {
-    // Call SDK's clearUser method
-    sdkClearUser()
     clearUserIdentification()
     setCurrentUser('Guest')
     if (displayAlerts) {
