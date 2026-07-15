@@ -1,5 +1,8 @@
-import { ConfigPlugin, createRunOncePlugin } from 'expo/config-plugins'
+import type { ConfigPlugin } from 'expo/config-plugins'
+import { configPlugins } from './expoConfigPlugins'
 import { withAndroid } from './withAndroid'
+
+const { createRunOncePlugin } = configPlugins
 
 const packageName = '@attentive-mobile/attentive-react-native-sdk'
 

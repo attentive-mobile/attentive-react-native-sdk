@@ -1,27 +1,28 @@
-import { withMainApplication, type ConfigPlugin } from 'expo/config-plugins'
-import type { CodeGenerator } from 'expo/config-plugins'
-import { createRequire } from 'module'
+import type { CodeGenerator, ConfigPlugin } from 'expo/config-plugins'
 import { type AttentivePluginProps } from '.'
+import {
+  configPlugins,
+  requireFromExpoConfigPlugins,
+} from './expoConfigPlugins'
+
+const { withMainApplication } = configPlugins
 
 type MergeContentsFn = typeof CodeGenerator.mergeContents
 
-// mergeContents lives in @expo/config-plugins, which we must never require
-// directly (the app's `expo` package supplies it — see the peer/import notes
-// in CLAUDE.md). Its public re-export from 'expo/config-plugins' (the
-// CodeGenerator namespace) only exists from Expo SDK 54; on SDK 50–53 the
-// util is reachable only via the package's internal build path. We resolve
+// The public re-export of the generateCode utils (the CodeGenerator
+// namespace) only exists from Expo SDK 54; on SDK 50–53 mergeContents is
+// reachable only via @expo/config-plugins' internal build path. We resolve
 // that path *through the app's expo package*: expo declares
 // @expo/config-plugins as a dependency, so the edge is valid under every
 // package manager, including pnpm's strict layout. SDK 50–53 are frozen on
 // npm, so the internal path cannot move for the only versions that use it.
 function resolveMergeContents(): MergeContentsFn {
-  const configPlugins = require('expo/config-plugins')
   if (configPlugins.CodeGenerator?.mergeContents) {
     return configPlugins.CodeGenerator.mergeContents
   }
-  const requireFromExpo = createRequire(require.resolve('expo/config-plugins'))
-  return requireFromExpo('@expo/config-plugins/build/utils/generateCode')
-    .mergeContents
+  return requireFromExpoConfigPlugins(
+    '@expo/config-plugins/build/utils/generateCode'
+  ).mergeContents
 }
 
 const ATTENTIVE_TAG = 'attentive-react-native-sdk'
