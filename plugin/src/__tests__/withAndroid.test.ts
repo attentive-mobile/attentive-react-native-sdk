@@ -112,3 +112,29 @@ describe('modifyMainApplication', () => {
     warn.mockRestore()
   })
 })
+
+describe('mergeContents resolution on Expo SDK 50–53', () => {
+  // Expo SDK 50–53 do not re-export CodeGenerator from 'expo/config-plugins';
+  // the plugin must fall back to resolving @expo/config-plugins' internal
+  // generateCode module through the app's expo package. Simulate the pre-54
+  // export surface by masking CodeGenerator on the mocked module.
+  it('falls back to the deep import when CodeGenerator is not exported', () => {
+    let result = ''
+    jest.isolateModules(() => {
+      const actual = jest.requireActual('expo/config-plugins')
+      jest.doMock('expo/config-plugins', () => ({
+        ...actual,
+        CodeGenerator: undefined,
+      }))
+      const { modifyMainApplication: modify } = require('../withAndroid')
+      result = modify(kt(fixture), props)
+    })
+    jest.dontMock('expo/config-plugins')
+
+    expect(result).toContain(
+      '// @generated begin attentive-react-native-sdk-init'
+    )
+    expect(result).toContain('.domain("games")')
+    expect(result).toContain('AttentiveSdk.initialize(attentiveConfig)')
+  })
+})
