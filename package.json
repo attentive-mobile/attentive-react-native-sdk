@@ -29,14 +29,17 @@
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
-    "!**/.*"
+    "!**/.*",
+    "app.plugin.js",
+    "plugin/build"
   ],
   "scripts": {
     "test": "jest",
-    "typecheck": "tsc --noEmit",
-    "lint": "eslint \"src/**/*.{js,ts,tsx}\"",
+    "typecheck": "tsc --noEmit && tsc --noEmit --project plugin",
+    "lint": "eslint \"src/**/*.{js,ts,tsx}\" \"plugin/src/**/*.ts\"",
+    "build:plugin": "tsc --project plugin",
     "build": "bob build",
-    "prepack": "bob build",
+    "prepack": "bob build && npm run build:plugin",
     "release": "release-it",
     "example": "npm --prefix example",
     "bootstrap": "npm install && npm --prefix example install && npm --prefix example run pods",
@@ -88,11 +91,18 @@
     "react-native": "0.75.5",
     "react-native-builder-bob": "^0.20.4",
     "release-it": "^15.0.0",
-    "typescript": "^4.5.2"
+    "typescript": "^4.5.2",
+    "expo": "^57.0.0"
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "expo": ">=50.0.0"
+  },
+  "peerDependenciesMeta": {
+    "expo": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">= 18.0.0"
@@ -100,12 +110,14 @@
   "jest": {
     "preset": "react-native",
     "roots": [
-      "<rootDir>/src"
+      "<rootDir>/src",
+      "<rootDir>/plugin/src"
     ],
     "modulePathIgnorePatterns": [
       "<rootDir>/example/node_modules",
       "<rootDir>/Bonni",
-      "<rootDir>/lib/"
+      "<rootDir>/lib/",
+      "<rootDir>/plugin/build/"
     ]
   },
   "commitlint": {

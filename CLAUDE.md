@@ -44,6 +44,7 @@ The skill detects this repo from the git remote, confirms the base branch, reads
 | `ios/` | Swift bridging layer (e.g. `AttentiveSDKManager`, `ATTNNativeSDK`) over `attentive-ios-sdk`. |
 | `android/src/main/kotlin/com/attentivereactnativesdk/` | Kotlin TurboModule (`AttentiveReactNativeSdkModule.kt`, `AttentiveReactNativeSdkPackage.kt`, push + debug helpers) over `attentive-android-sdk`. |
 | `Bonni/` | The example / test-harness app. Use it to exercise changes on a real app on both platforms. |
+| `plugin/src/` + `app.plugin.js` | Expo config plugin: injects the Android native init into CNG apps' generated `MainApplication.kt` at prebuild (exists because of the init asymmetry below). Compiles to `plugin/build/` (gitignored, shipped) via `npm run build:plugin`; imports **only** from `expo/config-plugins` (never `@expo/config-plugins` — pnpm phantom dep); tests in `plugin/src/__tests__` run in the main jest suite. |
 | `lib/` | Build output from `react-native-builder-bob` — generated, do not edit by hand. |
 | `docs/` | `PUSH_NOTIFICATIONS_INTEGRATION.md`, `PUSH_NOTIFICATIONS_SETUP.md`. |
 | Root docs | `README.md` (consumer reference), `DEBUGGING.md`, `MIGRATION_GUIDE.md`, `AGENTS.md` (consumer agent guide). |

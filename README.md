@@ -113,6 +113,8 @@ On Android, `AttentiveSdk.initialize()` **must** be called from your `Applicatio
 
 > **Do not** call `AttentiveSdk.initialize()` from a background thread or a coroutine dispatcher other than `Dispatchers.Main`. Doing so will throw an `IllegalStateException` from inside the AndroidX Lifecycle library.
 
+> **Expo app using prebuild / CNG?** Do not edit `MainApplication` by hand — `npx expo prebuild` regenerates it and your edits are lost. Use the SDK's [Expo config plugin](#expo-apps--config-plugin-android) instead; it injects this initialization automatically on every prebuild.
+
 Add the following to your `MainApplication.kt` (or `MainApplication.java`):
 
 ```kotlin
@@ -173,6 +175,49 @@ android/app/src/main/java/<your-package>/MainApplication.kt
 After the native initialization, all other SDK operations (`identify`, `recordAddToCartEvent`, `recordPurchaseEvent`, etc.) are called from TypeScript as normal on both platforms.
 
 > **Tip:** If you see `[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized` in your Android logcat, it means `AttentiveSdk.initialize()` was not called from native code before the event was recorded. Check your `Application.onCreate()` setup.
+
+#### Expo apps — Config plugin (Android)
+
+If your app uses Expo with [Continuous Native Generation](https://docs.expo.dev/workflow/continuous-native-generation/) (`npx expo prebuild`), the `android/` directory is a build artifact regenerated from a template — the manual `MainApplication` edit above would be wiped on every prebuild. This package ships an Expo config plugin that injects the required Android initialization for you, on every regeneration.
+
+Add the plugin to your `app.json` (or `app.config.js`):
+
+```json
+{
+  "expo": {
+    "plugins": [
+      [
+        "@attentive-mobile/attentive-react-native-sdk",
+        { "domain": "YOUR_ATTENTIVE_DOMAIN", "mode": "production" }
+      ]
+    ]
+  }
+}
+```
+
+Then regenerate the native project (or let the next `npx expo run:android` / EAS build do it):
+
+```bash
+npx expo prebuild --platform android
+```
+
+The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call shown above to the generated `MainApplication.kt`, right after `super.onCreate()`, inside tagged `@generated` blocks it manages across re-runs (re-running prebuild never duplicates them; changing the plugin options updates them in place).
+
+**Plugin options:**
+
+| Option | Type | Description |
+| --- | --- | --- |
+| `domain` | `string` | Your Attentive domain (required). |
+| `mode` | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. |
+
+**Notes:**
+
+- **Requires Expo SDK 50+** (Kotlin `MainApplication` templates). On older SDKs the plugin fails prebuild with an explicit error rather than generating broken code.
+- **iOS is untouched by the plugin.** iOS still initializes from TypeScript — the [`initialize()` call](#ios--initialize-from-typescript) is required either way.
+- The debug overlay (`enableDebugger`, see [Debugging Features](#debugging-features)) is wired only by the TypeScript `initialize()` call. The plugin's `mode: 'debug'` sets the *native* SDK mode (creative debug view, verbose native logging) — a different switch.
+- If your `MainApplication` already contains a manual Attentive integration, the plugin leaves the file alone and prints a warning during prebuild — remove the manual code to let the plugin manage initialization.
+- Builder options beyond `domain`/`mode` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
+- Bare React Native apps (no prebuild) should not use the plugin — follow the manual instructions above.
 
 ### Destroy the creative
 
