@@ -36,11 +36,18 @@ function generateMode(props: AttentivePluginProps): string {
   return mode
 }
 
+// Kotlin string literal for a JS string. JSON escaping covers quotes,
+// backslashes, and control characters; Kotlin additionally treats `$` as
+// template interpolation inside string literals, so escape that too.
+function kotlinStringLiteral(value: string): string {
+  return JSON.stringify(value).replace(/\$/g, '\\$')
+}
+
 function generateInitCode(props: AttentivePluginProps): string {
   const lines = [
     'val attentiveConfig = AttentiveConfig.Builder()',
     `  .applicationContext(this)`,
-    `  .domain("${props.domain}")`,
+    `  .domain(${kotlinStringLiteral(props.domain)})`,
     `  .mode(${generateMode(props)})`,
     `  .build()`,
     `AttentiveSdk.initialize(attentiveConfig)`,
@@ -58,17 +65,23 @@ function getImports(): string {
   return imports.join('\n')
 }
 
-// Matches the header mergeContents writes for both of our tagged blocks
-// (`${ATTENTIVE_TAG}-import` and `${ATTENTIVE_TAG}-init`).
-const GENERATED_BLOCK_MARKER = `@generated begin ${ATTENTIVE_TAG}-`
+// Removes our @generated blocks so detection only sees code the app owns.
+function stripGeneratedBlocks(contents: string): string {
+  const pattern = new RegExp(
+    `// @generated begin ${ATTENTIVE_TAG}-[\\s\\S]*?` +
+      `// @generated end ${ATTENTIVE_TAG}-\\w+\\n?`,
+    'g'
+  )
+  return contents.replace(pattern, '')
+}
 
-// True when MainApplication references the Attentive SDK outside a block this
-// plugin generated — i.e. the app integrated manually. Blocks we generated
-// don't count: mergeContents replaces those on its own when props change.
+// True when MainApplication references the Attentive SDK outside the blocks
+// this plugin generated — i.e. the app has (also) integrated manually. Our
+// own blocks don't count: mergeContents replaces those when props change.
 function hasManualAttentiveInit(contents: string): boolean {
+  const appOwned = stripGeneratedBlocks(contents)
   return (
-    !contents.includes(GENERATED_BLOCK_MARKER) &&
-    (contents.includes('AttentiveConfig') || contents.includes('AttentiveSdk'))
+    appOwned.includes('AttentiveConfig') || appOwned.includes('AttentiveSdk')
   )
 }
 

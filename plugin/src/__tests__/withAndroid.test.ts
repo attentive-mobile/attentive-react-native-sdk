@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 
 import { modifyMainApplication } from '../withAndroid'
-import type { AttentivePluginProps } from '..'
+import { withAttentive, type AttentivePluginProps } from '..'
 
 // Pristine MainApplication.kt from expo-template-bare-minimum@57.0.8 — what
 // `expo prebuild` generates before any plugin runs.
@@ -109,6 +109,66 @@ describe('modifyMainApplication', () => {
     expect(
       modifyMainApplication({ contents: javaManual, language: 'java' }, props)
     ).toBe(javaManual)
+    warn.mockRestore()
+  })
+})
+
+describe('prop validation', () => {
+  const config = {} as any
+
+  it('throws a clear error when the plugin is used without options', () => {
+    expect(() =>
+      withAttentive(config, undefined as unknown as AttentivePluginProps)
+    ).toThrow(/requires options.*app\.json/s)
+  })
+
+  it('throws a clear error when domain is missing', () => {
+    expect(() =>
+      withAttentive(config, { mode: 'debug' } as AttentivePluginProps)
+    ).toThrow(/requires a `domain` option/)
+  })
+
+  it('throws a clear error on an invalid mode', () => {
+    expect(() =>
+      withAttentive(config, {
+        domain: 'games',
+        mode: 'staging',
+      } as unknown as AttentivePluginProps)
+    ).toThrow(/Invalid mode "staging"/)
+  })
+})
+
+describe('generated Kotlin safety', () => {
+  it('escapes quotes, backslashes, and dollar signs in the domain', () => {
+    const result = modifyMainApplication(kt(fixture), {
+      domain: 'my"weird\\$domain',
+      mode: 'debug',
+    })
+    expect(result).toContain('.domain("my\\"weird\\\\\\$domain")')
+  })
+
+  it('defaults to Mode.PRODUCTION when mode is omitted', () => {
+    const result = modifyMainApplication(kt(fixture), { domain: 'games' })
+    expect(result).toContain('.mode(AttentiveConfig.Mode.PRODUCTION)')
+  })
+})
+
+describe('manual integration alongside generated blocks', () => {
+  it('skips and warns when manual Attentive code exists outside our blocks', () => {
+    const generated = modifyMainApplication(kt(fixture), props)
+    const mixed = generated.replace(
+      'ApplicationLifecycleDispatcher.onApplicationCreate(this)',
+      'AttentiveSdk.initialize(myManualConfig)\n    ApplicationLifecycleDispatcher.onApplicationCreate(this)'
+    )
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const result = modifyMainApplication(kt(mixed), {
+      domain: 'other-domain',
+      mode: 'production',
+    })
+
+    expect(result).toBe(mixed)
+    expect(warn).toHaveBeenCalledTimes(1)
     warn.mockRestore()
   })
 })

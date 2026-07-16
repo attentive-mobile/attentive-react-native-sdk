@@ -208,7 +208,7 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 | Option | Type | Description |
 | --- | --- | --- |
 | `domain` | `string` | Your Attentive domain (required). |
-| `mode` | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. |
+| `mode` | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. Optional — defaults to `production`. |
 
 **Notes:**
 
