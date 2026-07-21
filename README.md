@@ -1,6 +1,7 @@
 # attentive-react-native-sdk
 
 # Attentive React Native SDK
+
 The Attentive React Native SDK provides the functionality to render Attentive creative units and collect Attentive events in React Native mobile applications.
 
 ## Package Manager
@@ -11,15 +12,15 @@ This project uses **npm** as the preferred package manager for consistency and a
 
 ## Requirements
 
-| Tool | Version |
-|------|---------|
-| Node.js | >= 18.0.0 |
-| React Native | >= 0.74 |
-| Ruby | >= 3.3 |
-| CocoaPods | ~> 1.16 |
-| Xcode | >= 15 |
-| Android SDK | API 24+ |
-| JDK | 17 |
+| Tool         | Version   |
+| ------------ | --------- |
+| Node.js      | >= 18.0.0 |
+| React Native | >= 0.74   |
+| Ruby         | >= 3.3    |
+| CocoaPods    | ~> 1.16   |
+| Xcode        | >= 15     |
+| Android SDK  | API 24+   |
+| JDK          | 17        |
 
 ## Installation
 
@@ -27,8 +28,7 @@ Run `npm install @attentive-mobile/attentive-react-native-sdk` from your app's r
 
 ## Setup with an AI coding agent
 
-> [!WARNING]
-> **Experimental.** Agent-assisted setup is a new, experimental feature. The [`AGENTS.md`](./AGENTS.md) guide and this flow may change, and results can vary by agent and project. Review whatever the agent changes before committing, and fall back to the manual steps below if anything looks off.
+> [!WARNING] > **Experimental.** Agent-assisted setup is a new, experimental feature. The [`AGENTS.md`](./AGENTS.md) guide and this flow may change, and results can vary by agent and project. Review whatever the agent changes before committing, and fall back to the manual steps below if anything looks off.
 
 If you use Claude Code, Cursor, Copilot, Codex, or another AI coding agent, you can have the agent walk you through setup. Point it at [`AGENTS.md`](./AGENTS.md) in this repo — it's a step-by-step integration guide written for agents that handles the npm install, iOS `pod install` + TypeScript `initialize()`, and the **native** Android initialization in `MainApplication.onCreate()`.
 
@@ -39,15 +39,21 @@ If you use Claude Code, Cursor, Copilot, Codex, or another AI coding agent, you 
 The agent flow intentionally stops at base integration. It does **not** wire up identify/clearUser, event recording, Creatives, marketing subscriptions, or push notifications — see the sections below for those.
 
 ## Usage
+
 See the [Bonni example app](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/Bonni)
 for a sample of how the Attentive React Native SDK is used.
 
-__*** NOTE: Please refrain from using any private or undocumented classes or methods as they may change between releases. ***__
+****_ NOTE: Please refrain from using any private or undocumented classes or methods as they may change between releases. _****
 
 ### Import the SDK
 
 ```typescript
-import { initialize, identify, triggerCreative, recordPurchaseEvent, /* ... */ } from '@attentive-mobile/attentive-react-native-sdk';
+import {
+  initialize,
+  identify,
+  triggerCreative,
+  recordPurchaseEvent /* ... */,
+} from '@attentive-mobile/attentive-react-native-sdk'
 ```
 
 ### Create the AttentiveConfig
@@ -59,6 +65,7 @@ const config: AttentiveSdkConfiguration = {
   mode: 'production',
 }
 ```
+
 ```typescript
 // Alternatively, use "debug" mode. When in debug mode, the Creative will not be shown, but instead a popup will show with debug information about your creative and any reason the Creative wouldn't show.
 const config: AttentiveSdkConfiguration = {
@@ -80,13 +87,14 @@ const config: AttentiveSdkConfiguration = {
 ```
 
 When enabled, debug overlays will automatically appear when:
+
 - Creatives are triggered
 - Events are recorded (product views, purchases, etc.)
 
 You can also manually invoke the debug helper:
 
 ```typescript
-invokeAttentiveDebugHelper();
+invokeAttentiveDebugHelper()
 ```
 
 See [DEBUGGING.md](./DEBUGGING.md) for detailed information about debugging features.
@@ -101,7 +109,7 @@ On iOS, call `initialize` from TypeScript as early as possible (e.g. the root `A
 
 ```typescript
 // Called once per app session, before any other SDK operations.
-initialize(config);
+initialize(config)
 ```
 
 #### Android — Initialize from Native Code
@@ -205,16 +213,16 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 
 **Plugin options:**
 
-| Option | Type | Description |
-| --- | --- | --- |
-| `domain` | `string` | Your Attentive domain (required). |
-| `mode` | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. Optional — defaults to `production`. |
+| Option   | Type                      | Description                                                                                |
+| -------- | ------------------------- | ------------------------------------------------------------------------------------------ |
+| `domain` | `string`                  | Your Attentive domain (required).                                                          |
+| `mode`   | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. Optional — defaults to `production`. |
 
 **Notes:**
 
 - **Requires Expo SDK 50+** (Kotlin `MainApplication` templates). On older SDKs the plugin fails prebuild with an explicit error rather than generating broken code.
 - **iOS is untouched by the plugin.** iOS still initializes from TypeScript — the [`initialize()` call](#ios--initialize-from-typescript) is required either way.
-- The debug overlay (`enableDebugger`, see [Debugging Features](#debugging-features)) is wired only by the TypeScript `initialize()` call. The plugin's `mode: 'debug'` sets the *native* SDK mode (creative debug view, verbose native logging) — a different switch.
+- The debug overlay (`enableDebugger`, see [Debugging Features](#debugging-features)) is wired only by the TypeScript `initialize()` call. The plugin's `mode: 'debug'` sets the _native_ SDK mode (creative debug view, verbose native logging) — a different switch.
 - If your `MainApplication` already contains a manual Attentive integration, the plugin leaves the file alone and prints a warning during prebuild — remove the manual code to let the plugin manage initialization.
 - Builder options beyond `domain`/`mode` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
 - Bare React Native apps (no prebuild) should not use the plugin — follow the manual instructions above.
@@ -223,15 +231,14 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 
 ```typescript
 // This will remove the creative along with its web view
-destroyCreative();
+destroyCreative()
 ```
-
 
 ### Identify the current user
 
 Use `identify` to **add or enrich** information about the **current** user. As you gather identifiers (client user ID, email, phone, etc.), pass them to Attentive via `identify`. Each identifier is optional, and you can call `identify` repeatedly as you learn more about the user — **multiple calls combine the identifiers** rather than replacing them. The more identifiers you provide, the better the SDK functions.
 
-`identify` only enriches the *current* user; it does **not** switch users. When a **different** user logs in on the same device, use [`updateUser`](#switch-the-current-user-updateuser) instead — it clears the previous user's identifiers first.
+`identify` only enriches the _current_ user; it does **not** switch users. When a **different** user logs in on the same device, use [`updateUser`](#switch-the-current-user-updateuser) instead — it clears the previous user's identifiers first.
 
 ```typescript
 // If you have any user identifiers, register them before loading the creative or
@@ -242,26 +249,26 @@ const identifiers: UserIdentifiers = {
   klaviyoId: 'userKlaviyoId',
   shopifyId: 'userShopifyId',
   clientUserId: 'userClientUserId',
-  customIdentifiers: { customIdKey: 'customIdValue' }
-};
-identify(identifiers);
+  customIdentifiers: { customIdKey: 'customIdValue' },
+}
+identify(identifiers)
 ```
 
 Here is the list of possible identifiers:
-| Identifier Name    | Type                  | Description                                                                                                             |
+| Identifier Name | Type | Description |
 | ------------------ | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Client User ID     | String                | Your unique identifier for the user. This should be consistent across the user's lifetime. For example, a database id.  |
-| Phone              | String                | The users's phone number in E.164 format                                                                                |
-| Email              | String                | The users's email                                                                                                       |
-| Shopify ID         | String                | The users's Shopify ID                                                                                                  |
-| Klaviyo ID         | String                | The users's Klaviyo ID                                                                                                  |
-| Custom Identifiers | Map<String,String>    | Key-value pairs of custom identifier names and values. The values should be unique to this user.                        |
+| Client User ID | String | Your unique identifier for the user. This should be consistent across the user's lifetime. For example, a database id. |
+| Phone | String | The users's phone number in E.164 format |
+| Email | String | The users's email |
+| Shopify ID | String | The users's Shopify ID |
+| Klaviyo ID | String | The users's Klaviyo ID |
+| Custom Identifiers | Map<String,String> | Key-value pairs of custom identifier names and values. The values should be unique to this user. |
 
 Because identifiers accumulate, you can register them as they become available — later calls add to the set rather than overwriting it:
 
 ```typescript
-identify({ email: 'theusersemail@gmail.com' });
-identify({ phone: '+15556667777' });
+identify({ email: 'theusersemail@gmail.com' })
+identify({ phone: '+15556667777' })
 // The SDK now has both identifiers:
 //   email: 'theusersemail@gmail.com'
 //   phone: '+15556667777'
@@ -276,7 +283,7 @@ Calling `updateUser` automatically clears the identifiers previously associated 
 ```typescript
 try {
   // Switch to a different user on the same device
-  await updateUser({ email: 'newuser@example.com', phone: '+15559876543' });
+  await updateUser({ email: 'newuser@example.com', phone: '+15559876543' })
 } catch (error) {
   // Handle the failure (e.g. surface an error to the user)
 }
@@ -288,7 +295,14 @@ try {
 
 ```typescript
 // Trigger the Creative. This will show the Creative as a pop-up over the rest of the app.
-triggerCreative();
+triggerCreative()
+```
+
+### Destroy the creative
+
+```typescript
+// This will remove the creative along with its web view
+destroyCreative()
 ```
 
 ### Record user events
@@ -304,18 +318,18 @@ const items: Item[] = [
     price: '14.99',
     currency: 'USD',
   },
-];
+]
 
 // Construct a Purchase event
 const purchase: Purchase = {
   items: items,
   orderId: '88888',
-  cartId: '555555',        // optional
+  cartId: '555555', // optional
   cartCoupon: 'SOME-DISCOUNT', // optional
 }
 
 // Record the PurchaseEvent
-recordPurchaseEvent(purchase);
+recordPurchaseEvent(purchase)
 ```
 
 The process is similar for the other events. See [eventTypes.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/src/eventTypes.tsx) for all events.
@@ -369,15 +383,15 @@ The only TypeScript-side step required on Android is calling `identify()` with a
 After native initialization, the only required TypeScript call is `identify()`:
 
 ```typescript
-import { Platform } from 'react-native';
-import { initialize, identify } from 'attentive-react-native-sdk';
+import { Platform } from 'react-native'
+import { initialize, identify } from 'attentive-react-native-sdk'
 
 // Inside your root component (e.g. App.tsx useEffect):
 if (Platform.OS === 'ios') {
-  initialize(config);
+  initialize(config)
 }
 
-identify({ email: 'user@example.com', clientUserId: 'id-123' });
+identify({ email: 'user@example.com', clientUserId: 'id-123' })
 ```
 
 #### Push notifications on Android (FCM)
@@ -428,11 +442,11 @@ Refer to the [Attentive Android SDK documentation](https://github.com/attentive-
 #### Request Push Permission (iOS)
 
 ```typescript
-import { registerForPushNotifications } from 'attentive-react-native-sdk';
+import { registerForPushNotifications } from 'attentive-react-native-sdk'
 
 // Request permission to send push notifications
 // This will show the iOS system permission dialog
-registerForPushNotifications();
+registerForPushNotifications()
 ```
 
 #### Register Device Token (iOS)
@@ -440,14 +454,15 @@ registerForPushNotifications();
 When your iOS app receives an APNs device token, register it with the Attentive backend:
 
 ```typescript
-import { registerDeviceToken } from 'attentive-react-native-sdk';
+import { registerDeviceToken } from 'attentive-react-native-sdk'
 
 // In your AppDelegate or push notification handler:
 // Convert the device token Data to a hex string and pass the authorization status
-registerDeviceToken(hexEncodedToken, 'authorized');
+registerDeviceToken(hexEncodedToken, 'authorized')
 ```
 
 The `authorizationStatus` parameter should be one of:
+
 - `'authorized'` - User has granted permission
 - `'denied'` - User has denied permission
 - `'notDetermined'` - User hasn't been asked yet
@@ -459,15 +474,18 @@ The `authorizationStatus` parameter should be one of:
 When a user taps on a push notification, track the event:
 
 ```typescript
-import { handlePushOpened } from 'attentive-react-native-sdk';
-import type { ApplicationState, PushAuthorizationStatus } from 'attentive-react-native-sdk';
+import { handlePushOpened } from 'attentive-react-native-sdk'
+import type {
+  ApplicationState,
+  PushAuthorizationStatus,
+} from 'attentive-react-native-sdk'
 
 // In your notification handler:
 handlePushOpened(
-  notificationPayload,    // The notification's userInfo/data
-  'background',           // App state: 'active', 'inactive', or 'background'
-  'authorized'            // Current authorization status
-);
+  notificationPayload, // The notification's userInfo/data
+  'background', // App state: 'active', 'inactive', or 'background'
+  'authorized' // Current authorization status
+)
 ```
 
 #### Handle Foreground Notifications (iOS)
@@ -475,10 +493,10 @@ handlePushOpened(
 When a notification arrives while the app is in the foreground:
 
 ```typescript
-import { handleForegroundNotification } from 'attentive-react-native-sdk';
+import { handleForegroundNotification } from 'attentive-react-native-sdk'
 
 // In your foreground notification handler:
-handleForegroundNotification(notificationPayload);
+handleForegroundNotification(notificationPayload)
 ```
 
 #### iOS AppDelegate Integration
@@ -514,6 +532,7 @@ func userNotificationCenter(
 ```
 
 `handleNotificationResponse` automatically:
+
 - Detects whether the app is in the foreground or background
 - Fetches the current authorization status
 - Calls the correct native SDK method (`handlePushOpen` or `handleForegroundPush`)
@@ -565,6 +584,7 @@ func application(
 ```
 
 **Documentation:**
+
 - [Push Notifications Integration Guide](./docs/PUSH_NOTIFICATIONS_INTEGRATION.md) - Callback-based registration, complete AppDelegate implementation, Android and iOS token flow
 - [Push Notifications Setup](./docs/PUSH_NOTIFICATIONS_SETUP.md) - Apple Developer Portal, APNs certificates, and TestFlight configuration
 - [iOS Native SDK documentation](https://github.com/attentive-mobile/attentive-ios-sdk) - Native SDK reference
