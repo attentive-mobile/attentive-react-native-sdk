@@ -1,22 +1,28 @@
+# File lists use the built-in {staged_files} template rather than a custom
+# `git diff … @{push}` command: @{push} fails (git exit 128) on a fresh branch
+# with no upstream configured, which made lefthook silently skip every hook.
+#
+# Gate vs. scope: each command's glob/exclude only decides WHETHER the hook
+# fires for a given staged-file set — not what gets checked. Only lint-sdk pipes
+# {staged_files} into eslint to scope it; types-sdk/types-bonni (tsc --noEmit)
+# and lint-bonni (eslint .) always run project-wide, so for those the
+# glob/exclude are a gate, not a file filter. Full-branch coverage is CI's job
+# (.circleci/config.yml runs eslint on the SDK and Bonni on push).
 pre-commit:
   parallel: true
   commands:
     lint-sdk:
-      files: git diff --name-only @{push}
       glob: "*.{js,ts,jsx,tsx}"
       exclude: "(Bonni|example)/.*"
-      run: npx eslint --no-cache {files}
+      run: npx eslint --no-cache {staged_files}
     types-sdk:
-      files: git diff --name-only @{push}
-      glob: "*.{js,ts, jsx, tsx}"
+      glob: "*.{js,ts,jsx,tsx}"
       exclude: "(Bonni|example)/.*"
       run: npx tsc --noEmit
     lint-bonni:
-      files: git diff --name-only @{push}
       glob: "Bonni/**/*.{js,ts,jsx,tsx}"
       run: cd Bonni && npx eslint --no-cache .
     types-bonni:
-      files: git diff --name-only @{push}
       glob: "Bonni/**/*.{js,ts,jsx,tsx}"
       run: cd Bonni && npx tsc --noEmit
 
