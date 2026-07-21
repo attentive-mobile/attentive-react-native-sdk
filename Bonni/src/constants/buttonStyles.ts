@@ -185,4 +185,3 @@ export const ButtonStyles = StyleSheet.create({
   ghostText: ghostButtonText,
   ghostTextPressed: ghostButtonTextPressed,
 })
-

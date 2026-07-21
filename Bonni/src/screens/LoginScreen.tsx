@@ -15,7 +15,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { LoginScreenProps } from '../types/navigation'
 import { Colors, Typography, Spacing } from '../constants/theme'
-import { ButtonStyles, getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle, getGhostButtonTextStyle } from '../constants/buttonStyles'
+import {
+  ButtonStyles,
+  getPrimaryButtonStyle,
+  getPrimaryButtonTextStyle,
+  getSecondaryButtonStyle,
+  getSecondaryButtonTextStyle,
+  getGhostButtonTextStyle,
+} from '../constants/buttonStyles'
 
 const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   const handleSignIn = () => {
@@ -38,42 +45,39 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     >
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.content}>
-        <Text style={styles.greetingText}>
-          HEY BESTIE!
-        </Text>
-        <Text style={styles.welcomeText}>
-          Welcome to{'\n'}Bonni Beauty!
-        </Text>
+          <Text style={styles.greetingText}>HEY BESTIE!</Text>
+          <Text style={styles.welcomeText}>Welcome to{'\n'}Bonni Beauty!</Text>
 
-        <View style={styles.buttonContainer}>
-          <Pressable
-            style={({ pressed }) => getPrimaryButtonStyle(pressed)}
-            onPress={handleSignIn}
-          >
-            {({ pressed }) => (
-              <Text style={getPrimaryButtonTextStyle(pressed)}>SIGN IN</Text>
-            )}
-          </Pressable>
+          <View style={styles.buttonContainer}>
+            <Pressable
+              style={({ pressed }) => getPrimaryButtonStyle(pressed)}
+              onPress={handleSignIn}
+            >
+              {({ pressed }) => (
+                <Text style={getPrimaryButtonTextStyle(pressed)}>SIGN IN</Text>
+              )}
+            </Pressable>
 
-          <Pressable
-            style={({ pressed }) => getSecondaryButtonStyle(pressed)}
-            onPress={handleContinueAsGuest}
-          >
-            {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>CONTINUE AS GUEST</Text>
-            )}
-          </Pressable>
+            <Pressable
+              style={({ pressed }) => getSecondaryButtonStyle(pressed)}
+              onPress={handleContinueAsGuest}
+            >
+              {({ pressed }) => (
+                <Text style={getSecondaryButtonTextStyle(pressed)}>
+                  CONTINUE AS GUEST
+                </Text>
+              )}
+            </Pressable>
 
-          <Pressable
-            style={ButtonStyles.ghost}
-            onPress={handleCreateAccount}
-          >
-            {({ pressed }) => (
-              <Text style={getGhostButtonTextStyle(pressed)}>Create Account</Text>
-            )}
-          </Pressable>
+            <Pressable style={ButtonStyles.ghost} onPress={handleCreateAccount}>
+              {({ pressed }) => (
+                <Text style={getGhostButtonTextStyle(pressed)}>
+                  Create Account
+                </Text>
+              )}
+            </Pressable>
+          </View>
         </View>
-      </View>
       </SafeAreaView>
     </ImageBackground>
   )

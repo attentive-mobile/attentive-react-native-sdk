@@ -4,7 +4,11 @@
  */
 
 import { useCallback } from 'react'
-import { identify, clearUser, type UserIdentifiers } from '@attentive-mobile/attentive-react-native-sdk'
+import {
+  identify,
+  clearUser,
+  type UserIdentifiers,
+} from '@attentive-mobile/attentive-react-native-sdk'
 
 /**
  * Hook for user identification operations
