@@ -39,7 +39,7 @@
     "lint": "eslint \"src/**/*.{js,ts,tsx}\" \"plugin/src/**/*.ts\"",
     "build:plugin": "tsc --project plugin",
     "build": "bob build",
-    "prepack": "bob build && npm run build:plugin",
+    "prepare": "bob build && npm run build:plugin",
     "release": "release-it",
     "example": "npm --prefix example",
     "bootstrap": "npm install && npm --prefix example install && npm --prefix example run pods",
