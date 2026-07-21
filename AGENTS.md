@@ -234,6 +234,14 @@ npx react-native run-android   # or build in Android Studio
    - `clearUser`, `updateDomain`, and marketing subscription helpers (`optInMarketingSubscription` / `optOutMarketingSubscription`) are exported from the package — see the API surface in [src/index.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/src/index.tsx) and the types in [src/eventTypes.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/src/eventTypes.tsx).
    ```
 
+3. After the block above, call out **Creatives** explicitly — do not let them get lost in that list. Creatives are the in-app sign-up units and messages Attentive renders over the host app, and they are a core part of the SDK. However, **when and where to trigger one is a domain-specific product decision** (which screen, which moment in the user journey), so the user must place that call themselves — your job is to surface the documentation, not to write the trigger. Emit this to the user, verbatim (same link rules as above):
+
+   ```
+   One follow-up worth prioritizing: Creatives — Attentive's in-app sign-up units and messages — are a core part of the SDK, and this integration intentionally did not wire them up. When and where to show one is specific to your app (e.g. after onboarding, on a first product view), so that decision is yours. Once you've picked the moment, see [Load the Creative](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#load-the-creative) in the README — it's a single `triggerCreative()` call, plus [`destroyCreative()`](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#destroy-the-creative) if you need to dismiss it programmatically.
+   ```
+
+   Do not add `triggerCreative()` calls yourself, even if an obvious spot presents itself — pointing the user to the docs is the entire task here.
+
 Do not run the app on a device or simulator unless asked.
 
 ---

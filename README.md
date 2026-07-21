@@ -174,14 +174,6 @@ After the native initialization, all other SDK operations (`identify`, `recordAd
 
 > **Tip:** If you see `[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized` in your Android logcat, it means `AttentiveSdk.initialize()` was not called from native code before the event was recorded. Check your `Application.onCreate()` setup.
 
-### Destroy the creative
-
-```typescript
-// This will remove the creative along with its web view
-destroyCreative();
-```
-
-
 ### Identify the current user
 
 Use `identify` to **add or enrich** information about the **current** user. As you gather identifiers (client user ID, email, phone, etc.), pass them to Attentive via `identify`. Each identifier is optional, and you can call `identify` repeatedly as you learn more about the user — **multiple calls combine the identifiers** rather than replacing them. The more identifiers you provide, the better the SDK functions.
@@ -244,6 +236,13 @@ try {
 ```typescript
 // Trigger the Creative. This will show the Creative as a pop-up over the rest of the app.
 triggerCreative();
+```
+
+### Destroy the creative
+
+```typescript
+// This will remove the creative along with its web view
+destroyCreative();
 ```
 
 ### Record user events
