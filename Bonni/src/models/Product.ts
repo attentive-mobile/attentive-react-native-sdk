@@ -3,16 +3,16 @@
  */
 
 export interface Product {
-  id: string;
-  name: string;
-  price: number;
-  image: any; // React Native image require() type
-  category?: string;
+  id: string
+  name: string
+  price: number
+  image: any // React Native image require() type
+  category?: string
 }
 
 export interface CartItem {
-  product: Product;
-  quantity: number;
+  product: Product
+  quantity: number
 }
 
 // Product catalog - matching the iOS app products

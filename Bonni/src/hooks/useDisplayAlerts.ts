@@ -32,5 +32,3 @@ export function useDisplayAlerts() {
 
   return displayAlerts
 }
-
-

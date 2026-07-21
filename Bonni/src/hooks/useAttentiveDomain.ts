@@ -71,7 +71,9 @@ export function useAttentiveDomain(): AttentiveDomainHook {
    */
   const saveDomain = useCallback(async (newDomain: string) => {
     const trimmed = newDomain.trim()
-    if (!trimmed) { return }
+    if (!trimmed) {
+      return
+    }
     try {
       await AsyncStorage.setItem(DOMAIN_STORAGE_KEY, trimmed)
       updateDomain(trimmed)

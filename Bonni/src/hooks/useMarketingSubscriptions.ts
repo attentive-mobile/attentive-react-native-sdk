@@ -63,7 +63,10 @@ export function useMarketingSubscriptions(
 
   const isAnyLoading = useMemo(
     () =>
-      isOptingInEmail || isOptingOutEmail || isOptingInPhone || isOptingOutPhone,
+      isOptingInEmail ||
+      isOptingOutEmail ||
+      isOptingInPhone ||
+      isOptingOutPhone,
     [isOptingInEmail, isOptingOutEmail, isOptingInPhone, isOptingOutPhone]
   )
 

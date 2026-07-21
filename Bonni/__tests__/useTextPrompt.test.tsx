@@ -56,7 +56,7 @@ describe('useTextPrompt – iOS', () => {
       'Test message',
       expect.any(Array),
       'plain-text',
-      'default',
+      'default'
     )
   })
 
@@ -151,7 +151,11 @@ describe('useTextPrompt – Android', () => {
     const { result } = renderHook(() => useTextPrompt())
 
     act(() => {
-      result.current.showPrompt({ title: 'Domain', defaultValue: 'games', onConfirm: jest.fn() })
+      result.current.showPrompt({
+        title: 'Domain',
+        defaultValue: 'games',
+        onConfirm: jest.fn(),
+      })
     })
 
     const modal = result.current.PromptModal as React.ReactElement

@@ -22,41 +22,52 @@ import { useDisplayAlerts } from '../hooks/useDisplayAlerts'
 
 import CartIcon from '../assets/images/ui/icons/cart-icon.svg'
 
-const ProductListScreen: React.FC<ProductListScreenProps> = ({ navigation }) => {
+const ProductListScreen: React.FC<ProductListScreenProps> = ({
+  navigation,
+}) => {
   const { addToCart } = useCart()
   const { handleAddToCart: handleAddToCartWithTracking } = useAddToCart()
   const displayAlerts = useDisplayAlerts()
 
-  const handleProductPress = useCallback((product: Product) => {
-    navigation.navigate('ProductDetail', { product })
-  }, [navigation])
+  const handleProductPress = useCallback(
+    (product: Product) => {
+      navigation.navigate('ProductDetail', { product })
+    },
+    [navigation]
+  )
 
-  const handleAddToCart = useCallback((product: Product) => {
-    handleAddToCartWithTracking(product, addToCart)
-    if (displayAlerts) {
-      Alert.alert('Added to Cart', `${product.name} added to cart!`)
-    }
-  }, [handleAddToCartWithTracking, addToCart, displayAlerts])
+  const handleAddToCart = useCallback(
+    (product: Product) => {
+      handleAddToCartWithTracking(product, addToCart)
+      if (displayAlerts) {
+        Alert.alert('Added to Cart', `${product.name} added to cart!`)
+      }
+    },
+    [handleAddToCartWithTracking, addToCart, displayAlerts]
+  )
 
-  const renderProduct = useCallback(({ item }: { item: Product }) => (
-    <View style={styles.productCard}>
-      <TouchableOpacity
-        style={styles.imageContainer}
-        onPress={() => handleProductPress(item)}
-        activeOpacity={0.7}
-      >
-        <Image source={item.image} style={styles.productImage} />
+  const renderProduct = useCallback(
+    ({ item }: { item: Product }) => (
+      <View style={styles.productCard}>
         <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => handleAddToCart(item)}
+          style={styles.imageContainer}
+          onPress={() => handleProductPress(item)}
+          activeOpacity={0.7}
         >
-          <CartIcon width={15} height={15} />
+          <Image source={item.image} style={styles.productImage} />
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => handleAddToCart(item)}
+          >
+            <CartIcon width={15} height={15} />
+          </TouchableOpacity>
         </TouchableOpacity>
-      </TouchableOpacity>
-      <Text style={styles.productName}>{item.name}</Text>
-      <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
-    </View>
-  ), [handleProductPress, handleAddToCart])
+        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+      </View>
+    ),
+    [handleProductPress, handleAddToCart]
+  )
 
   return (
     <View style={styles.container}>

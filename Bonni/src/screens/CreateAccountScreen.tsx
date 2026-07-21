@@ -15,11 +15,22 @@ import {
   Platform,
 } from 'react-native'
 import { CreateAccountScreenProps } from '../types/navigation'
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
-import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import {
+  Colors,
+  Typography,
+  Spacing,
+  Layout,
+  BorderRadius,
+} from '../constants/theme'
+import {
+  getPrimaryButtonStyle,
+  getPrimaryButtonTextStyle,
+} from '../constants/buttonStyles'
 import { useAttentiveUser } from '../hooks/useAttentiveUser'
 
-const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation }) => {
+const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({
+  navigation,
+}) => {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
@@ -88,11 +99,16 @@ const CreateAccountScreen: React.FC<CreateAccountScreenProps> = ({ navigation })
             </View>
 
             <Pressable
-              style={({ pressed }) => [getPrimaryButtonStyle(pressed), { marginTop: Spacing.xl }]}
+              style={({ pressed }) => [
+                getPrimaryButtonStyle(pressed),
+                { marginTop: Spacing.xl },
+              ]}
               onPress={handleCreateAccount}
             >
               {({ pressed }) => (
-                <Text style={getPrimaryButtonTextStyle(pressed)}>CREATE ACCOUNT</Text>
+                <Text style={getPrimaryButtonTextStyle(pressed)}>
+                  CREATE ACCOUNT
+                </Text>
               )}
             </Pressable>
           </View>

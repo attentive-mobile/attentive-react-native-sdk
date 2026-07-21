@@ -23,7 +23,7 @@ const nativeModuleStub = () =>
         }
         return jest.fn(() => Promise.resolve())
       },
-    },
+    }
   )
 
 // The SDK source resolves the *repo-root* copy of react-native (the host app
@@ -51,9 +51,8 @@ jest.mock('../src/NativeAttentiveReactNativeSdk', () => ({
 NativeModules.AttentiveReactNativeSdk = nativeModuleStub()
 
 // AsyncStorage ships an official jest mock.
-jest.mock(
-  '@react-native-async-storage/async-storage',
-  () => require('@react-native-async-storage/async-storage/jest/async-storage-mock'),
+jest.mock('@react-native-async-storage/async-storage', () =>
+  require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 )
 
 // @react-native-community/push-notification-ios has no bundled jest mock; stub the

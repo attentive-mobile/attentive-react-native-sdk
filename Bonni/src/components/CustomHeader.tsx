@@ -5,12 +5,7 @@
  */
 
 import React from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-} from 'react-native'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -23,11 +18,11 @@ import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg'
 import CartIcon from '../assets/images/ui/icons/cart-icon.svg'
 import BonniLogo from '../assets/images/ui/icons/bonni-logo.svg'
 
-type NavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type NavigationProp = NativeStackNavigationProp<RootStackParamList>
 
 interface CustomHeaderProps {
-  showLogo?: boolean;
-  showCartIcon?: boolean;
+  showLogo?: boolean
+  showCartIcon?: boolean
 }
 
 /**
@@ -50,10 +45,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   const canGoBack = navigation.canGoBack()
   const shouldShowBackButton = !isProductListScreen && canGoBack
 
-  const cartItemCount = cartItems.reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  )
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
   const handleBackPress = () => {
     if (canGoBack) {
@@ -92,11 +84,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         </View>
 
         {/* Center - Logo */}
-        <View style={styles.centerContent}>
-          {showLogo && (
-            <BonniLogo />
-          )}
-        </View>
+        <View style={styles.centerContent}>{showLogo && <BonniLogo />}</View>
 
         {/* Right Button - Cart */}
         <View style={styles.rightButton}>

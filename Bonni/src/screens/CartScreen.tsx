@@ -17,11 +17,13 @@ import { CartScreenProps } from '../types/navigation'
 import { useCart } from '../models/CartContext'
 import { CartItem } from '../models/Product'
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme'
-import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import {
+  getPrimaryButtonStyle,
+  getPrimaryButtonTextStyle,
+} from '../constants/buttonStyles'
 
 const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
-  const { cartItems, updateQuantity, getSubtotal, getTax, getTotal } =
-    useCart()
+  const { cartItems, updateQuantity, getSubtotal, getTax, getTotal } = useCart()
 
   const handleCheckout = () => {
     if (cartItems.length === 0) {
@@ -36,25 +38,19 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       <View style={styles.itemDetails}>
         <Text style={styles.itemName}>{item.product.name}</Text>
         <Text style={styles.itemCategory}>Skincare</Text>
-        <Text style={styles.itemPrice}>
-          ${item.product.price.toFixed(2)}
-        </Text>
+        <Text style={styles.itemPrice}>${item.product.price.toFixed(2)}</Text>
       </View>
       <View style={styles.quantityControls}>
         <TouchableOpacity
           style={styles.quantityButton}
-          onPress={() =>
-            updateQuantity(item.product.id, item.quantity - 1)
-          }
+          onPress={() => updateQuantity(item.product.id, item.quantity - 1)}
         >
           <Text style={styles.quantityButtonText}>-</Text>
         </TouchableOpacity>
         <Text style={styles.quantity}>{item.quantity}</Text>
         <TouchableOpacity
           style={styles.quantityButton}
-          onPress={() =>
-            updateQuantity(item.product.id, item.quantity + 1)
-          }
+          onPress={() => updateQuantity(item.product.id, item.quantity + 1)}
         >
           <Text style={styles.quantityButtonText}>+</Text>
         </TouchableOpacity>
@@ -98,11 +94,16 @@ const CartScreen: React.FC<CartScreenProps> = ({ navigation }) => {
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>Your cart is empty</Text>
         <Pressable
-          style={({ pressed }) => [getPrimaryButtonStyle(pressed), { paddingHorizontal: Spacing.xxxl }]}
+          style={({ pressed }) => [
+            getPrimaryButtonStyle(pressed),
+            { paddingHorizontal: Spacing.xxxl },
+          ]}
           onPress={() => navigation.navigate('ProductList')}
         >
           {({ pressed }) => (
-            <Text style={getPrimaryButtonTextStyle(pressed)}>Start Shopping</Text>
+            <Text style={getPrimaryButtonTextStyle(pressed)}>
+              Start Shopping
+            </Text>
           )}
         </Pressable>
       </View>
