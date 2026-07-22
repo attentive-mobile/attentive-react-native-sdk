@@ -3,7 +3,6 @@
 # the App Store distribution certificate is shared; only the provisioning profile for this
 # app id is app-specific. Bucket/region come from the CircleCI org-global context.
 app_identifier(["com.attentive.rn.example.Bonni"])
-username(ENV.fetch("APPLE_ID"))
 team_id(ENV.fetch("APPLE_TEAM_ID"))
 
 type("appstore")
