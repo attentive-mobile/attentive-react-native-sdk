@@ -468,6 +468,23 @@ jobs:
               circleci-agent step halt
             fi
       - run:
+          name: Verify required signing + Firebase env vars are present
+          command: |
+            # Hard-fail if any required var is missing. Without this, a release build
+            # with BONNI_STORE_PASSWORD unset silently falls back to the DEBUG keystore
+            # (build.gradle) and we'd upload a debug-signed "release" APK to testers.
+            missing=""
+            for var in BONNI_KEYSTORE_BASE64 BONNI_STORE_PASSWORD BONNI_KEY_ALIAS BONNI_KEY_PASSWORD FIREBASE_APP_ID FIREBASE_TOKEN; do
+              if [ -z "$(printenv "$var" || true)" ]; then
+                missing="$missing $var"
+              fi
+            done
+            if [ -n "$missing" ]; then
+              echo "Missing required env var(s):$missing" >&2
+              echo "Refusing to build/upload: a release build without the signing vars would be debug-signed." >&2
+              exit 1
+            fi
+      - run:
           name: Decode release keystore
           command: echo "$BONNI_KEYSTORE_BASE64" | base64 -d > Bonni/android/app/bonni-release.keystore
       - run:
