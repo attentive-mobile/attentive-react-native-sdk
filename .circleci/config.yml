@@ -256,6 +256,10 @@ jobs:
           command: npm ci
       - run:
           name: Release SDK (release-it + npm Trusted Publishing)
+          environment:
+            # Operator-supplied notes passed via env (not interpolated into the script)
+            # so arbitrary note text can never be interpreted as shell.
+            RELEASE_NOTES: << pipeline.parameters.release_notes >>
           command: |
             set -euo pipefail
             VERSION="<< pipeline.parameters.release_version >>"
@@ -279,7 +283,16 @@ jobs:
             if [ "${IS_PRERELEASE}" = "true" ]; then
               RELEASE_ARGS="${RELEASE_ARGS} --github.preRelease --npm.tag=beta"
             fi
-            npx release-it ${RELEASE_ARGS}
+
+            # Use the operator-supplied notes for the GitHub Release when provided;
+            # otherwise fall back to the @release-it/conventional-changelog notes.
+            # The notes go through a file + `cat` so arbitrary text is never run as shell.
+            if [ -n "${RELEASE_NOTES:-}" ]; then
+              printf '%s' "${RELEASE_NOTES}" > /tmp/release_notes.txt
+              npx release-it ${RELEASE_ARGS} --github.releaseNotes="cat /tmp/release_notes.txt"
+            else
+              npx release-it ${RELEASE_ARGS}
+            fi
       - run:
           name: Open version-bump PR to main
           # NON-FATAL by design: release-it has already published to npm
