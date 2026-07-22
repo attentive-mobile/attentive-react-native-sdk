@@ -6,6 +6,8 @@ orbs:
   slack: circleci/slack@6.1.3
   github-cli: circleci/github-cli@2.7.2
   attentive: attentive-mobile/circleci-orb@0.0.11
+  macos: circleci/macos@2
+  aws-cli: circleci/aws-cli@4.0.0
 
 # ========================
 # Pipeline parameters
@@ -27,6 +29,11 @@ parameters:
   release_notes:
     type: string
     default: ""
+  # Set true by the GitHub Actions "Deploy TestFlight" workflow to build + upload the
+  # Bonni app to TestFlight without cutting an SDK release. Mirrors the iOS SDK pipeline.
+  run_testflight_deploy:
+    type: boolean
+    default: false
 
 # ========================
 # Constants
@@ -49,6 +56,24 @@ executors:
     docker:
       - image: cimg/node:22.14.0
     resource_class: medium
+  # macOS runner for building/signing/uploading the Bonni iOS app to TestFlight.
+  # Xcode 26.1.1 + m4pro.medium match the native iOS SDK pipeline (and the Bonni
+  # Podfile's fmt C++17 / Xcode 26 workaround).
+  macos-xcode:
+    macos:
+      xcode: "26.1.1"
+    resource_class: m4pro.medium
+    environment:
+      HOMEBREW_NO_AUTO_UPDATE: "1"
+      FASTLANE_SKIP_UPDATE_CHECK: "YES"
+      LC_ALL: "en_US.UTF-8"
+      LANG: "en_US.UTF-8"
+  # Android runner for building the signed Bonni APK + Firebase App Distribution upload.
+  # The "-node" cimg/android variant bundles Node.js (needed for the RN JS bundle step).
+  android-executor:
+    docker:
+      - image: cimg/android:2026.02.1-node
+    resource_class: large
 
 # ========================
 # Commands (Reusable)
@@ -81,6 +106,23 @@ commands:
           event: pass
           custom: |
             ${SLACK_RELEASE_PAYLOAD}
+
+  notify-slack-on-testflight-success:
+    description: "Announce a successful Bonni TestFlight upload to #eng-mobile-sdk-releases"
+    steps:
+      - slack/notify:
+          channel: *slack_channel_releases
+          event: pass
+          custom: |
+            {
+              "blocks": [
+                { "type": "header", "text": { "type": "plain_text", "text": "✅ Bonni TestFlight Build Deployed", "emoji": true } },
+                { "type": "section", "fields": [
+                  { "type": "mrkdwn", "text": "*Build:*\n${TESTFLIGHT_BUILD_NUMBER}" },
+                  { "type": "mrkdwn", "text": "*Branch:*\n${CIRCLE_BRANCH}" }
+                ] }
+              ]
+            }
 
 # ========================
 # Jobs
@@ -316,14 +358,176 @@ jobs:
       - notify-slack-on-release-success
       - notify-slack-on-failure
 
+  # -----------------------
+  # Deploy Bonni to TestFlight (iOS)
+  # -----------------------
+  # macOS job: builds + signs the Bonni RN app and uploads it to TestFlight via fastlane.
+  # Runs only in the deploy-testflight workflow (run_testflight_deploy=true), after the
+  # validation jobs pass. Self-contained (build + upload in one job) to avoid passing the
+  # IPA + gems + repo across macOS jobs. Mirrors the iOS SDK's build_bonni_release +
+  # deploy_testflight lanes. (No is_prerelease guard: this workflow is only ever triggered
+  # by the Deploy TestFlight GitHub Action, which never sets is_prerelease -- a guard here
+  # would be dead code that could silently no-op the whole job while reporting success.)
+  deploy-bonni-testflight:
+    executor: macos-xcode
+    steps:
+      # API-triggered pipelines don't get a write-capable checkout by default; clone
+      # with the GitHub App token (read is enough here, but keeps parity with release).
+      - attentive/app-based-github-token:
+          github_app_client_id: ${GITHUB_APP_CLIENT_ID}
+          github_app_private_key_base64: ${GITHUB_APP_PRIVATE_KEY_BASE64}
+          github_app_installation_id: ${GITHUB_APP_INSTALLATION_ID}
+      - run:
+          name: Checkout via GitHub App token
+          command: |
+            AUTH_HEADER="http.https://github.com/.extraheader=Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
+            git -c "${AUTH_HEADER}" clone --filter=blob:none \
+              "https://github.com/attentive-mobile/attentive-react-native-sdk.git" .
+            git -c "${AUTH_HEADER}" fetch --filter=blob:none origin "${CIRCLE_SHA1}"
+            git checkout "${CIRCLE_SHA1}"
+      # Temporary AWS creds (OIDC) so fastlane match can read certs/profiles from S3.
+      - aws-cli/setup:
+          region: AWS_REGION
+          role_arn: $AWS_ROLE_ARN
+          role_session_name: $CIRCLE_JOB-<< pipeline.number >>
+      - macos/switch-ruby:
+          version: "3.3"
+      - run:
+          name: Select Node 20 (RN toolchain)
+          command: |
+            export NVM_DIR="$HOME/.nvm"
+            # shellcheck disable=SC1090
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install 20
+            nvm alias default 20
+            # Persist the selected node on PATH for later steps.
+            echo "export NVM_DIR=$NVM_DIR" >> "$BASH_ENV"
+            echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && nvm use 20 >/dev/null' >> "$BASH_ENV"
+            node -v && npm -v
+      - run:
+          name: Install SDK deps + build lib/
+          # Bonni resolves the SDK via `file:..`; its gitignored lib/ must be built first.
+          command: |
+            npm ci
+            npm run build
+      - run:
+          name: Install Bonni JS deps
+          command: npm --prefix Bonni ci
+      - run:
+          name: Install Ruby gems (fastlane + cocoapods)
+          command: |
+            cd Bonni
+            bundle config set --local path 'vendor/bundle'
+            bundle install
+      - run:
+          name: Install Pods
+          command: |
+            cd Bonni/ios
+            bundle exec pod install
+      - run:
+          name: Build Bonni release IPA (fastlane match + gym)
+          command: |
+            cd Bonni/ios
+            bundle exec fastlane build_bonni_release
+      - run:
+          name: Upload to TestFlight (fastlane pilot)
+          command: |
+            cd Bonni/ios
+            bundle exec fastlane deploy_testflight
+      - store_artifacts:
+          path: Bonni/ios/build
+          destination: bonni-ios
+      - notify-slack-on-testflight-success
+      - notify-slack-on-failure
+
+  # -----------------------
+  # Distribute Bonni to Firebase App Distribution (Android)
+  # -----------------------
+  # Builds the signed Bonni APK and uploads it to Firebase App Distribution, mirroring the
+  # native Android SDK's distribute-bonni job. Reuses the workspace from setup-bonni (SDK lib/
+  # + Bonni node_modules + git history), then self-halts unless the Bonni versionCode changed
+  # — so a build ships to testers only on an explicit bump.
+  distribute-bonni-android:
+    executor: android-executor
+    steps:
+      - attach_workspace:
+          at: .
+      - run:
+          name: Skip unless Bonni versionCode changed
+          command: |
+            CURRENT=$(grep -E "versionCode\s+[0-9]+" Bonni/android/app/build.gradle | grep -oE "[0-9]+" | head -1)
+            # Compare against the parent of THIS pipeline's commit ($CIRCLE_SHA1~1), which is
+            # immutable, rather than the live-moving origin/$CIRCLE_BRANCH^: a concurrent push to
+            # main between trigger and this step could advance the branch ref onto our own commit,
+            # making a real versionCode bump read as "unchanged" and silently halting the upload.
+            # The full git history is present here (checkout-and-setup persists .git), so no fetch.
+            PREVIOUS=$(git show "${CIRCLE_SHA1}~1:Bonni/android/app/build.gradle" 2>/dev/null | grep -E "versionCode\s+[0-9]+" | grep -oE "[0-9]+" | head -1 || echo "")
+            echo "Bonni versionCode: previous='${PREVIOUS}' current='${CURRENT}'"
+            if [ "$CURRENT" = "$PREVIOUS" ]; then
+              echo "versionCode unchanged -- skipping Bonni distribution."
+              circleci-agent step halt
+            fi
+      - run:
+          name: Verify required signing + Firebase env vars are present
+          command: |
+            # Hard-fail if any required var is missing. Without this, a release build
+            # with BONNI_STORE_PASSWORD unset silently falls back to the DEBUG keystore
+            # (build.gradle) and we'd upload a debug-signed "release" APK to testers.
+            missing=""
+            for var in BONNI_KEYSTORE_BASE64 BONNI_STORE_PASSWORD BONNI_KEY_ALIAS BONNI_KEY_PASSWORD FIREBASE_APP_ID FIREBASE_TOKEN; do
+              if [ -z "$(printenv "$var" || true)" ]; then
+                missing="$missing $var"
+              fi
+            done
+            if [ -n "$missing" ]; then
+              echo "Missing required env var(s):$missing" >&2
+              echo "Refusing to build/upload: a release build without the signing vars would be debug-signed." >&2
+              exit 1
+            fi
+      - run:
+          name: Decode release keystore
+          command: echo "$BONNI_KEYSTORE_BASE64" | base64 -d > Bonni/android/app/bonni-release.keystore
+      - run:
+          name: Build Bonni release APK
+          command: |
+            cd Bonni/android
+            ./gradlew :app:assembleRelease
+      - run:
+          name: Install Firebase CLI
+          command: |
+            if ! command -v firebase >/dev/null 2>&1; then
+              npm install -g firebase-tools
+            fi
+      - run:
+          name: Upload to Firebase App Distribution
+          command: |
+            # Group aliases: comma-separated with NO spaces. "product-+-eng" is a real alias
+            # (verified via appdistribution:group:list); some firebase-tools versions don't trim,
+            # so a stray space could look up " product-+-eng" and silently miss that group.
+            firebase appdistribution:distribute \
+              Bonni/android/app/build/outputs/apk/release/app-release.apk \
+              --app "$FIREBASE_APP_ID" \
+              --token "$FIREBASE_TOKEN" \
+              --groups "dev,product-+-eng"
+      - run:
+          name: Cleanup keystore
+          when: always
+          command: rm -f Bonni/android/app/bonni-release.keystore
+      - store_artifacts:
+          path: Bonni/android/app/build/outputs/apk/release
+          destination: bonni-android-apk
+      - notify-slack-on-failure
+
 # ========================
 # Workflows
 # ========================
 workflows:
-  # Normal CI: runs on every push/PR. Disabled during a release pipeline.
+  # Normal CI: runs on every push/PR. Disabled during a release or TestFlight pipeline.
   lint-typecheck-test:
     when:
-      not: << pipeline.parameters.run_release >>
+      and:
+        - not: << pipeline.parameters.run_release >>
+        - not: << pipeline.parameters.run_testflight_deploy >>
     jobs:
       - checkout-and-setup:
           context: *default_context
@@ -355,6 +559,22 @@ workflows:
           context: *default_context
           requires:
             - setup-bonni
+      # On main only, ship a new Bonni build to testers (Firebase App Distribution)
+      # when its versionCode was bumped. The job itself self-halts if it wasn't.
+      - distribute-bonni-android:
+          context: *default_context
+          # Gate on the full validation suite (same as release / deploy-bonni-testflight) so a
+          # Bonni build that fails CI can't ship to Firebase testers on a versionCode bump.
+          requires:
+            - lint
+            - typecheck
+            - unit-test
+            - lint-bonni
+            - typecheck-bonni
+            - test-bonni
+          filters:
+            branches:
+              only: main
 
   # Release: triggered via the CircleCI API from the GitHub Actions "Release"
   # workflow (run_release=true). Runs the full validation suite as gates, then
@@ -393,6 +613,56 @@ workflows:
           requires:
             - setup-bonni
       - release:
+          context: *default_context
+          requires:
+            - lint
+            - typecheck
+            - unit-test
+            - lint-bonni
+            - typecheck-bonni
+            - test-bonni
+
+  # Deploy Bonni to TestFlight: triggered via the CircleCI API from the GitHub Actions
+  # "Deploy TestFlight" workflow (run_testflight_deploy=true). Validation gates run first so a
+  # broken build can't ship to testers; `not run_release` keeps it mutually exclusive with the
+  # release-sdk workflow if both params are ever set in one pipeline.
+  deploy-testflight:
+    when:
+      and:
+        - << pipeline.parameters.run_testflight_deploy >>
+        - not: << pipeline.parameters.run_release >>
+    jobs:
+      - checkout-and-setup:
+          context: *default_context
+      - lint:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - typecheck:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - unit-test:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - setup-bonni:
+          context: *default_context
+          requires:
+            - checkout-and-setup
+      - lint-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - typecheck-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - test-bonni:
+          context: *default_context
+          requires:
+            - setup-bonni
+      - deploy-bonni-testflight:
           context: *default_context
           requires:
             - lint

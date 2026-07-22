@@ -1,0 +1,97 @@
+# Bonni (React Native demo app) — iOS TestFlight distribution.
+#
+# Mirrors the attentive-ios-sdk `build_bonni_release` + `deploy_testflight` lanes, adapted for
+# the RN Bonni: a single app target (no notification-service extension) with bundle id
+# com.attentive.rn.example.Bonni, built from the CocoaPods workspace. Code signing is handled
+# by fastlane match (shared S3 repo); App Store Connect auth is via an API key.
+#
+# The React Native prerequisites (root `npm ci` + `npm run build` to produce the SDK's lib/,
+# Bonni `npm ci`, and `pod install`) are done by the CircleCI job before these lanes run.
+
+default_platform(:ios)
+
+APP_IDENTIFIER = "com.attentive.rn.example.Bonni".freeze
+SCHEME = "Bonni".freeze
+WORKSPACE = "Bonni.xcworkspace".freeze
+XCODEPROJ = "Bonni.xcodeproj".freeze
+BUILD_OUTPUT_DIR = ENV["FASTLANE_BUILD_OUTPUT_DIR"] || "build".freeze
+IPA_PATH = "#{BUILD_OUTPUT_DIR}/#{SCHEME}.ipa".freeze
+
+# App Store Connect API key (shared with the native iOS SDK's org-global context).
+# APP_STORE_CONNECT_API_KEY_CONTENT is the base64-encoded .p8.
+def api_key
+  app_store_connect_api_key(
+    key_id: ENV["APP_STORE_CONNECT_API_KEY_ID"],
+    issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+    key_content: ENV["APP_STORE_CONNECT_API_KEY_CONTENT"],
+    is_key_content_base64: true
+  )
+end
+
+# On CI, create a temporary keychain for match. Without this, match imports the App Store
+# cert into the locked login keychain and fails with "User interaction is not allowed".
+before_all do
+  setup_circle_ci if is_ci
+end
+
+platform :ios do
+  desc "Build the Bonni app for App Store (TestFlight): match signing + ASC build number + export IPA"
+  lane :build_bonni_release do
+    # Fetch the App Store distribution cert + provisioning profile from the shared match S3 repo.
+    sync_code_signing(
+      type: "appstore",
+      readonly: true,
+      app_identifier: [APP_IDENTIFIER]
+    )
+
+    # Monotonically increasing TestFlight build number: latest on App Store Connect + 1.
+    latest_build = app_store_build_number(
+      live: false,
+      api_key: api_key,
+      app_identifier: APP_IDENTIFIER,
+      initial_build_number: 0
+    )
+    increment_build_number(
+      build_number: latest_build + 1,
+      xcodeproj: XCODEPROJ
+    )
+
+    # match exports the resolved profile name as sigh_<bundle-id>_<type>_profile-name.
+    profile_name = ENV["sigh_#{APP_IDENTIFIER}_appstore_profile-name"]
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: XCODEPROJ,
+      targets: [SCHEME],
+      build_configurations: ["Release"],
+      profile_name: profile_name,
+      code_sign_identity: "Apple Distribution"
+    )
+
+    build_ios_app(
+      workspace: WORKSPACE,
+      scheme: SCHEME,
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: {
+        provisioningProfiles: { APP_IDENTIFIER => profile_name }
+      },
+      output_directory: BUILD_OUTPUT_DIR,
+      output_name: "#{SCHEME}.ipa",
+      clean: true
+    )
+  end
+
+  desc "Upload the built Bonni IPA to TestFlight (internal testers only)"
+  lane :deploy_testflight do
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: IPA_PATH,
+      distribute_external: false,
+      notify_external_testers: false
+    )
+
+    # Export the build number so the CircleCI Slack success step can reference it.
+    build_number = get_ipa_info_plist_value(ipa: IPA_PATH, key: "CFBundleVersion")
+    sh("echo 'export TESTFLIGHT_BUILD_NUMBER=#{build_number}' >> \"$BASH_ENV\"") if build_number
+  end
+end

@@ -80,7 +80,7 @@ android {
 
     namespace "com.bonni"
     defaultConfig {
-        applicationId "com.attentive.bonni"
+        applicationId "com.attentive.rn.example.Bonni"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
@@ -93,15 +93,27 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Release signing for Firebase App Distribution. In CI the keystore is
+        // base64-decoded to bonni-release.keystore and the BONNI_* env vars are set
+        // (mirrors the native Android SDK). Locally these are absent, and release
+        // falls back to the debug key (see buildTypes.release) so `gen-apk` still works.
+        release {
+            if (System.getenv("BONNI_STORE_PASSWORD") != null) {
+                storeFile file('bonni-release.keystore')
+                storePassword System.getenv("BONNI_STORE_PASSWORD")
+                keyAlias System.getenv("BONNI_KEY_ALIAS")
+                keyPassword System.getenv("BONNI_KEY_PASSWORD")
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Sign with the release keystore when the BONNI_* env vars are present (CI);
+            // otherwise fall back to the debug key so local `npm run gen-apk` still works.
+            signingConfig System.getenv("BONNI_STORE_PASSWORD") != null ? signingConfigs.release : signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
