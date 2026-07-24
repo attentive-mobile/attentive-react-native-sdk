@@ -287,6 +287,10 @@ jobs:
             # Use the operator-supplied notes for the GitHub Release when provided;
             # otherwise fall back to the @release-it/conventional-changelog notes.
             # The notes go through a file + `cat` so arbitrary text is never run as shell.
+            # CircleCI renders an EMPTY pipeline parameter passed via `environment:` as the
+            # literal string "<nil>" (documented), not "" — normalize it back to empty so the
+            # no-notes path falls back to the changelog instead of publishing "<nil>".
+            [ "${RELEASE_NOTES:-}" = "<nil>" ] && RELEASE_NOTES=""
             if [ -n "${RELEASE_NOTES:-}" ]; then
               printf '%s' "${RELEASE_NOTES}" > /tmp/release_notes.txt
               npx release-it ${RELEASE_ARGS} --github.releaseNotes="cat /tmp/release_notes.txt"
