@@ -228,13 +228,6 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 - Builder options beyond `domain`/`mode` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
 - Bare React Native apps (no prebuild) should not use the plugin — follow the manual instructions above.
 
-### Destroy the creative
-
-```typescript
-// This will remove the creative along with its web view
-destroyCreative()
-```
-
 ### Identify the current user
 
 Use `identify` to **add or enrich** information about the **current** user. As you gather identifiers (client user ID, email, phone, etc.), pass them to Attentive via `identify`. Each identifier is optional, and you can call `identify` repeatedly as you learn more about the user — **multiple calls combine the identifiers** rather than replacing them. The more identifiers you provide, the better the SDK functions.
