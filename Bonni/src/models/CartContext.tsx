@@ -7,14 +7,14 @@ import React, { createContext, useContext, useState, ReactNode } from 'react'
 import { Product, CartItem } from './Product'
 
 interface CartContextType {
-  cartItems: CartItem[];
-  addToCart: (product: Product) => void;
-  removeFromCart: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  clearCart: () => void;
-  getSubtotal: () => number;
-  getTax: () => number;
-  getTotal: () => number;
+  cartItems: CartItem[]
+  addToCart: (product: Product) => void
+  removeFromCart: (productId: string) => void
+  updateQuantity: (productId: string, quantity: number) => void
+  clearCart: () => void
+  getSubtotal: () => number
+  getTax: () => number
+  getTotal: () => number
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined)
@@ -28,7 +28,7 @@ export const useCart = () => {
 }
 
 interface CartProviderProps {
-  children: ReactNode;
+  children: ReactNode
 }
 
 export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {

@@ -83,7 +83,12 @@ export function useAddToCart() {
  */
 export function usePurchase() {
   const recordPurchase = useCallback(
-    (cartItems: CartItem[], orderId: string, cartId?: string, cartCoupon?: string) => {
+    (
+      cartItems: CartItem[],
+      orderId: string,
+      cartId?: string,
+      cartCoupon?: string
+    ) => {
       const items: Item[] = cartItems.map((item) =>
         productToItem(item.product, item.quantity)
       )
@@ -100,4 +105,3 @@ export function usePurchase() {
 
   return { recordPurchase }
 }
-

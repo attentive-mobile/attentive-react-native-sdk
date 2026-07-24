@@ -11,4 +11,3 @@ export { useAttentiveActions } from './useAttentiveActions'
 export { useDisplayAlerts } from './useDisplayAlerts'
 export { useAttentiveDomain } from './useAttentiveDomain'
 export { useTextPrompt } from './useTextPrompt'
-

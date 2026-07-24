@@ -56,9 +56,7 @@ describe('useMarketingSubscriptions', () => {
   describe('handleSetEmail', () => {
     it('should commit a valid email and call identify', () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() =>
-        useMarketingSubscriptions(onSuccess)
-      )
+      const { result } = renderHook(() => useMarketingSubscriptions(onSuccess))
 
       act(() => result.current.setEmailInput('user@example.com'))
       act(() => result.current.handleSetEmail())
@@ -87,9 +85,7 @@ describe('useMarketingSubscriptions', () => {
   describe('handleSetPhone', () => {
     it('should commit a valid phone and call identify', () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() =>
-        useMarketingSubscriptions(onSuccess)
-      )
+      const { result } = renderHook(() => useMarketingSubscriptions(onSuccess))
 
       act(() => result.current.setPhoneInput('+15551234567'))
       act(() => result.current.handleSetPhone())
@@ -118,9 +114,7 @@ describe('useMarketingSubscriptions', () => {
   describe('handleOptInEmail', () => {
     it('should call optInMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() =>
-        useMarketingSubscriptions(onSuccess)
-      )
+      const { result } = renderHook(() => useMarketingSubscriptions(onSuccess))
 
       act(() => result.current.setEmailInput('user@example.com'))
 
@@ -149,9 +143,7 @@ describe('useMarketingSubscriptions', () => {
   describe('handleOptOutEmail', () => {
     it('should call optOutMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() =>
-        useMarketingSubscriptions(onSuccess)
-      )
+      const { result } = renderHook(() => useMarketingSubscriptions(onSuccess))
 
       act(() => result.current.setEmailInput('user@example.com'))
 
@@ -167,9 +159,7 @@ describe('useMarketingSubscriptions', () => {
   describe('handleOptInPhone', () => {
     it('should call optInMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() =>
-        useMarketingSubscriptions(onSuccess)
-      )
+      const { result } = renderHook(() => useMarketingSubscriptions(onSuccess))
 
       act(() => result.current.setPhoneInput('+15551234567'))
 
@@ -198,9 +188,7 @@ describe('useMarketingSubscriptions', () => {
   describe('handleOptOutPhone', () => {
     it('should call optOutMarketingSubscription and invoke onSuccess', async () => {
       const onSuccess = jest.fn()
-      const { result } = renderHook(() =>
-        useMarketingSubscriptions(onSuccess)
-      )
+      const { result } = renderHook(() => useMarketingSubscriptions(onSuccess))
 
       act(() => result.current.setPhoneInput('+15551234567'))
 

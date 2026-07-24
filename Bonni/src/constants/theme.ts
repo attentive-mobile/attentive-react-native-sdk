@@ -28,12 +28,12 @@ export const Typography = {
   // Font sizes
   sizes: {
     xxxl: 40, // Welcome text
-    xxl: 30,  // Headers
-    xl: 24,   // Product titles
+    xxl: 30, // Headers
+    xl: 24, // Product titles
     large: 20, // Prices
     medium: 16, // Body text
-    small: 14,  // Secondary text
-    xs: 12,     // Small labels
+    small: 14, // Secondary text
+    xs: 12, // Small labels
   },
 
   // Font weights

@@ -16,8 +16,17 @@ import {
 } from 'react-native'
 import { CheckoutScreenProps } from '../types/navigation'
 import { useCart } from '../models/CartContext'
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
-import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import {
+  Colors,
+  Typography,
+  Spacing,
+  Layout,
+  BorderRadius,
+} from '../constants/theme'
+import {
+  getPrimaryButtonStyle,
+  getPrimaryButtonTextStyle,
+} from '../constants/buttonStyles'
 import { usePurchase } from '../hooks/useAttentiveEvents'
 
 const PLACEHOLDER_TEXT_COLOR = '#666666'
@@ -209,7 +218,10 @@ const CheckoutScreen: React.FC<CheckoutScreenProps> = ({ navigation }) => {
         </View>
 
         <Pressable
-          style={({ pressed }) => [getPrimaryButtonStyle(pressed), { marginHorizontal: Spacing.base, marginTop: Spacing.xl }]}
+          style={({ pressed }) => [
+            getPrimaryButtonStyle(pressed),
+            { marginHorizontal: Spacing.base, marginTop: Spacing.xl },
+          ]}
           onPress={handlePlaceOrder}
         >
           {({ pressed }) => (

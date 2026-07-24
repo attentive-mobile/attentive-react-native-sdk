@@ -20,8 +20,19 @@ import {
   ActivityIndicator,
 } from 'react-native'
 import { SettingsScreenProps } from '../types/navigation'
-import { Colors, Typography, Spacing, Layout, BorderRadius } from '../constants/theme'
-import { getPrimaryButtonStyle, getPrimaryButtonTextStyle, getSecondaryButtonStyle, getSecondaryButtonTextStyle } from '../constants/buttonStyles'
+import {
+  Colors,
+  Typography,
+  Spacing,
+  Layout,
+  BorderRadius,
+} from '../constants/theme'
+import {
+  getPrimaryButtonStyle,
+  getPrimaryButtonTextStyle,
+  getSecondaryButtonStyle,
+  getSecondaryButtonTextStyle,
+} from '../constants/buttonStyles'
 import { useAttentiveUser } from '../hooks/useAttentiveUser'
 import { useAttentiveActions } from '../hooks/useAttentiveActions'
 import { useAttentiveDomain } from '../hooks/useAttentiveDomain'
@@ -50,10 +61,16 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [responseData, setResponseData] = useState<string>('')
   const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true)
   const [displayAlerts, setDisplayAlerts] = useState<boolean>(true)
-  const { domain: attentiveDomain, promptForDomain, DomainPromptModal } = useAttentiveDomain()
-  const { showPrompt: showScreenPrompt, PromptModal: ScreenPromptModal } = useTextPrompt()
+  const {
+    domain: attentiveDomain,
+    promptForDomain,
+    DomainPromptModal,
+  } = useAttentiveDomain()
+  const { showPrompt: showScreenPrompt, PromptModal: ScreenPromptModal } =
+    useTextPrompt()
   const { identifyUser, clearUserIdentification } = useAttentiveUser()
-  const { triggerAttentiveCreative, recordCustomAttentiveEvent } = useAttentiveActions()
+  const { triggerAttentiveCreative, recordCustomAttentiveEvent } =
+    useAttentiveActions()
   const handleSubSuccess = useCallback(
     (message: string) => Alert.alert('Success', message),
     []
@@ -151,23 +168,29 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    * Handle debugger toggle change
    * @param value - New debugger enabled state
    */
-  const handleDebuggerToggle = useCallback(async (value: boolean) => {
-    try {
-      setDebuggerEnabled(value)
-      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED, value.toString())
-      if (displayAlerts) {
-        Alert.alert(
-          'Debugger Setting',
-          'Debugger setting has been saved. Note: This setting requires app restart to take effect.'
+  const handleDebuggerToggle = useCallback(
+    async (value: boolean) => {
+      try {
+        setDebuggerEnabled(value)
+        await AsyncStorage.setItem(
+          CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED,
+          value.toString()
         )
+        if (displayAlerts) {
+          Alert.alert(
+            'Debugger Setting',
+            'Debugger setting has been saved. Note: This setting requires app restart to take effect.'
+          )
+        }
+      } catch (error) {
+        console.error('Error saving debugger setting:', error)
+        if (displayAlerts) {
+          Alert.alert('Error', 'Failed to save debugger setting')
+        }
       }
-    } catch (error) {
-      console.error('Error saving debugger setting:', error)
-      if (displayAlerts) {
-        Alert.alert('Error', 'Failed to save debugger setting')
-      }
-    }
-  }, [displayAlerts])
+    },
+    [displayAlerts]
+  )
 
   /**
    * Handle display alerts toggle change
@@ -176,7 +199,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const handleDisplayAlertsToggle = useCallback(async (value: boolean) => {
     try {
       setDisplayAlerts(value)
-      await AsyncStorage.setItem(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, value.toString())
+      await AsyncStorage.setItem(
+        CONFIG_STORAGE_KEYS.DISPLAY_ALERTS,
+        value.toString()
+      )
     } catch (error) {
       console.error('Error saving display alerts setting:', error)
       // Don't show alert here since alerts are being disabled
@@ -230,7 +256,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
       })
     } else {
       if (displayAlerts) {
-        Alert.alert('Note', 'Push permissions are handled automatically on Android')
+        Alert.alert(
+          'Note',
+          'Push permissions are handled automatically on Android'
+        )
       }
     }
   }, [displayAlerts])
@@ -240,7 +269,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
       const token = await AsyncStorage.getItem('deviceToken')
       if (!token) {
         if (displayAlerts) {
-          Alert.alert('Error', "No device token found. Press 'Show Push Permission' button to obtain one.")
+          Alert.alert(
+            'Error',
+            "No device token found. Press 'Show Push Permission' button to obtain one."
+          )
         }
         return
       }
@@ -249,7 +281,8 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
       if (Platform.OS === 'ios') {
         PushNotificationIOS.checkPermissions((permissions) => {
           // Determine authorization status based on permissions
-          let authStatus: 'authorized' | 'denied' | 'notDetermined' = 'notDetermined'
+          let authStatus: 'authorized' | 'denied' | 'notDetermined' =
+            'notDetermined'
           if (permissions.alert || permissions.badge || permissions.sound) {
             authStatus = 'authorized'
           }
@@ -322,7 +355,10 @@ The SDK will handle the API request internally.`
       PushNotificationIOS.scheduleLocalNotification(notification)
     } else {
       if (displayAlerts) {
-        Alert.alert('Note', 'Local push notifications require additional setup on Android')
+        Alert.alert(
+          'Note',
+          'Local push notifications require additional setup on Android'
+        )
       }
     }
   }, [displayAlerts])
@@ -356,7 +392,10 @@ The SDK will handle the API request internally.`
   const handleClearCookies = useCallback(async () => {
     // TODO: Implement WebKit cookie clearing via native bridge
     // For now, just show confirmation
-    Alert.alert('Success', 'Cookies cleared (WebKit cookies require native implementation)')
+    Alert.alert(
+      'Success',
+      'Cookies cleared (WebKit cookies require native implementation)'
+    )
   }, [])
 
   const handleCopyDeviceToken = useCallback(async () => {
@@ -404,16 +443,19 @@ The SDK will handle the API request internally.`
       <ScrollView style={styles.container}>
         {/* Account Info Section */}
         <View style={styles.section}>
-          <Text style={styles.accountInfoLabel}>
-            Login Info: {currentUser}
-          </Text>
+          <Text style={styles.accountInfoLabel}>Login Info: {currentUser}</Text>
 
           <Pressable
-            style={({ pressed }) => [getPrimaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getPrimaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleSwitchUser}
           >
             {({ pressed }) => (
-              <Text style={getPrimaryButtonTextStyle(pressed)}>Switch User</Text>
+              <Text style={getPrimaryButtonTextStyle(pressed)}>
+                Switch User
+              </Text>
             )}
           </Pressable>
 
@@ -487,7 +529,10 @@ The SDK will handle the API request internally.`
           ) : null}
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleLogOut}
           >
             {({ pressed }) => (
@@ -496,11 +541,16 @@ The SDK will handle the API request internally.`
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleManageAddresses}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>Manage Addresses</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Manage Addresses
+              </Text>
             )}
           </Pressable>
         </View>
@@ -512,74 +562,114 @@ The SDK will handle the API request internally.`
           <Text style={styles.sectionTitle}>Test Events & SDK Operations</Text>
 
           <Pressable
-            style={({ pressed }) => [getPrimaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getPrimaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleShowCreative}
           >
             {({ pressed }) => (
-              <Text style={getPrimaryButtonTextStyle(pressed)}>Show Creative</Text>
+              <Text style={getPrimaryButtonTextStyle(pressed)}>
+                Show Creative
+              </Text>
             )}
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleShowPushPermission}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>Show Push Permission</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Show Push Permission
+              </Text>
             )}
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleSendPushToken}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>Send Push Token</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Send Push Token
+              </Text>
             )}
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleSendAppOpenEvents}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>📲 Send App Open Events</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                📲 Send App Open Events
+              </Text>
             )}
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleSendLocalPushNotification}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>🔔 Send Local Push Notification</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                🔔 Send Local Push Notification
+              </Text>
             )}
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleIdentifyUser}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>Identify User</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Identify User
+              </Text>
             )}
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleClearUser}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>Clear User</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Clear User
+              </Text>
             )}
           </Pressable>
 
           <Pressable
-            style={({ pressed }) => [getSecondaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleClearCookies}
           >
             {({ pressed }) => (
-              <Text style={getSecondaryButtonTextStyle(pressed)}>Clear Cookies</Text>
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Clear Cookies
+              </Text>
             )}
           </Pressable>
         </View>
@@ -595,11 +685,16 @@ The SDK will handle the API request internally.`
           </Text>
 
           <Pressable
-            style={({ pressed }) => [getPrimaryButtonStyle(pressed), styles.buttonSpacing]}
+            style={({ pressed }) => [
+              getPrimaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleCopyDeviceToken}
           >
             {({ pressed }) => (
-              <Text style={getPrimaryButtonTextStyle(pressed)}>Copy Device Token</Text>
+              <Text style={getPrimaryButtonTextStyle(pressed)}>
+                Copy Device Token
+              </Text>
             )}
           </Pressable>
         </View>
@@ -637,9 +732,16 @@ The SDK will handle the API request internally.`
               >
                 {({ pressed }) =>
                   isOptingInEmail ? (
-                    <ActivityIndicator size="small" color={Colors.primaryText} />
+                    <ActivityIndicator
+                      size="small"
+                      color={Colors.primaryText}
+                    />
                   ) : (
-                    <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>
+                    <Text
+                      style={getSecondaryButtonTextStyle(
+                        pressed && !isSubLoading
+                      )}
+                    >
                       OPT IN
                     </Text>
                   )
@@ -662,7 +764,9 @@ The SDK will handle the API request internally.`
                     <Text
                       style={[
                         styles.destructiveButtonText,
-                        pressed && !isSubLoading && styles.destructiveButtonTextPressed,
+                        pressed &&
+                          !isSubLoading &&
+                          styles.destructiveButtonTextPressed,
                       ]}
                     >
                       OPT OUT
@@ -699,9 +803,16 @@ The SDK will handle the API request internally.`
               >
                 {({ pressed }) =>
                   isOptingInPhone ? (
-                    <ActivityIndicator size="small" color={Colors.primaryText} />
+                    <ActivityIndicator
+                      size="small"
+                      color={Colors.primaryText}
+                    />
                   ) : (
-                    <Text style={getSecondaryButtonTextStyle(pressed && !isSubLoading)}>
+                    <Text
+                      style={getSecondaryButtonTextStyle(
+                        pressed && !isSubLoading
+                      )}
+                    >
                       OPT IN
                     </Text>
                   )
@@ -724,7 +835,9 @@ The SDK will handle the API request internally.`
                     <Text
                       style={[
                         styles.destructiveButtonText,
-                        pressed && !isSubLoading && styles.destructiveButtonTextPressed,
+                        pressed &&
+                          !isSubLoading &&
+                          styles.destructiveButtonTextPressed,
                       ]}
                     >
                       OPT OUT
@@ -756,7 +869,9 @@ The SDK will handle the API request internally.`
               onPress={handleAddEmail}
             >
               {({ pressed }) => (
-                <Text style={getPrimaryButtonTextStyle(pressed)}>Add Email</Text>
+                <Text style={getPrimaryButtonTextStyle(pressed)}>
+                  Add Email
+                </Text>
               )}
             </Pressable>
           </View>
@@ -774,7 +889,9 @@ The SDK will handle the API request internally.`
               onPress={handleAddPhone}
             >
               {({ pressed }) => (
-                <Text style={getPrimaryButtonTextStyle(pressed)}>Add Phone</Text>
+                <Text style={getPrimaryButtonTextStyle(pressed)}>
+                  Add Phone
+                </Text>
               )}
             </Pressable>
           </View>
@@ -866,7 +983,6 @@ The SDK will handle the API request internally.`
       {/* Cross-platform text prompt modals (null on iOS) */}
       {DomainPromptModal}
       {ScreenPromptModal}
-
     </>
   )
 }
