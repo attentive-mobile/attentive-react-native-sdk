@@ -174,6 +174,30 @@ After the native initialization, all other SDK operations (`identify`, `recordAd
 
 > **Tip:** If you see `[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized` in your Android logcat, it means `AttentiveSdk.initialize()` was not called from native code before the event was recorded. Check your `Application.onCreate()` setup.
 
+#### Disabling push at initialization (`pushEnabled`)
+
+The SDK accepts an initialization-time `pushEnabled` flag (default: `true`). When `false`, the SDK's push functionality is disabled: it will not register push tokens, send push-related app-launch events, or handle incoming push notifications. Marketing subscription opt-in / opt-out calls remain functional.
+
+The flag follows each platform's initialization path:
+
+**iOS** — set the optional `pushEnabled` field on the TypeScript configuration:
+
+```typescript
+const config: AttentiveSdkConfiguration = {
+  attentiveDomain: 'YOUR_ATTENTIVE_DOMAIN',
+  mode: 'production',
+  pushEnabled: false, // optional; defaults to true
+}
+```
+
+**Android** — because initialization is native (see above), the TypeScript field has no effect. Set the flag on the config builder in `MainApplication.kt` instead:
+
+```kotlin
+.pushEnabled(false)
+```
+
+The value is fixed at initialization and cannot be changed at runtime — applying a new value requires an app restart.
+
 ### Identify the current user
 
 Use `identify` to **add or enrich** information about the **current** user. As you gather identifiers (client user ID, email, phone, etc.), pass them to Attentive via `identify`. Each identifier is optional, and you can call `identify` repeatedly as you learn more about the user — **multiple calls combine the identifiers** rather than replacing them. The more identifiers you provide, the better the SDK functions.
@@ -277,6 +301,8 @@ The process is similar for the other events. See [eventTypes.tsx](https://github
 ### Push Notifications (iOS and Android)
 
 The SDK supports push notification integration on both iOS (APNs) and Android (FCM). The following sections cover iOS-specific setup flows. On Android, push notification integration is handled entirely in native Kotlin/Java code — see [App Events on Android](#app-events-on-android) for details.
+
+Push can also be disabled entirely at initialization — see [Disabling push at initialization](#disabling-push-at-initialization-pushenabled).
 
 > **iOS — required setup:** Your AppDelegate **must** forward notification
 > responses to the SDK for push tracking to work. Add this single line to your

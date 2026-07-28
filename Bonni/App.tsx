@@ -47,6 +47,8 @@ import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
 import { RootStackParamList } from './src/types/navigation'
 import { Colors } from './src/constants/theme'
+import { CONFIG_STORAGE_KEYS } from './src/constants/storage'
+import { getStoredBoolean } from './src/services/storage'
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 
@@ -225,14 +227,32 @@ function App(): React.JSX.Element {
     console.log('   Platform:', Platform.OS)
 
     // Initialize the Attentive SDK
-    const config: AttentiveSdkConfiguration = {
-      attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
-      mode: 'debug',
-      enableDebugger: true,
+    const initializeAttentiveSdk = async () => {
+      let pushEnabled = true
+      try {
+        pushEnabled = await getStoredBoolean(
+          CONFIG_STORAGE_KEYS.PUSH_ENABLED,
+          true
+        )
+      } catch (error) {
+        console.error(
+          '[Attentive] Failed to read push enabled config from AsyncStorage:',
+          error
+        )
+      }
+
+      const config: AttentiveSdkConfiguration = {
+        attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
+        mode: 'debug',
+        enableDebugger: false,
+        pushEnabled,
+      }
+
+      console.log('📦 [Attentive] Initializing SDK with config:', config)
+      initialize(config)
+      console.log('✅ [Attentive] SDK initialized')
     }
-    console.log('📦 [Attentive] Initializing SDK with config:', config)
-    initialize(config)
-    console.log('✅ [Attentive] SDK initialized')
+    initializeAttentiveSdk()
 
     // Identify user with sample identifiers (like iOS AppDelegate)
     // IMPORTANT: Must identify user BEFORE calling handleRegularOpen

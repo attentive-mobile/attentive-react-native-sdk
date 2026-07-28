@@ -2,6 +2,8 @@
 
 This guide covers everything needed to integrate Attentive push notification token registration on both iOS and Android. For Apple Developer Portal configuration, certificates, and TestFlight distribution steps, see [Push Notifications Setup](./PUSH_NOTIFICATIONS_SETUP.md).
 
+> Push can be disabled entirely at SDK initialization via the `pushEnabled` flag (default `true`) — on iOS through the TypeScript config, on Android through `AttentiveConfig.Builder().pushEnabled(...)`. See [Disabling push at initialization](../README.md#disabling-push-at-initialization-pushenabled) in the main README. The rest of this guide assumes push is enabled.
+
 ---
 
 ## Android Integration

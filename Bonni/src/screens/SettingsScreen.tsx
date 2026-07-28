@@ -45,11 +45,8 @@ import {
 } from '@attentive-mobile/attentive-react-native-sdk'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import PushNotificationIOS from '@react-native-community/push-notification-ios'
-
-const CONFIG_STORAGE_KEYS = {
-  DEBUGGER_ENABLED: 'attentive_debugger_enabled',
-  DISPLAY_ALERTS: 'attentive_display_alerts',
-}
+import { CONFIG_STORAGE_KEYS } from '../constants/storage'
+import { getStoredBoolean, setStoredBoolean } from '../services/storage'
 
 const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [email, setEmail] = useState('')
@@ -60,6 +57,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [switchUserFormVisible, setSwitchUserFormVisible] = useState(false)
   const [responseData, setResponseData] = useState<string>('')
   const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true)
+  const [pushEnabled, setPushEnabled] = useState(true)
   const [displayAlerts, setDisplayAlerts] = useState<boolean>(true)
   const {
     domain: attentiveDomain,
@@ -148,48 +146,66 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    */
   const loadConfiguration = async () => {
     try {
-      const [debuggerValue, alertsValue] = await Promise.all([
-        AsyncStorage.getItem(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED),
-        AsyncStorage.getItem(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS),
+      const [debuggerValue, alertsValue, pushValue] = await Promise.all([
+        getStoredBoolean(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED, true),
+        getStoredBoolean(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, true),
+        getStoredBoolean(CONFIG_STORAGE_KEYS.PUSH_ENABLED, true),
       ])
 
-      if (debuggerValue !== null) {
-        setDebuggerEnabled(debuggerValue === 'true')
-      }
-      if (alertsValue !== null) {
-        setDisplayAlerts(alertsValue === 'true')
-      }
+      setDebuggerEnabled(debuggerValue)
+      setDisplayAlerts(alertsValue)
+      setPushEnabled(pushValue)
     } catch (error) {
       console.error('Error loading configuration:', error)
     }
   }
 
   /**
-   * Handle debugger toggle change
-   * @param value - New debugger enabled state
+   * Persist a restart-to-apply setting and notify. These settings are read at
+   * SDK initialization, so the success alert notes the restart requirement.
    */
-  const handleDebuggerToggle = useCallback(
-    async (value: boolean) => {
+  const persistRestartSetting = useCallback(
+    async (key: string, label: string, value: boolean) => {
       try {
-        setDebuggerEnabled(value)
-        await AsyncStorage.setItem(
-          CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED,
-          value.toString()
-        )
+        await setStoredBoolean(key, value)
         if (displayAlerts) {
           Alert.alert(
-            'Debugger Setting',
-            'Debugger setting has been saved. Note: This setting requires app restart to take effect.'
+            `${label} Setting`,
+            `${label} setting has been saved. Note: This setting requires app restart to take effect.`
           )
         }
       } catch (error) {
-        console.error('Error saving debugger setting:', error)
+        console.error(`Error saving ${label.toLowerCase()} setting:`, error)
         if (displayAlerts) {
-          Alert.alert('Error', 'Failed to save debugger setting')
+          Alert.alert('Error', `Failed to save ${label.toLowerCase()} setting`)
         }
       }
     },
     [displayAlerts]
+  )
+
+  const handleDebuggerToggle = useCallback(
+    (value: boolean) => {
+      setDebuggerEnabled(value)
+      return persistRestartSetting(
+        CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED,
+        'Debugger',
+        value
+      )
+    },
+    [persistRestartSetting]
+  )
+
+  const handlePushToggle = useCallback(
+    (value: boolean) => {
+      setPushEnabled(value)
+      return persistRestartSetting(
+        CONFIG_STORAGE_KEYS.PUSH_ENABLED,
+        'Push',
+        value
+      )
+    },
+    [persistRestartSetting]
   )
 
   /**
@@ -199,10 +215,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const handleDisplayAlertsToggle = useCallback(async (value: boolean) => {
     try {
       setDisplayAlerts(value)
-      await AsyncStorage.setItem(
-        CONFIG_STORAGE_KEYS.DISPLAY_ALERTS,
-        value.toString()
-      )
+      await setStoredBoolean(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, value)
     } catch (error) {
       console.error('Error saving display alerts setting:', error)
       // Don't show alert here since alerts are being disabled
@@ -902,6 +915,19 @@ The SDK will handle the API request internally.`
         {/* Configuration Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Configuration</Text>
+          {/* Push Enabled Toggle */}
+          <View style={styles.configRow}>
+            <View style={styles.configLabelContainer}>
+              <Text style={styles.configLabel}>Push enabled</Text>
+            </View>
+            <Switch
+              testID="pushEnabledSwitch"
+              value={pushEnabled}
+              onValueChange={handlePushToggle}
+              trackColor={{ false: Colors.lightBackground, true: Colors.peach }}
+              thumbColor={Colors.white}
+            />
+          </View>
 
           {/* Debugger Toggle */}
           <View style={styles.configRow}>

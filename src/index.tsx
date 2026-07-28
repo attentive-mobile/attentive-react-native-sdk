@@ -51,6 +51,11 @@ const AttentiveReactNativeSdk = (
  *   lifecycle observers register on the main thread before the React Native bridge is ready.
  *   See the README "Android — Initialize from Native Code" section.
  *
+ * The optional `pushEnabled` flag (default `true`) disables the SDK's push functionality when
+ * `false`. It follows the same asymmetry: applied on iOS at SDK creation, ignored on Android —
+ * set it there via `AttentiveConfig.Builder().pushEnabled(...)` in `Application.onCreate()`.
+ * See the README "Disabling push at initialization" section.
+ *
  * Calling this unconditionally is safe; it is harmless on Android.
  *
  * @param configuration - Configuration object for the Attentive SDK
@@ -60,7 +65,8 @@ function initialize(configuration: AttentiveSdkConfiguration) {
     configuration.attentiveDomain,
     configuration.mode,
     configuration.skipFatigueOnCreatives ?? false,
-    configuration.enableDebugger ?? false
+    configuration.enableDebugger ?? false,
+    configuration.pushEnabled ?? true
   )
 }
 

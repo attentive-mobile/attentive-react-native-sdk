@@ -79,12 +79,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      *
      * See the README.md "Android Native Initialization" section for the full guide.
      * All other SDK operations (identify, recordEvent, push) are handled from TypeScript as normal.
+     *
+     * [pushEnabled] is likewise ignored here: it is applied by the iOS bridge at SDK creation,
+     * while on Android push behavior is configured by the host app's native initialization.
      */
     override fun initialize(
         attentiveDomain: String,
         mode: String,
         skipFatigueOnCreatives: Boolean,
-        enableDebugger: Boolean
+        enableDebugger: Boolean,
+        pushEnabled: Boolean
     ) {
         debugHelper.initialize(enableDebugger)
 
