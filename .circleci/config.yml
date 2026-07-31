@@ -262,9 +262,35 @@ jobs:
     steps:
       - run:
           name: Export release params to env (for git + Slack steps)
+          environment:
+            RELEASE_VERSION: << pipeline.parameters.release_version >>
+            IS_PRERELEASE: << pipeline.parameters.is_prerelease >>
+            RELEASE_NOTES: << pipeline.parameters.release_notes >>
           command: |
-            echo "export RELEASE_VERSION='<< pipeline.parameters.release_version >>'" >> "$BASH_ENV"
-            echo "export IS_PRERELEASE='<< pipeline.parameters.is_prerelease >>'" >> "$BASH_ENV"
+            set -euo pipefail
+
+            [ "${RELEASE_VERSION:-}" = "<nil>" ] && RELEASE_VERSION=""
+            [ "${IS_PRERELEASE:-}" = "<nil>" ] && IS_PRERELEASE="false"
+            [ "${RELEASE_NOTES:-}" = "<nil>" ] && RELEASE_NOTES=""
+
+            if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
+              echo "release_version must be semver (e.g., 2.1.1 or 2.1.1-beta.1)" >&2
+              exit 1
+            fi
+
+            case "${IS_PRERELEASE}" in
+              true|false) ;;
+              *)
+                echo "is_prerelease must be true or false" >&2
+                exit 1
+                ;;
+            esac
+
+            {
+              printf 'export RELEASE_VERSION=%q\n' "$RELEASE_VERSION"
+              printf 'export IS_PRERELEASE=%q\n' "$IS_PRERELEASE"
+              printf 'export RELEASE_NOTES=%q\n' "$RELEASE_NOTES"
+            } >> "$BASH_ENV"
       # Mint a short-lived GitHub App token (attentive-mobile-sdk[bot]) so we can
       # clone with write access and let release-it push the tag/branch + create
       # the GitHub Release. API-triggered pipelines don't get a write-capable
@@ -300,8 +326,8 @@ jobs:
           name: Release SDK (release-it + npm Trusted Publishing)
           command: |
             set -euo pipefail
-            VERSION="<< pipeline.parameters.release_version >>"
-            IS_PRERELEASE="<< pipeline.parameters.is_prerelease >>"
+            VERSION="${RELEASE_VERSION:-}"
+            IS_PRERELEASE="${IS_PRERELEASE:-false}"
             if [ -z "${VERSION}" ]; then
               echo "release_version is required" >&2
               exit 1
@@ -317,11 +343,20 @@ jobs:
             # short-lived npm publish credential. No NPM_TOKEN/OTP involved.
             export NPM_ID_TOKEN=$(circleci run oidc get --claims '{"aud": "npm:registry.npmjs.org"}')
 
-            RELEASE_ARGS="${VERSION} --ci"
+            RELEASE_ARGS=("${VERSION}" "--ci")
             if [ "${IS_PRERELEASE}" = "true" ]; then
-              RELEASE_ARGS="${RELEASE_ARGS} --github.preRelease --npm.tag=beta"
+              RELEASE_ARGS+=("--github.preRelease" "--npm.tag=beta")
             fi
-            npx release-it ${RELEASE_ARGS}
+
+            # Use the operator-supplied notes for the GitHub Release when provided;
+            # otherwise fall back to the @release-it/conventional-changelog notes.
+            # The notes go through a file + `cat` so arbitrary text is never run as shell.
+            if [ -n "${RELEASE_NOTES:-}" ]; then
+              printf '%s' "${RELEASE_NOTES}" > /tmp/release_notes.txt
+              npx release-it "${RELEASE_ARGS[@]}" --github.releaseNotes="cat /tmp/release_notes.txt"
+            else
+              npx release-it "${RELEASE_ARGS[@]}"
+            fi
       - run:
           name: Open version-bump PR to main
           # NON-FATAL by design: release-it has already published to npm
@@ -329,8 +364,12 @@ jobs:
           # an otherwise-successful release. No `set -e`; always exit 0.
           command: |
             set -uo pipefail
-            VERSION="<< pipeline.parameters.release_version >>"
-            IS_PRERELEASE="<< pipeline.parameters.is_prerelease >>"
+            VERSION="${RELEASE_VERSION:-}"
+            IS_PRERELEASE="${IS_PRERELEASE:-false}"
+            if [ -z "${VERSION}" ]; then
+              echo "::warning::release_version is missing; cannot open version-bump PR."
+              exit 0
+            fi
             if [ "${IS_PRERELEASE}" = "true" ]; then
               echo "Prerelease -- skipping PR to main (mirrors iOS/Android)."
               exit 0

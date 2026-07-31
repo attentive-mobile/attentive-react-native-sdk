@@ -30,8 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Validate version format
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          if ! echo "${{ inputs.version }}" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
             echo "::error::Version must be in semver format (e.g., 2.1.1 or 2.1.1-beta.1)"
             exit 1
           fi
@@ -39,12 +41,14 @@ jobs:
       - name: Trigger CircleCI release pipeline
         id: trigger
         env:
+          VERSION: ${{ inputs.version }}
+          IS_PRERELEASE: ${{ inputs.is_prerelease }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
         run: |
           payload=$(jq -n \
-            --arg version "${{ inputs.version }}" \
+            --arg version "$VERSION" \
             --arg notes "$RELEASE_NOTES" \
-            --arg is_prerelease "${{ inputs.is_prerelease }}" \
+            --arg is_prerelease "$IS_PRERELEASE" \
             '{
               branch: "main",
               parameters: {
@@ -80,7 +84,7 @@ jobs:
 
           echo "pipeline_id=$pipeline_id" >> "$GITHUB_OUTPUT"
           echo "pipeline_number=$pipeline_number" >> "$GITHUB_OUTPUT"
-          echo "CircleCI pipeline triggered for version ${{ inputs.version }} (pipeline: $pipeline_number)"
+          echo "CircleCI pipeline triggered for version $VERSION (pipeline: $pipeline_number)"
 
       - name: Wait for CircleCI pipeline to complete
         run: |
