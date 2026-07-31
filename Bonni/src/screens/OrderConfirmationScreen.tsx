@@ -4,16 +4,14 @@
  */
 
 import React from 'react'
-import {
-  View,
-  Text,
-  StyleSheet,
-  Pressable,
-} from 'react-native'
+import { View, Text, StyleSheet, Pressable } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { OrderConfirmationScreenProps } from '../types/navigation'
 import { Colors, Typography, Spacing, BorderRadius } from '../constants/theme'
-import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import {
+  getPrimaryButtonStyle,
+  getPrimaryButtonTextStyle,
+} from '../constants/buttonStyles'
 
 const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
   route,
@@ -33,31 +31,38 @@ const OrderConfirmationScreen: React.FC<OrderConfirmationScreenProps> = ({
     <View style={styles.container}>
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <View style={styles.content}>
-        <View style={styles.iconContainer}>
-          <Text style={styles.checkmark}>✓</Text>
+          <View style={styles.iconContainer}>
+            <Text style={styles.checkmark}>✓</Text>
+          </View>
+
+          <Text style={styles.title}>Thank you for shopping with us!</Text>
+
+          <Text style={styles.message}>
+            Your order has been placed successfully.
+          </Text>
+
+          <View style={styles.orderInfo}>
+            <Text style={styles.orderLabel}>Order Number:</Text>
+            <Text style={styles.orderId}>{orderId}</Text>
+          </View>
+
+          <Text style={styles.confirmationText}>
+            You will receive a confirmation email shortly with your order
+            details.
+          </Text>
+
+          <Pressable
+            style={({ pressed }) => [
+              getPrimaryButtonStyle(pressed),
+              { width: '100%' },
+            ]}
+            onPress={handleDone}
+          >
+            {({ pressed }) => (
+              <Text style={getPrimaryButtonTextStyle(pressed)}>DONE</Text>
+            )}
+          </Pressable>
         </View>
-
-        <Text style={styles.title}>Thank you for shopping with us!</Text>
-
-        <Text style={styles.message}>
-          Your order has been placed successfully.
-        </Text>
-
-        <View style={styles.orderInfo}>
-          <Text style={styles.orderLabel}>Order Number:</Text>
-          <Text style={styles.orderId}>{orderId}</Text>
-        </View>
-
-        <Text style={styles.confirmationText}>
-          You will receive a confirmation email shortly with your order details.
-        </Text>
-
-        <Pressable style={({ pressed }) => [getPrimaryButtonStyle(pressed), { width: '100%' }]} onPress={handleDone}>
-          {({ pressed }) => (
-            <Text style={getPrimaryButtonTextStyle(pressed)}>DONE</Text>
-          )}
-        </Pressable>
-      </View>
       </SafeAreaView>
     </View>
   )

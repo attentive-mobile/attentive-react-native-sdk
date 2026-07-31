@@ -1,0 +1,5 @@
+# Prettier is only used for TypeScript here (via eslint-plugin-prettier over
+# src/ and plugin/src/); Markdown is not part of the lint or CI toolchain.
+# Excluding it stops editor format-on-save from reformatting docs — and from
+# mangling GitHub-flavored constructs like `> [!WARNING]` alerts (Prettier 2.x).
+*.md

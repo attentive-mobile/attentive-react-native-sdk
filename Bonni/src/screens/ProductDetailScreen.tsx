@@ -17,7 +17,10 @@ import {
 import { ProductDetailScreenProps } from '../types/navigation'
 import { useCart } from '../models/CartContext'
 import { Colors, Typography, Spacing } from '../constants/theme'
-import { getPrimaryButtonStyle, getPrimaryButtonTextStyle } from '../constants/buttonStyles'
+import {
+  getPrimaryButtonStyle,
+  getPrimaryButtonTextStyle,
+} from '../constants/buttonStyles'
 import { useProductView, useAddToCart } from '../hooks/useAttentiveEvents'
 import { useDisplayAlerts } from '../hooks/useDisplayAlerts'
 
@@ -52,7 +55,13 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         ]
       )
     }
-  }, [product, handleAddToCartWithTracking, addToCart, navigation, displayAlerts])
+  }, [
+    product,
+    handleAddToCartWithTracking,
+    addToCart,
+    navigation,
+    displayAlerts,
+  ])
 
   return (
     <ScrollView style={styles.container}>
@@ -65,11 +74,14 @@ const ProductDetailScreen: React.FC<ProductDetailScreenProps> = ({
         <Text style={styles.productPrice}>${product.price.toFixed(2)}</Text>
 
         <Text style={styles.description}>
-          Discover the luxurious {product.name} from Bonni Beauty.
-          Crafted with premium ingredients to give you the best skincare experience.
+          Discover the luxurious {product.name} from Bonni Beauty. Crafted with
+          premium ingredients to give you the best skincare experience.
         </Text>
 
-        <Pressable style={({ pressed }) => getPrimaryButtonStyle(pressed)} onPress={handleAddToCart}>
+        <Pressable
+          style={({ pressed }) => getPrimaryButtonStyle(pressed)}
+          onPress={handleAddToCart}
+        >
           {({ pressed }) => (
             <Text style={getPrimaryButtonTextStyle(pressed)}>ADD TO CART</Text>
           )}

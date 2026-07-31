@@ -102,11 +102,14 @@ export function useTextPrompt(): TextPromptHook {
     setState((prev) => ({ ...prev, visible: false }))
   }, [])
 
-  const handleConfirm = useCallback((value: string) => {
-    const trimmed = value.trim()
-    dismiss()
-    if (trimmed) state.onConfirm(trimmed)
-  }, [dismiss, state])
+  const handleConfirm = useCallback(
+    (value: string) => {
+      const trimmed = value.trim()
+      dismiss()
+      if (trimmed) state.onConfirm(trimmed)
+    },
+    [dismiss, state]
+  )
 
   const handleCancel = useCallback(() => {
     dismiss()
@@ -141,7 +144,7 @@ export function useTextPrompt(): TextPromptHook {
           },
         ],
         'plain-text',
-        defaultValue,
+        defaultValue
       )
       return
     }
@@ -161,19 +164,20 @@ export function useTextPrompt(): TextPromptHook {
   }, [])
 
   // PromptModal is only meaningful on Android; return null on iOS to keep renders clean
-  const PromptModal: React.ReactElement | null = Platform.OS === 'ios' ? null : (
-    <TextPromptModal
-      visible={state.visible}
-      title={state.title}
-      message={state.message}
-      defaultValue={state.defaultValue}
-      placeholder={state.placeholder}
-      confirmText={state.confirmText}
-      cancelText={state.cancelText}
-      onConfirm={handleConfirm}
-      onDismiss={handleCancel}
-    />
-  )
+  const PromptModal: React.ReactElement | null =
+    Platform.OS === 'ios' ? null : (
+      <TextPromptModal
+        visible={state.visible}
+        title={state.title}
+        message={state.message}
+        defaultValue={state.defaultValue}
+        placeholder={state.placeholder}
+        confirmText={state.confirmText}
+        cancelText={state.cancelText}
+        onConfirm={handleConfirm}
+        onDismiss={handleCancel}
+      />
+    )
 
   return { showPrompt, PromptModal }
 }

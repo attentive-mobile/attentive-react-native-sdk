@@ -25,8 +25,21 @@ This project uses **npm** as the preferred package manager for consistency and a
 
 Run `npm install @attentive-mobile/attentive-react-native-sdk` from your app's root directory.
 
+## Setup with an AI coding agent
+
+> [!WARNING]
+> **Experimental.** Agent-assisted setup is a new, experimental feature. The [`AGENTS.md`](./AGENTS.md) guide and this flow may change, and results can vary by agent and project. Review whatever the agent changes before committing, and fall back to the manual steps below if anything looks off.
+
+If you use Claude Code, Cursor, Copilot, Codex, or another AI coding agent, you can have the agent walk you through setup. Point it at [`AGENTS.md`](./AGENTS.md) in this repo — it's a step-by-step integration guide written for agents that handles the npm install, iOS `pod install` + TypeScript `initialize()`, and the **native** Android initialization in `MainApplication.onCreate()`.
+
+**To trigger the flow**, open your project in your agent of choice and paste:
+
+> Integrate the Attentive React Native SDK into this app. Follow the guide at https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/AGENTS.md top-to-bottom and ask me any questions it tells you to ask before writing code.
+
+The agent flow intentionally stops at base integration. It does **not** wire up identify/clearUser, event recording, Creatives, marketing subscriptions, or push notifications — see the sections below for those.
+
 ## Usage
-See the [Example Project](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/example)
+See the [Bonni example app](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/Bonni)
 for a sample of how the Attentive React Native SDK is used.
 
 __*** NOTE: Please refrain from using any private or undocumented classes or methods as they may change between releases. ***__
@@ -161,14 +174,6 @@ After the native initialization, all other SDK operations (`identify`, `recordAd
 
 > **Tip:** If you see `[AttentiveSDK] recordAddToCartEvent failed — SDK may not be initialized` in your Android logcat, it means `AttentiveSdk.initialize()` was not called from native code before the event was recorded. Check your `Application.onCreate()` setup.
 
-### Destroy the creative
-
-```typescript
-// This will remove the creative along with its web view
-destroyCreative();
-```
-
-
 ### Identify the current user
 
 Use `identify` to **add or enrich** information about the **current** user. As you gather identifiers (client user ID, email, phone, etc.), pass them to Attentive via `identify`. Each identifier is optional, and you can call `identify` repeatedly as you learn more about the user — **multiple calls combine the identifiers** rather than replacing them. The more identifiers you provide, the better the SDK functions.
@@ -231,6 +236,13 @@ try {
 ```typescript
 // Trigger the Creative. This will show the Creative as a pop-up over the rest of the app.
 triggerCreative();
+```
+
+### Destroy the creative
+
+```typescript
+// This will remove the creative along with its web view
+destroyCreative();
 ```
 
 ### Record user events

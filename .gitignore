@@ -75,3 +75,6 @@ lib/
 
 # test coverage
 coverage/
+
+# AI agent local config
+.claude/

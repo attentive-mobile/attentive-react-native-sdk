@@ -545,7 +545,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 "success" to true,
                 "token" to "${token.take(16)}...",
                 "platform" to "Android",
-                "sdk_version" to "2.1.1",
+                "sdk_version" to "2.1.9",
                 "registration_triggered" to true
             )
 
@@ -703,7 +703,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 debugData["event_type"] = "push_open"
                 debugData["platform"] = "Android"
                 debugData["payload_keys"] = payload.keys.joinToString(", ")
-                debugData["sdk_version"] = "2.1.1"
+                debugData["sdk_version"] = "2.1.9"
                 debugHelper.showDebugInfo("Push Open Event", debugData)
             }
         } catch (e: Exception) {
@@ -769,7 +769,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 debugData["event_type"] = "foreground_push"
                 debugData["platform"] = "Android"
                 debugData["payload_keys"] = payload.keys.joinToString(", ")
-                debugData["sdk_version"] = "2.1.1"
+                debugData["sdk_version"] = "2.1.9"
                 debugHelper.showDebugInfo("Foreground Push Event", debugData)
             }
         } catch (e: Exception) {
