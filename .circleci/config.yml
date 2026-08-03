@@ -125,7 +125,7 @@ commands:
           custom: |
             {
               "blocks": [
-                { "type": "header", "text": { "type": "plain_text", "text": "✅ Bonni TestFlight Build Deployed", "emoji": true } },
+                { "type": "header", "text": { "type": "plain_text", "text": "✅ React Native TestFlight Build Deployed", "emoji": true } },
                 { "type": "section", "fields": [
                   { "type": "mrkdwn", "text": "*Build:*\n${TESTFLIGHT_BUILD_NUMBER}" },
                   { "type": "mrkdwn", "text": "*Branch:*\n${CIRCLE_BRANCH}" }
@@ -144,7 +144,7 @@ commands:
           custom: |
             {
               "blocks": [
-                { "type": "header", "text": { "type": "plain_text", "text": "✅ Bonni Android Build Distributed", "emoji": true } },
+                { "type": "header", "text": { "type": "plain_text", "text": "✅ React Native Android Build Distributed", "emoji": true } },
                 { "type": "section", "fields": [
                   { "type": "mrkdwn", "text": "*Build (versionCode):*\n${BONNI_VERSION_CODE}" },
                   { "type": "mrkdwn", "text": "*Branch:*\n${CIRCLE_BRANCH}" }
