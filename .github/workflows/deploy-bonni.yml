@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       branch:
-        description: "Branch to build and deploy to TestFlight"
+        description: "Branch to build and deploy to TestFlight (iOS) + Firebase App Distribution (Android)"
         required: true
         default: "main"
         type: string

@@ -124,6 +124,25 @@ commands:
               ]
             }
 
+  notify-slack-on-firebase-success:
+    description: "Announce a successful Bonni Firebase App Distribution upload to #eng-mobile-sdk-releases"
+    steps:
+      - slack/notify:
+          channel: *slack_channel_releases
+          # `pass` (not `always`): only announce when the upload actually succeeded.
+          # ${BONNI_VERSION_CODE} is exported to $BASH_ENV by the build step below.
+          event: pass
+          custom: |
+            {
+              "blocks": [
+                { "type": "header", "text": { "type": "plain_text", "text": "✅ Bonni Android Build Distributed", "emoji": true } },
+                { "type": "section", "fields": [
+                  { "type": "mrkdwn", "text": "*Build (versionCode):*\n${BONNI_VERSION_CODE}" },
+                  { "type": "mrkdwn", "text": "*Branch:*\n${CIRCLE_BRANCH}" }
+                ] }
+              ]
+            }
+
 # ========================
 # Jobs
 # ========================
@@ -517,6 +536,8 @@ jobs:
             BONNI_VERSION_CODE="<< pipeline.number >>"
             echo "Building Bonni Android with versionCode ${BONNI_VERSION_CODE}"
             ./gradlew :app:assembleRelease -PbonniVersionCode="${BONNI_VERSION_CODE}"
+            # Export for the Slack success notification (later step; via $BASH_ENV).
+            echo "export BONNI_VERSION_CODE=${BONNI_VERSION_CODE}" >> "$BASH_ENV"
       - run:
           name: Install Firebase CLI
           command: |
@@ -541,6 +562,7 @@ jobs:
       - store_artifacts:
           path: Bonni/android/app/build/outputs/apk/release
           destination: bonni-android-apk
+      - notify-slack-on-firebase-success
       - notify-slack-on-failure
 
 # ========================
