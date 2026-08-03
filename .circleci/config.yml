@@ -73,13 +73,16 @@ executors:
   android-executor:
     docker:
       - image: cimg/android:2026.02.1-node
-    resource_class: large
+    # xlarge (16GB): the RN native (CMake/clang) compile OOM-killed the JVM on `large`
+    # (8GB) even for a single ABI — the native compilers run outside the JVM heap and
+    # need several GB on top of it, so 8GB isn't enough. Heap stays modest (3g) so the
+    # compilers get the container room.
+    resource_class: xlarge
     environment:
-      # RN native (CMake) builds OOM-killed the Gradle daemon on `large`. Mirror the
-      # native Android SDK's CI settings: no daemon (removes the "daemon disappeared"
-      # failure mode + a persistent JVM), cap workers, 4g heap. Paired with an
-      # arm64-v8a-only build in distribute-bonni-android to halve the native compile.
-      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Xmx4g"
+      # No daemon (removes the "daemon disappeared" failure mode + a persistent JVM) and
+      # capped workers, mirroring the native Android SDK's CI. Paired with an
+      # arm64-v8a-only build in distribute-bonni-android.
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Xmx3g"
 
 # ========================
 # Commands (Reusable)
