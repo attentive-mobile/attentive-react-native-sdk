@@ -1,10 +1,10 @@
-name: Deploy TestFlight
+name: Deploy Bonni
 
-# Manual trigger that builds the Bonni app and uploads it to TestFlight, without cutting an
-# SDK release. Dispatches the CircleCI `deploy-testflight` workflow (run_testflight_deploy=true)
-# and waits for it. Mirrors the iOS SDK's deploy-testflight workflow. Unlike the Release
-# workflow, this is not pinned to main — a `branch` input lets QA push a branch build to
-# TestFlight (internal testers only; no npm publish, reversible).
+# Manual trigger that builds the Bonni app and uploads it to TestFlight (iOS) and
+# Firebase App Distribution (Android), without cutting an SDK release. Dispatches
+# the CircleCI `deploy-bonni` workflow (run_bonni_deploy=true) and waits for it.
+# Unlike the Release workflow, this is not pinned to main — a `branch` input lets
+# QA push a branch build to testers (internal only; no npm publish, reversible).
 on:
   workflow_dispatch:
     inputs:
@@ -14,17 +14,17 @@ on:
         default: "main"
         type: string
 
-# Two overlapping TestFlight dispatches would race on the App Store Connect build number
-# (the second upload gets rejected with ITMS-90062). Serialize them.
+# Two overlapping deploys would race on the App Store Connect build number (the second
+# upload gets rejected with ITMS-90062). Serialize them.
 concurrency:
-  group: bonni-testflight
+  group: bonni-deploy
   cancel-in-progress: false
 
 jobs:
-  trigger-testflight:
+  trigger-bonni-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger CircleCI deploy-testflight pipeline
+      - name: Trigger CircleCI deploy-bonni pipeline
         id: trigger
         env:
           # Pass the input through env, not direct ${{ }} interpolation into the script:
@@ -37,7 +37,7 @@ jobs:
             '{
               branch: $branch,
               parameters: {
-                run_testflight_deploy: true
+                run_bonni_deploy: true
               }
             }')
 
@@ -66,14 +66,14 @@ jobs:
 
           echo "pipeline_id=$pipeline_id" >> "$GITHUB_OUTPUT"
           echo "pipeline_number=$pipeline_number" >> "$GITHUB_OUTPUT"
-          echo "CircleCI TestFlight pipeline triggered for branch $BRANCH (pipeline: $pipeline_number)"
+          echo "CircleCI Bonni deploy pipeline triggered for branch $BRANCH (pipeline: $pipeline_number)"
 
       - name: Wait for CircleCI pipeline to complete
         run: |
           pipeline_id="${{ steps.trigger.outputs.pipeline_id }}"
           pipeline_number="${{ steps.trigger.outputs.pipeline_number }}"
           poll_interval=30
-          timeout=3600  # 60 minutes (cold-cache RN iOS builds are slow)
+          timeout=5400  # 90 minutes (validation + cold-cache RN iOS/Android builds)
           elapsed=0
 
           echo "Waiting for CircleCI pipeline $pipeline_number to complete..."
@@ -133,7 +133,7 @@ jobs:
                 echo "::error::One or more CircleCI workflows did not succeed"
                 exit 1
               else
-                echo "TestFlight deploy completed successfully!"
+                echo "Bonni deploy completed successfully!"
                 exit 0
               fi
             fi

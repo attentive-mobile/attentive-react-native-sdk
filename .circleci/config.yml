@@ -29,9 +29,9 @@ parameters:
   release_notes:
     type: string
     default: ""
-  # Set true by the GitHub Actions "Deploy TestFlight" workflow to build + upload the
-  # Bonni app to TestFlight without cutting an SDK release. Mirrors the iOS SDK pipeline.
-  run_testflight_deploy:
+  # Set true by the GitHub Actions "Deploy Bonni" workflow to build + upload the
+  # Bonni app to TestFlight and Firebase App Distribution without cutting an SDK release.
+  run_bonni_deploy:
     type: boolean
     default: false
 
@@ -401,11 +401,11 @@ jobs:
   # Deploy Bonni to TestFlight (iOS)
   # -----------------------
   # macOS job: builds + signs the Bonni RN app and uploads it to TestFlight via fastlane.
-  # Runs only in the deploy-testflight workflow (run_testflight_deploy=true), after the
+  # Runs only in the deploy-bonni workflow (run_bonni_deploy=true), after the
   # validation jobs pass. Self-contained (build + upload in one job) to avoid passing the
   # IPA + gems + repo across macOS jobs. Mirrors the iOS SDK's build_bonni_release +
   # deploy_testflight lanes. (No is_prerelease guard: this workflow is only ever triggered
-  # by the Deploy TestFlight GitHub Action, which never sets is_prerelease -- a guard here
+  # by the Deploy Bonni GitHub Action, which never sets is_prerelease -- a guard here
   # would be dead code that could silently no-op the whole job while reporting success.)
   deploy-bonni-testflight:
     executor: macos-xcode
@@ -482,30 +482,14 @@ jobs:
   # -----------------------
   # Distribute Bonni to Firebase App Distribution (Android)
   # -----------------------
-  # Builds the signed Bonni APK and uploads it to Firebase App Distribution, mirroring the
-  # native Android SDK's distribute-bonni job. Reuses the workspace from setup-bonni (SDK lib/
-  # + Bonni node_modules + git history), then self-halts unless the Bonni versionCode changed
-  # — so a build ships to testers only on an explicit bump.
+  # Builds the signed Bonni APK and uploads it to Firebase App Distribution.
+  # Runs only in the human-dispatched deploy-bonni workflow, with a CI-generated
+  # versionCode so tester builds do not require repo versionCode bumps.
   distribute-bonni-android:
     executor: android-executor
     steps:
       - attach_workspace:
           at: .
-      - run:
-          name: Skip unless Bonni versionCode changed
-          command: |
-            CURRENT=$(grep -E "versionCode\s+[0-9]+" Bonni/android/app/build.gradle | grep -oE "[0-9]+" | head -1)
-            # Compare against the parent of THIS pipeline's commit ($CIRCLE_SHA1~1), which is
-            # immutable, rather than the live-moving origin/$CIRCLE_BRANCH^: a concurrent push to
-            # main between trigger and this step could advance the branch ref onto our own commit,
-            # making a real versionCode bump read as "unchanged" and silently halting the upload.
-            # The full git history is present here (checkout-and-setup persists .git), so no fetch.
-            PREVIOUS=$(git show "${CIRCLE_SHA1}~1:Bonni/android/app/build.gradle" 2>/dev/null | grep -E "versionCode\s+[0-9]+" | grep -oE "[0-9]+" | head -1 || echo "")
-            echo "Bonni versionCode: previous='${PREVIOUS}' current='${CURRENT}'"
-            if [ "$CURRENT" = "$PREVIOUS" ]; then
-              echo "versionCode unchanged -- skipping Bonni distribution."
-              circleci-agent step halt
-            fi
       - run:
           name: Verify required signing + Firebase env vars are present
           command: |
@@ -530,7 +514,9 @@ jobs:
           name: Build Bonni release APK
           command: |
             cd Bonni/android
-            ./gradlew :app:assembleRelease
+            BONNI_VERSION_CODE="<< pipeline.number >>"
+            echo "Building Bonni Android with versionCode ${BONNI_VERSION_CODE}"
+            ./gradlew :app:assembleRelease -PbonniVersionCode="${BONNI_VERSION_CODE}"
       - run:
           name: Install Firebase CLI
           command: |
@@ -561,12 +547,12 @@ jobs:
 # Workflows
 # ========================
 workflows:
-  # Normal CI: runs on every push/PR. Disabled during a release or TestFlight pipeline.
+  # Normal CI: runs on every push/PR. Disabled during a release or Bonni deploy pipeline.
   lint-typecheck-test:
     when:
       and:
         - not: << pipeline.parameters.run_release >>
-        - not: << pipeline.parameters.run_testflight_deploy >>
+        - not: << pipeline.parameters.run_bonni_deploy >>
     jobs:
       - checkout-and-setup:
           context: *default_context
@@ -598,23 +584,6 @@ workflows:
           context: *default_context
           requires:
             - setup-bonni
-      # On main only, ship a new Bonni build to testers (Firebase App Distribution)
-      # when its versionCode was bumped. The job itself self-halts if it wasn't.
-      - distribute-bonni-android:
-          context: *default_context
-          # Gate on the full validation suite (same as release / deploy-bonni-testflight) so a
-          # Bonni build that fails CI can't ship to Firebase testers on a versionCode bump.
-          requires:
-            - lint
-            - typecheck
-            - unit-test
-            - lint-bonni
-            - typecheck-bonni
-            - test-bonni
-          filters:
-            branches:
-              only: main
-
   # Release: triggered via the CircleCI API from the GitHub Actions "Release"
   # workflow (run_release=true). Runs the full validation suite as gates, then
   # publishes. Never publishes a build that failed lint/typecheck/tests.
@@ -661,14 +630,14 @@ workflows:
             - typecheck-bonni
             - test-bonni
 
-  # Deploy Bonni to TestFlight: triggered via the CircleCI API from the GitHub Actions
-  # "Deploy TestFlight" workflow (run_testflight_deploy=true). Validation gates run first so a
-  # broken build can't ship to testers; `not run_release` keeps it mutually exclusive with the
-  # release-sdk workflow if both params are ever set in one pipeline.
-  deploy-testflight:
+  # Deploy Bonni: triggered via the CircleCI API from the GitHub Actions "Deploy Bonni"
+  # workflow (run_bonni_deploy=true). Validation gates run first so a broken build can't
+  # ship to testers; `not run_release` keeps it mutually exclusive with the release-sdk
+  # workflow if both params are ever set in one pipeline.
+  deploy-bonni:
     when:
       and:
-        - << pipeline.parameters.run_testflight_deploy >>
+        - << pipeline.parameters.run_bonni_deploy >>
         - not: << pipeline.parameters.run_release >>
     jobs:
       - checkout-and-setup:
@@ -702,6 +671,15 @@ workflows:
           requires:
             - setup-bonni
       - deploy-bonni-testflight:
+          context: *default_context
+          requires:
+            - lint
+            - typecheck
+            - unit-test
+            - lint-bonni
+            - typecheck-bonni
+            - test-bonni
+      - distribute-bonni-android:
           context: *default_context
           requires:
             - lint

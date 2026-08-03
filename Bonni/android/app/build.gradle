@@ -73,6 +73,12 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'org.webkit:android-jsc:+'
 
+// CI can override the Bonni tester-build versionCode for Firebase App Distribution.
+// The checked-in value stays stable; human-dispatched deploys pass a monotonically
+// increasing CircleCI pipeline number, mirroring iOS's CI-only build-number bump.
+def bonniVersionCodeOverride = project.findProperty("bonniVersionCode") ?: System.getenv("BONNI_VERSION_CODE")
+def bonniVersionCode = bonniVersionCodeOverride != null ? bonniVersionCodeOverride.toString().toInteger() : 1
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -83,7 +89,7 @@ android {
         applicationId "com.attentive.rn.example.Bonni"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        versionCode bonniVersionCode
         versionName "1.0"
     }
     signingConfigs {
