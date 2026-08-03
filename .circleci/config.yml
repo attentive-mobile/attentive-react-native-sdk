@@ -74,6 +74,12 @@ executors:
     docker:
       - image: cimg/android:2026.02.1-node
     resource_class: large
+    environment:
+      # RN native (CMake) builds OOM-killed the Gradle daemon on `large`. Mirror the
+      # native Android SDK's CI settings: no daemon (removes the "daemon disappeared"
+      # failure mode + a persistent JVM), cap workers, 4g heap. Paired with an
+      # arm64-v8a-only build in distribute-bonni-android to halve the native compile.
+      GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Dorg.gradle.parallel=true -Dorg.gradle.caching=true -Xmx4g"
 
 # ========================
 # Commands (Reusable)
@@ -535,7 +541,13 @@ jobs:
             cd Bonni/android
             BONNI_VERSION_CODE="<< pipeline.number >>"
             echo "Building Bonni Android with versionCode ${BONNI_VERSION_CODE}"
-            ./gradlew :app:assembleRelease -PbonniVersionCode="${BONNI_VERSION_CODE}"
+            # arm64-v8a only: tester APK targets physical devices (all modern Android is
+            # arm64) + Apple-Silicon emulators; dropping x86_64 halves the native (CMake)
+            # compile so the build fits in the `large` executor. Add x86_64 back (and bump
+            # the resource class) if x86_64/Intel-host emulator testers are needed.
+            ./gradlew :app:assembleRelease \
+              -PbonniVersionCode="${BONNI_VERSION_CODE}" \
+              -PreactNativeArchitectures=arm64-v8a
             # Export for the Slack success notification (later step; via $BASH_ENV).
             echo "export BONNI_VERSION_CODE=${BONNI_VERSION_CODE}" >> "$BASH_ENV"
       - run:
