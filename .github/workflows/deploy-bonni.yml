@@ -1,61 +1,43 @@
-name: Release SDK
+name: Deploy Bonni
 
-# Manual trigger that dispatches the CircleCI release-sdk pipeline (run_release=true)
-# and waits for it to finish. CircleCI does the actual work: validate -> bump version
-# -> CHANGELOG -> tag -> GitHub Release -> npm publish (Trusted Publishing) -> PR to
-# main. Mirrors the iOS/Android SDK release workflows.
+# Manual trigger that builds the Bonni app and uploads it to TestFlight (iOS) and
+# Firebase App Distribution (Android), without cutting an SDK release. Dispatches
+# the CircleCI `deploy-bonni` workflow (run_bonni_deploy=true) and waits for it.
+# Unlike the Release workflow, this is not pinned to main — a `branch` input lets
+# QA push a branch build to testers (internal only; no npm publish, reversible).
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: "Release version (e.g., 2.1.1 or 2.1.1-beta.1)"
+      branch:
+        description: "Branch to build and deploy to TestFlight (iOS) + Firebase App Distribution (Android)"
         required: true
+        default: "main"
         type: string
-      is_prerelease:
-        description: "Mark as prerelease (beta). Publishes under the npm 'beta' dist-tag and skips the PR to main."
-        required: false
-        type: boolean
-        default: false
-      release_notes:
-        description: "Release notes (optional). If blank, generated from conventional commits."
-        required: false
-        type: string
+
+# Two overlapping deploys would race on the App Store Connect build number (the second
+# upload gets rejected with ITMS-90062). Serialize them.
+concurrency:
+  group: bonni-deploy
+  cancel-in-progress: false
 
 jobs:
-  trigger-release:
-    # Only allow releases to be dispatched from main. This prevents an operator
-    # from running "Release SDK" against a feature branch and publishing unmerged
-    # code to npm, bypassing the main-branch review path.
-    if: github.ref == 'refs/heads/main'
+  trigger-bonni-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate version format
-        env:
-          VERSION: ${{ inputs.version }}
-        run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
-            echo "::error::Version must be in semver format (e.g., 2.1.1 or 2.1.1-beta.1)"
-            exit 1
-          fi
-
-      - name: Trigger CircleCI release pipeline
+      - name: Trigger CircleCI deploy-bonni pipeline
         id: trigger
         env:
-          VERSION: ${{ inputs.version }}
-          IS_PRERELEASE: ${{ inputs.is_prerelease }}
-          RELEASE_NOTES: ${{ inputs.release_notes }}
+          # Pass the input through env, not direct ${{ }} interpolation into the script:
+          # GHA substitutes ${{ }} as literal text before bash runs, so a crafted branch
+          # name would inject shell (jq --arg does NOT protect against that).
+          BRANCH: ${{ inputs.branch }}
         run: |
           payload=$(jq -n \
-            --arg version "$VERSION" \
-            --arg notes "$RELEASE_NOTES" \
-            --arg is_prerelease "$IS_PRERELEASE" \
+            --arg branch "$BRANCH" \
             '{
-              branch: "main",
+              branch: $branch,
               parameters: {
-                run_release: true,
-                release_version: $version,
-                release_notes: $notes,
-                is_prerelease: $is_prerelease
+                run_bonni_deploy: true
               }
             }')
 
@@ -84,14 +66,14 @@ jobs:
 
           echo "pipeline_id=$pipeline_id" >> "$GITHUB_OUTPUT"
           echo "pipeline_number=$pipeline_number" >> "$GITHUB_OUTPUT"
-          echo "CircleCI pipeline triggered for version $VERSION (pipeline: $pipeline_number)"
+          echo "CircleCI Bonni deploy pipeline triggered for branch $BRANCH (pipeline: $pipeline_number)"
 
       - name: Wait for CircleCI pipeline to complete
         run: |
           pipeline_id="${{ steps.trigger.outputs.pipeline_id }}"
           pipeline_number="${{ steps.trigger.outputs.pipeline_number }}"
           poll_interval=30
-          timeout=2700  # 45 minutes
+          timeout=5400  # 90 minutes (validation + cold-cache RN iOS/Android builds)
           elapsed=0
 
           echo "Waiting for CircleCI pipeline $pipeline_number to complete..."
@@ -133,7 +115,7 @@ jobs:
 
               case "$status" in
                 success) ;;
-                failed|error|canceled|unauthorized)
+                failed|error|canceled|unauthorized|not_run|on_hold)
                   any_failed=true
                   ;;
                 *)
@@ -151,7 +133,7 @@ jobs:
                 echo "::error::One or more CircleCI workflows did not succeed"
                 exit 1
               else
-                echo "All CircleCI workflows completed successfully!"
+                echo "Bonni deploy completed successfully!"
                 exit 0
               fi
             fi
