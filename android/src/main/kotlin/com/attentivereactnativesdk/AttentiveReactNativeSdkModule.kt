@@ -147,6 +147,15 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Every bail-out below emits `notOpened` before returning.
+     *
+     * The creative lifecycle is a public event stream, and a consumer that gates its own UI on it
+     * has no other way to learn the trigger went nowhere: without these emits, a trigger that
+     * never reached `Creative.trigger` produces no event at all and the gate never lifts. Failing
+     * to open is exactly what `notOpened` means, so these paths report it rather than staying
+     * silent — the alternative is a stream that can terminate with nothing.
+     */
     override fun triggerCreative(creativeId: String?) {
         Log.i(TAG, "Native Attentive module was called to trigger the creative.")
         try {
@@ -156,7 +165,11 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                     currentActivity.window.decorView.rootView as ViewGroup
                 // The following calls edit the view hierarchy so they must run on the UI thread
                 UiThreadUtil.runOnUiThread {
-                    val config = currentConfig("Creative Error") ?: return@runOnUiThread
+                    val config = currentConfig("Creative Error")
+                    if (config == null) {
+                        emitCreativeEvent("notOpened", creativeId)
+                        return@runOnUiThread
+                    }
                     creative = Creative(config, rootView, currentActivity)
                     creative?.trigger(createCreativeTriggerCallback(creativeId), creativeId)
                     if (debugHelper.isDebuggingEnabled()) {
@@ -168,9 +181,11 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                 }
             } else {
                 Log.w(TAG, "Could not trigger the Attentive Creative because the current Activity was null")
+                emitCreativeEvent("notOpened", creativeId)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Exception when triggering the creative: $e")
+            emitCreativeEvent("notOpened", creativeId)
         }
     }
 

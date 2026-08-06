@@ -143,7 +143,27 @@ function addCreativeEventListener(
         return
       }
 
-      listener({ status, creativeId: event.creativeId })
+      // Build the event without a `creativeId` key at all when there is no id, rather than
+      // setting it to undefined: `creativeId` is an optional property, so consumers are entitled
+      // to test it with `'creativeId' in event`.
+      const creativeEvent: CreativeEvent = { status }
+      if (event.creativeId != null) {
+        creativeEvent.creativeId = event.creativeId
+      }
+
+      // Isolate the consumer's listener. React Native's EventEmitter.emit has no try/catch, so a
+      // listener that throws would abort the emit loop — every other subscriber to this event
+      // would silently stop receiving it — and the exception would escape into the native->JS
+      // call. Both native emitters already log rather than throw; this keeps the JS edge of the
+      // bridge to the same rule.
+      try {
+        listener(creativeEvent)
+      } catch (error) {
+        console.error(
+          `[AttentiveSDK] A creative event listener threw while handling "${status}". Other listeners are unaffected.`,
+          error
+        )
+      }
     }
   )
 }

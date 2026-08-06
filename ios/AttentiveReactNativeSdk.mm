@@ -492,12 +492,21 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   // emitting once the module has been torn down.
   __weak __typeof(self) weakSelf = self;
   dispatch_async(dispatch_get_main_queue(), ^{
-    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
-    UIView *topView = window.rootViewController.view;
-
     void (^handler)(NSString *) = ^(NSString *status) {
       [weakSelf emitCreativeEventWithStatus:status creativeId:creativeId];
     };
+
+    // Messaging a nil _sdk is a silent no-op, which would leave the public event stream with no
+    // event at all when triggerCreative() runs before initialize(). Report notOpened instead, so
+    // a consumer gating UI on the stream is not stranded. Matches the Android bail-out paths.
+    if (self->_sdk == nil) {
+      RCTLogWarn(@"[AttentiveSDK] triggerCreative called before initialize(); reporting notOpened.");
+      handler(@"notOpened");
+      return;
+    }
+
+    UIWindow *window = [[UIApplication sharedApplication] keyWindow];
+    UIView *topView = window.rootViewController.view;
 
     if (creativeId == nil) {
       [self->_sdk trigger:topView handler:handler];

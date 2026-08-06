@@ -255,11 +255,13 @@ describe('Attentive SDK', () => {
     type NativeCreativeEvent = { status: string; creativeId?: string }
 
     let warnSpy: jest.SpyInstance
+    let errorSpy: jest.SpyInstance
     let removeNativeSubscription: jest.Mock
     let emitFromNative: (event: NativeCreativeEvent) => void
 
     beforeEach(() => {
       warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
       removeNativeSubscription = jest.fn()
       mockDeviceEventEmitter.addListener.mockImplementation(
         (_name: string, handler: (event: NativeCreativeEvent) => void) => {
@@ -271,6 +273,7 @@ describe('Attentive SDK', () => {
 
     afterEach(() => {
       warnSpy.mockRestore()
+      errorSpy.mockRestore()
     })
 
     it('should subscribe to the device event both native bridges emit', () => {
@@ -298,6 +301,35 @@ describe('Attentive SDK', () => {
       emitFromNative(event)
 
       expect(listener).toHaveBeenCalledWith(event)
+    })
+
+    it('should omit creativeId entirely rather than pass it as undefined', () => {
+      // `creativeId` is an optional property, so `'creativeId' in event` must be false for a
+      // default-creative trigger. toHaveBeenCalledWith cannot assert this — it treats a missing
+      // key and an undefined value as equal — so check the keys directly.
+      const listener = jest.fn()
+      addCreativeEventListener(listener)
+
+      emitFromNative({ status: 'notOpened' })
+
+      expect(Object.keys(listener.mock.calls[0][0])).toEqual(['status'])
+    })
+
+    it('should not let a throwing listener escape into the native emit loop', () => {
+      // React Native's EventEmitter.emit has no try/catch: an exception escaping here would abort
+      // the loop, so every other subscriber to this event would stop receiving it.
+      const boom = new Error('listener blew up')
+      const listener = jest.fn(() => {
+        throw boom
+      })
+      addCreativeEventListener(listener)
+
+      expect(() => emitFromNative({ status: 'opened' })).not.toThrow()
+      expect(listener).toHaveBeenCalled()
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('opened'),
+        boom
+      )
     })
 
     it('should keep delivering to one subscription across the lifecycle', () => {
