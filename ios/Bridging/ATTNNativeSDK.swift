@@ -110,17 +110,68 @@ struct DebugEvent {
 
   @objc(trigger:)
   public func trigger(_ view: UIView) {
-    sdk.trigger(view)
-    if debuggingEnabled {
-      showDebugInfo(event: "Creative Triggered", data: ["type": "trigger", "creativeId": "default"])
-    }
+    performTrigger(view, creativeId: nil, handler: nil)
+  }
+
+  /// Triggers the default creative and reports each lifecycle transition to `handler`.
+  ///
+  /// The native SDK retains the handler for the creative's lifetime, so it is invoked more than
+  /// once on the happy path: `opened` when the creative renders, then `closed` when it is
+  /// dismissed. A creative that cannot be shown reports a single `notOpened`.
+  @objc(trigger:handler:)
+  public func trigger(_ view: UIView, handler: ((String) -> Void)?) {
+    performTrigger(view, creativeId: nil, handler: handler)
   }
 
   @objc(trigger:creativeId:)
   public func trigger(_ view: UIView, creativeId: String) {
-    sdk.trigger(view, creativeId:creativeId)
+    trigger(view, creativeId: creativeId, handler: nil)
+  }
+
+  /// Triggers a specific creative and reports each lifecycle transition to `handler`.
+  /// See `trigger(_:handler:)` for the callback contract.
+  @objc(trigger:creativeId:handler:)
+  public func trigger(_ view: UIView, creativeId: String, handler: ((String) -> Void)?) {
+    performTrigger(view, creativeId: creativeId, handler: handler)
+  }
+
+  /// Single implementation behind all four `trigger` selectors. `creativeId == nil` triggers the
+  /// creative chosen by online configuration; a non-nil id targets that specific creative.
+  private func performTrigger(
+    _ view: UIView,
+    creativeId: String?,
+    handler: ((String) -> Void)?
+  ) {
+    let forward: (String) -> Void = { status in
+      handler?(Self.normalizedCreativeStatus(status))
+    }
+
+    if let creativeId = creativeId {
+      sdk.trigger(view, creativeId: creativeId, handler: forward)
+    } else {
+      sdk.trigger(view, handler: forward)
+    }
+
     if debuggingEnabled {
-      showDebugInfo(event: "Creative Triggered", data: ["type": "trigger", "creativeId": creativeId])
+      showDebugInfo(
+        event: "Creative Triggered",
+        data: ["type": "trigger", "creativeId": creativeId ?? "default"]
+      )
+    }
+  }
+
+  /// Maps `ATTNCreativeTriggerStatus` constants onto the `CreativeStatus` union published by the
+  /// React Native layer (`src/eventTypes.tsx`), keeping the wire vocabulary identical to Android.
+  ///
+  /// An unrecognized status passes through unchanged rather than being dropped, so a status added
+  /// by a future native SDK surfaces as a warning in JS instead of disappearing here.
+  private static func normalizedCreativeStatus(_ nativeStatus: String) -> String {
+    switch nativeStatus {
+    case ATTNCreativeTriggerStatus.opened: return "opened"
+    case ATTNCreativeTriggerStatus.closed: return "closed"
+    case ATTNCreativeTriggerStatus.notOpened: return "notOpened"
+    case ATTNCreativeTriggerStatus.notClosed: return "notClosed"
+    default: return nativeStatus
     }
   }
 

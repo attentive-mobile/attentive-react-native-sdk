@@ -1,4 +1,4 @@
-import { Platform } from 'react-native'
+import { DeviceEventEmitter, Platform } from 'react-native'
 import type {
   UserIdentifiers,
   AttentiveSdkConfiguration,
@@ -7,6 +7,9 @@ import type {
   AddToCart,
   CustomEvent,
   Item,
+  CreativeStatus,
+  CreativeEvent,
+  CreativeEventSubscription,
   PushAuthorizationStatus,
   ApplicationState,
   PushNotificationUserInfo,
@@ -14,6 +17,7 @@ import type {
   MarketingSubscriptionParams,
   UpdateUserParams,
 } from './eventTypes'
+import { CREATIVE_STATUSES } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
@@ -77,6 +81,71 @@ function triggerCreative(creativeId?: string) {
  */
 function destroyCreative() {
   AttentiveReactNativeSdk.destroyCreative()
+}
+
+/**
+ * Narrows an untyped device-event status onto the published `CreativeStatus` union, so the
+ * runtime allowlist and the compile-time union can never drift apart.
+ */
+const isCreativeStatus = (value?: string): value is CreativeStatus =>
+  CREATIVE_STATUSES.includes(value as CreativeStatus)
+
+/**
+ * Device-event name carrying creative lifecycle transitions.
+ *
+ * This string is a contract shared with both native bridges — `AttentiveReactNativeSdk.mm`
+ * emits it through `callableJSModules`, and `AttentiveReactNativeSdkModule.kt` through
+ * `RCTDeviceEventEmitter`. Changing it here without changing both native sides silently
+ * stops all creative events.
+ */
+const CREATIVE_EVENT_NAME = 'AttentiveCreativeEvent'
+
+/**
+ * Subscribe to creative lifecycle events.
+ *
+ * A single `triggerCreative` call produces more than one event over time — `opened` when the
+ * creative renders and `closed` when the user dismisses it — or a single `notOpened` when it
+ * could not be shown at all (no creative configured, fatigued, load timed out). Because the
+ * lifecycle is a stream rather than a one-shot result, it is delivered as events instead of a
+ * callback or a promise.
+ *
+ * ```ts
+ * useEffect(() => {
+ *   const subscription = addCreativeEventListener(({ status, creativeId }) => {
+ *     console.log('creative', creativeId ?? 'default', status)
+ *   })
+ *   return () => subscription.remove()
+ * }, [])
+ * ```
+ *
+ * Supported on React Native 0.74+: events travel as `RCTDeviceEventEmitter` device events rather
+ * than through a codegen event emitter, which would have required 0.76+. The transport works on
+ * both architectures, but on iOS the New Architecture is still required — the native module only
+ * exports its methods under `RCT_NEW_ARCH_ENABLED` (see MSDK-350).
+ *
+ * @param listener - Invoked for each lifecycle transition
+ * @returns A subscription; call `remove()` to stop receiving events
+ */
+function addCreativeEventListener(
+  listener: (event: CreativeEvent) => void
+): CreativeEventSubscription {
+  return DeviceEventEmitter.addListener(
+    CREATIVE_EVENT_NAME,
+    (event: { status?: string; creativeId?: string }) => {
+      // Native sends the normalized vocabulary, but this is an untyped device event: guard so a
+      // status added by a future native SDK surfaces as a warning instead of breaking the
+      // CreativeStatus union that consumers switch on.
+      const status = event?.status
+      if (!isCreativeStatus(status)) {
+        console.warn(
+          `[AttentiveSDK] Ignoring creative event with unrecognized status "${status}".`
+        )
+        return
+      }
+
+      listener({ status, creativeId: event.creativeId })
+    }
+  )
 }
 
 /**
@@ -555,6 +624,7 @@ export {
   initialize,
   triggerCreative,
   destroyCreative,
+  addCreativeEventListener,
   updateDomain,
   identify,
   clearUser,
@@ -589,6 +659,10 @@ export type {
   AddToCart,
   CustomEvent,
   Item,
+  // Creative Event Types
+  CreativeStatus,
+  CreativeEvent,
+  CreativeEventSubscription,
   // Push Notification Types
   PushAuthorizationStatus,
   ApplicationState,

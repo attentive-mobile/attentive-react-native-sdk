@@ -226,7 +226,7 @@ function App(): React.JSX.Element {
 
     // Initialize the Attentive SDK
     const config: AttentiveSdkConfiguration = {
-      attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
+      attentiveDomain: 'games', // Replace with your Attentive domain
       mode: 'debug',
       enableDebugger: true,
     }

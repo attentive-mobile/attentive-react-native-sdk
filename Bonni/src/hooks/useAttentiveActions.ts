@@ -3,10 +3,11 @@
  * Handles creative triggers, custom events, and other SDK actions
  */
 
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
 import {
   triggerCreative,
   recordCustomEvent,
+  addCreativeEventListener,
   type CustomEvent,
 } from '@attentive-mobile/attentive-react-native-sdk'
 
@@ -15,6 +16,23 @@ import {
  * @returns Memoized functions for SDK actions
  */
 export function useAttentiveActions() {
+  /**
+   * Log the creative lifecycle stream so both platforms can be verified from Metro / logcat:
+   * the happy path logs `opened` then `closed`, while a missing or fatigued creative logs a
+   * single `notOpened`.
+   */
+  useEffect(() => {
+    const subscription = addCreativeEventListener(({ status, creativeId }) => {
+      console.log(
+        `🎨 [Attentive] Creative ${status}${
+          creativeId ? ` (id: ${creativeId})` : ''
+        }`
+      )
+    })
+
+    return () => subscription.remove()
+  }, [])
+
   /**
    * Trigger a creative with an optional creative ID
    * @param creativeId - Optional creative ID to trigger

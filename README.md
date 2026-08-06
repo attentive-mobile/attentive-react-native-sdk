@@ -245,6 +245,83 @@ triggerCreative();
 destroyCreative();
 ```
 
+### Observe creative lifecycle events
+
+Subscribe with `addCreativeEventListener` to learn whether a creative actually opened and when the
+user dismissed it — useful for analytics, or for holding back your own UI while a creative is on
+screen.
+
+```typescript
+import { addCreativeEventListener, triggerCreative } from '@attentive-mobile/attentive-react-native-sdk';
+
+useEffect(() => {
+  const subscription = addCreativeEventListener(({ status, creativeId }) => {
+    switch (status) {
+      case 'opened':
+        // The creative rendered and is visible to the user.
+        break;
+      case 'closed':
+        // The user dismissed the creative.
+        break;
+      case 'notOpened':
+        // The creative could not be shown — see the status table below.
+        break;
+      case 'notClosed':
+        // Rare: the creative failed to close cleanly.
+        break;
+    }
+  });
+
+  return () => subscription.remove();
+}, []);
+```
+
+One `triggerCreative()` call produces **more than one event over time** — `opened` and then
+`closed` on the happy path — which is why this is an event stream rather than a callback or a
+promise.
+
+| `status` | Meaning |
+|---|---|
+| `opened` | The creative rendered and is visible. |
+| `closed` | The creative was dismissed by the user tapping the creative's own close control. The Android hardware back button does **not** produce this event — see the caveats below. |
+| `notOpened` | The creative could not be shown: no creative is configured for the app, the creative was fatigued, the load timed out, or an unknown error occurred. This is the single catch-all failure status on both platforms — it does not distinguish between those causes. See the Android caveat below. |
+| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `attentive-ios-sdk` 2.0.15 declares this status but never reports it, so an iOS-only integration will never see it. |
+
+`creativeId` echoes the id you passed to `triggerCreative(creativeId)`, and is absent when you
+triggered the default creative.
+
+Notes:
+
+- Supported on React Native 0.74+. Events travel as `RCTDeviceEventEmitter` device events rather
+  than through a codegen event emitter, so the transport itself needs no New Architecture opt-in.
+  **On iOS the New Architecture is still required**, because the native module only exports its
+  methods under `RCT_NEW_ARCH_ENABLED` (old-architecture iOS support is tracked in MSDK-350). With
+  the New Architecture disabled on iOS, `triggerCreative()` throws rather than emitting anything.
+- **`destroyCreative()` does not emit an event** on either platform, so a `closed` event only ever
+  comes from user-driven dismissal. Note the platforms diverge on what it actually does: on Android
+  it removes the creative's web view, while on iOS it currently dismisses nothing — the creative
+  stays on screen. Do not use it as a programmatic "hide the creative" call on iOS.
+- **The Android back button neither closes the creative nor emits an event.** The native SDK exposes
+  `Creative.onBackPressed()` for this, but nothing in this wrapper calls it, so a back press is
+  handled by React Native's own navigation while the creative's web view stays on screen. If you
+  gate UI on `closed`, that gate will not lift on a back press.
+- **Android caveat — a failed page load emits nothing.** With `attentive-android-sdk` 2.1.9, if the
+  creative page fails to load or hits the native 5-second render timeout, no event is delivered at
+  all: the timeout is reported to native as a bare `TIMED OUT` string, and the message handler only
+  dispatches JSON payloads, so `onCreativeNotOpened()` is never invoked. Network errors are logged
+  and dropped too. On Android, treat `notOpened` as best-effort and do not rely on it as a timeout
+  signal — if you need one, run your own timer alongside `triggerCreative()`. iOS reports
+  `notOpened` on both timeout and failure.
+- **Android caveat — a creative that fails to render in `Mode.DEBUG` freezes the app.** With
+  `attentive-android-sdk` 2.1.9, DEBUG mode makes the creative's full-screen web view visible
+  *before* the page loads. The view is transparent, so you see nothing — but a visible web view
+  consumes every touch, and because the creative never opened there are no bounds to filter
+  against. The app is unresponsive until the process is restarted, and per the caveat above no
+  `notOpened` arrives to detect it. This only affects DEBUG builds; in `Mode.PRODUCTION` the view
+  stays hidden and touches pass through. Trigger against a domain that serves a mobile-app
+  creative, or pass an explicit `creativeId`, when testing in DEBUG.
+- Always `remove()` the subscription when your component unmounts.
+
 ### Record user events
 
 The SDK currently supports `Purchase`, `AddToCart`, `ProductView`, and `CustomEvent`.

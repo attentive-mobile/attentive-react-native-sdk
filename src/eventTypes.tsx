@@ -31,6 +31,57 @@ export type ProductView = {
   deeplink?: string
 }
 
+/**
+ * Lifecycle outcome of a triggered creative.
+ *
+ * This is the vocabulary both platforms are normalized onto — iOS reports
+ * `ATTNCreativeTriggerStatus` string constants, Android calls the matching
+ * `CreativeTriggerCallback` method — but the two SDKs do not each report all four. Handle every
+ * status, and do not treat any single one as guaranteed to arrive.
+ *
+ * - `opened` — the creative rendered and is visible to the user.
+ * - `closed` — the creative was dismissed via its own close control. Not emitted for an Android
+ *   back press, and not emitted by `destroyCreative()`.
+ * - `notOpened` — the creative could not be shown. This is the catch-all failure status on
+ *   both platforms: no creative is configured for the app, the creative was fatigued, the
+ *   load timed out, or an unknown exception occurred. Android does not report it for a failed
+ *   page load or render timeout (see the README caveats).
+ * - `notClosed` — the creative failed to close cleanly (rare; e.g. the web view was already
+ *   gone at close time). Android only in practice: `attentive-ios-sdk` 2.0.15 declares this
+ *   status but has no call site for it.
+ */
+export const CREATIVE_STATUSES = [
+  'opened',
+  'closed',
+  'notOpened',
+  'notClosed',
+] as const
+
+export type CreativeStatus = (typeof CREATIVE_STATUSES)[number]
+
+/**
+ * A single creative lifecycle transition delivered to `addCreativeEventListener`.
+ */
+export type CreativeEvent = {
+  status: CreativeStatus
+  /**
+   * The `creativeId` passed to the `triggerCreative` call that produced this event.
+   * Absent when the creative was triggered without an explicit id.
+   */
+  creativeId?: string
+}
+
+/**
+ * Handle returned by `addCreativeEventListener`. Call `remove()` to stop receiving events.
+ *
+ * Deliberately minimal rather than React Native's `EventSubscription`, whose published
+ * TypeScript shape (`eventType` / `key` / `subscriber`) is an internal detail that has
+ * differed across RN versions.
+ */
+export type CreativeEventSubscription = {
+  remove: () => void
+}
+
 // Codegen does not support nested objects. We must flatten the Purchase type.
 export type Purchase = {
   items: Item[]

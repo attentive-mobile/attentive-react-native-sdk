@@ -13,7 +13,6 @@ import com.facebook.react.soloader.OpenSourceMergedSoMapping
 import com.facebook.soloader.SoLoader
 
 import com.attentive.androidsdk.*
-import java.util.Locale
 import com.attentive.androidsdk.AttentiveLogLevel
 import android.util.Log
 
@@ -57,9 +56,22 @@ class MainApplication : Application(), ReactApplication {
     val appContext = applicationContext as? Application
       ?: throw IllegalStateException("Application context is required for Attentive SDK")
 
-    val mode = "DEBUG"
-    val modeEnum = AttentiveConfig.Mode.valueOf(mode.uppercase(Locale.ROOT))
-    Log.d(TAG, "Building AttentiveConfig with mode received from TypeScript: \"$modeEnum\"")
+    // This config is Android's ONLY source of truth, and must be kept in sync with the config in
+    // Bonni/App.tsx by hand. The TypeScript initialize() is an intentional no-op here — lifecycle
+    // observers have to be registered in onCreate(), before the RN bridge exists — so nothing set
+    // in App.tsx ever reaches Android. Editing App.tsx alone changes iOS only.
+    //
+    // The domain must serve a default mobile-app creative for `triggerCreative()` with no id to
+    // render. "games" does. A domain without one loads the creative page, never shows an iframe,
+    // and the native SDK times out after 5s — pass an explicit creative id against those.
+    //
+    // Mode stays DEBUG. PRODUCTION here would make every tester who submits the creative's
+    // sign-up form a real subscriber on a live Attentive account. Be aware of one DEBUG-only
+    // hazard while testing: attentive-android-sdk 2.1.9 makes the fullscreen WebView VISIBLE
+    // before the creative page loads, and a visible WebView swallows every touch, so a creative
+    // that fails to render leaves the app unresponsive until you restart it.
+    val modeEnum = AttentiveConfig.Mode.DEBUG
+    Log.d(TAG, "Building AttentiveConfig with mode: \"$modeEnum\"")
     val config = AttentiveConfig.Builder()
       .applicationContext(appContext)
       .domain("games")
