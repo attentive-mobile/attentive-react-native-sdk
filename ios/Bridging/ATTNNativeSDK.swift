@@ -92,9 +92,13 @@ struct DebugEvent {
   private var debugOverlayWindow: UIWindow?
   private var debugHistory: [DebugEvent] = []
 
-  @objc(initWithDomain:mode:skipFatigueOnCreatives:enableDebugger:)
-  public init(domain: String, mode: String, skipFatigueOnCreatives: Bool, enableDebugger: Bool) {
-    self.sdk = ATTNSDK(domain: domain, mode: ATTNSDKMode(rawValue: mode) ?? .production)
+  @objc(initWithDomain:mode:skipFatigueOnCreatives:enableDebugger:pushEnabled:)
+  public init(domain: String, mode: String, skipFatigueOnCreatives: Bool, enableDebugger: Bool, pushEnabled: Bool) {
+    self.sdk = ATTNSDK(
+      domain: domain,
+      mode: ATTNSDKMode(rawValue: mode) ?? .production,
+      pushEnabled: pushEnabled
+    )
     self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives
 
     // Only enable debugging if both enableDebugger is true AND the app is running in debug mode

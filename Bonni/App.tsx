@@ -47,6 +47,8 @@ import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
 import { RootStackParamList } from './src/types/navigation'
 import { Colors } from './src/constants/theme'
+import { CONFIG_STORAGE_KEYS } from './src/constants/storage'
+import { getStoredBoolean } from './src/services/storage'
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
 
@@ -224,83 +226,128 @@ function App(): React.JSX.Element {
     console.log('🚀 [Attentive] App.tsx useEffect - Starting initialization')
     console.log('   Platform:', Platform.OS)
 
-    // Initialize the Attentive SDK
-    const config: AttentiveSdkConfiguration = {
-      attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
-      mode: 'debug',
-      enableDebugger: true,
-    }
-    console.log('📦 [Attentive] Initializing SDK with config:', config)
-    initialize(config)
-    console.log('✅ [Attentive] SDK initialized')
+    // These timers are scheduled from inside the async startup sequence below, so
+    // they are mutable locals the cleanup closure can still read.
+    let initialOpenTimer: ReturnType<typeof setTimeout> | null = null
+    let pushPermissionTimer: ReturnType<typeof setTimeout> | null = null
+    let unmounted = false
 
-    // Identify user with sample identifiers (like iOS AppDelegate)
-    // IMPORTANT: Must identify user BEFORE calling handleRegularOpen
-    // The SDK needs user context to make network calls to mobile.attentivemobile.com
-    console.log('👤 [Attentive] Identifying user')
-    identify({
-      phone: '+15671230987',
-      email: 'someemail@email.com',
-      clientUserId: 'APP_USER_ID',
-      shopifyId: '207119551',
-      klaviyoId: '555555',
-      customIdentifiers: { customId: 'customIdValue' },
-    })
-    console.log('✅ [Attentive] User identified')
-
-    // Defer first app open event so native SDK has time to apply identity and send to mobile.attentivemobile.com.
-    // Without this delay, handleRegularOpen can run before identify() is processed and no request may be sent.
-    const INITIAL_APP_OPEN_DELAY_MS = 300
-    console.log(
-      '⏳ [Attentive] Scheduling initial handleRegularOpen in',
-      INITIAL_APP_OPEN_DELAY_MS,
-      'ms'
-    )
-    const initialOpenTimer = setTimeout(async () => {
-      console.log(
-        '🌉 [Attentive] Triggering initial handleRegularOpen (app open / mtctrl)'
+    /**
+     * Ordered SDK startup. Every step lives in this one async function on purpose:
+     * reading the persisted push flag is asynchronous, and on iOS the native SDK
+     * instance does not exist until initialize() runs — the Objective-C bridge
+     * messages a nil instance silently, so any identify/open call made before it
+     * would be dropped with no error. Sequencing here keeps that ordering
+     * guaranteed rather than dependent on how fast AsyncStorage responds.
+     */
+    const startAttentiveSdk = async () => {
+      // 1. Load persisted config (falls back to the default if storage fails).
+      const pushEnabled = await getStoredBoolean(
+        CONFIG_STORAGE_KEYS.PUSH_ENABLED,
+        true
       )
-      try {
-        await trackRegularOpen()
-        console.log('✅ [Attentive] Initial handleRegularOpen completed')
-        console.log(
-          '   Check proxy for requests to mobile.attentivemobile.com (mtctrl, push registration)'
-        )
-      } catch (error) {
-        console.error('❌ [Attentive] Error calling handleRegularOpen:', error)
+
+      const config: AttentiveSdkConfiguration = {
+        attentiveDomain: 'attentivetexts', // Replace with your Attentive domain
+        mode: 'debug',
+        enableDebugger: true,
+        pushEnabled,
       }
-    }, INITIAL_APP_OPEN_DELAY_MS)
 
-    // Setup push notifications: iOS (APNs) and Android (POST_NOTIFICATIONS + FCM token from app)
-    if (Platform.OS === 'ios') {
-      console.log('📱 [Attentive] Setting up push notifications for iOS')
+      console.log('📦 [Attentive] Initializing SDK with config:', config)
+      initialize(config)
+      console.log('✅ [Attentive] SDK initialized')
+      if (unmounted) return
 
-      // Setup event listeners first (but don't request permissions yet)
-      setupPushNotifications()
+      // 2. Identify user with sample identifiers (like iOS AppDelegate).
+      // IMPORTANT: Must identify user AFTER initialize() and BEFORE handleRegularOpen.
+      // The SDK needs user context to make network calls to mobile.attentivemobile.com
+      console.log('👤 [Attentive] Identifying user')
+      identify({
+        phone: '+15671230987',
+        email: 'someemail@email.com',
+        clientUserId: 'APP_USER_ID',
+        shopifyId: '207119551',
+        klaviyoId: '555555',
+        customIdentifiers: { customId: 'customIdValue' },
+      })
+      console.log('✅ [Attentive] User identified')
+
+      // 3. Defer first app open event so native SDK has time to apply identity and send to mobile.attentivemobile.com.
+      // Without this delay, handleRegularOpen can run before identify() is processed and no request may be sent.
+      const INITIAL_APP_OPEN_DELAY_MS = 300
       console.log(
-        '✅ [Attentive] Push notification event listeners setup complete'
+        '⏳ [Attentive] Scheduling initial handleRegularOpen in',
+        INITIAL_APP_OPEN_DELAY_MS,
+        'ms'
       )
+      initialOpenTimer = setTimeout(async () => {
+        console.log(
+          '🌉 [Attentive] Triggering initial handleRegularOpen (app open / mtctrl)'
+        )
+        try {
+          await trackRegularOpen()
+          console.log('✅ [Attentive] Initial handleRegularOpen completed')
+          console.log(
+            '   Check proxy for requests to mobile.attentivemobile.com (mtctrl, push registration)'
+          )
+        } catch (error) {
+          console.error(
+            '❌ [Attentive] Error calling handleRegularOpen:',
+            error
+          )
+        }
+      }, INITIAL_APP_OPEN_DELAY_MS)
 
-      // Request permissions after a delay so the initial handleRegularOpen (above) can complete first
-      console.log('⏳ [Attentive] Waiting 500ms before requesting permissions')
-      setTimeout(() => {
+      // 4. Setup push notifications: iOS (APNs) and Android (POST_NOTIFICATIONS + FCM token from app).
+      // Skipped entirely when push is disabled — this app-side flow calls the OS
+      // permission APIs directly, so it would still prompt the user and mint a
+      // token that the push-disabled SDK will never register.
+      if (!pushEnabled) {
+        console.log(
+          '🔕 [Attentive] pushEnabled is false — skipping push notification setup'
+        )
+        return
+      }
+
+      if (Platform.OS === 'ios') {
+        console.log('📱 [Attentive] Setting up push notifications for iOS')
+
+        // Setup event listeners first (but don't request permissions yet)
+        setupPushNotifications()
+        console.log(
+          '✅ [Attentive] Push notification event listeners setup complete'
+        )
+
+        // Request permissions after a delay so the initial handleRegularOpen (above) can complete first
+        console.log(
+          '⏳ [Attentive] Waiting 500ms before requesting permissions'
+        )
+        pushPermissionTimer = setTimeout(() => {
+          registerPushAndTrackRegularOpen().catch((error) => {
+            console.error(
+              '❌ [Attentive] iOS push registration flow failed:',
+              error
+            )
+          })
+        }, 500)
+      } else if (Platform.OS === 'android') {
+        console.log('📱 [Attentive] Setting up push notifications for Android')
         registerPushAndTrackRegularOpen().catch((error) => {
           console.error(
-            '❌ [Attentive] iOS push registration flow failed:',
+            '❌ [Attentive] Android push registration flow failed:',
             error
           )
         })
-      }, 500)
-    } else if (Platform.OS === 'android') {
-      console.log('📱 [Attentive] Setting up push notifications for Android')
-      registerPushAndTrackRegularOpen().catch((error) => {
-        console.error(
-          '❌ [Attentive] Android push registration flow failed:',
-          error
-        )
-      })
-      // TODO(MSDK-352): wire up killed-state push tap via getInitialPushNotification
+        // TODO(MSDK-352): wire up killed-state push tap via getInitialPushNotification
+      }
     }
+
+    // Fire-and-forget, but never silently: an unlinked native module throws the
+    // SDK's LINKING_ERROR from initialize(), which must stay visible in the log.
+    startAttentiveSdk().catch((error) => {
+      console.error('❌ [Attentive] SDK startup sequence failed:', error)
+    })
 
     // Android: listen for foreground push events emitted by AttentiveFirebaseMessagingService
     // and background-tap events emitted by MainActivity.onNewIntent.
@@ -440,7 +487,9 @@ function App(): React.JSX.Element {
     )
 
     return () => {
-      clearTimeout(initialOpenTimer)
+      unmounted = true
+      if (initialOpenTimer) clearTimeout(initialOpenTimer)
+      if (pushPermissionTimer) clearTimeout(pushPermissionTimer)
       clearAndroidPermissionPoll()
       if (Platform.OS === 'ios') {
         PushNotificationIOS.removeEventListener('register')
