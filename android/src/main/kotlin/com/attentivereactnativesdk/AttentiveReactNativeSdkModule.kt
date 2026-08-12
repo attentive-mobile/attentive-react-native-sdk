@@ -148,7 +148,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Every bail-out below emits `notOpened` before returning.
+     * Every bail-out below emits `notOpened` before returning — including a throw on the UI thread,
+     * which needs its own catch because `runOnUiThread` always posts (see the comment inline).
      *
      * The creative lifecycle is a public event stream, and a consumer that gates its own UI on it
      * has no other way to learn the trigger went nowhere: without these emits, a trigger that
@@ -163,20 +164,33 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             if (currentActivity != null) {
                 val rootView =
                     currentActivity.window.decorView.rootView as ViewGroup
-                // The following calls edit the view hierarchy so they must run on the UI thread
+                // The following calls edit the view hierarchy so they must run on the UI thread.
+                //
+                // This lambda needs its OWN try/catch. `UiThreadUtil.runOnUiThread(Runnable)` is
+                // `getUiThreadHandler().postDelayed(runnable, 0)` — it always posts and never runs
+                // inline, even when the caller is already on the UI thread. So the outer catch below
+                // only guards the *posting* of this block; anything thrown inside it would escape,
+                // and the trigger would emit no event at all. That is not hypothetical: inflating a
+                // WebView throws when the Android System WebView provider is missing or mid-update
+                // (MissingWebViewPackageException, wrapped in AndroidRuntimeException).
                 UiThreadUtil.runOnUiThread {
-                    val config = currentConfig("Creative Error")
-                    if (config == null) {
+                    try {
+                        val config = currentConfig("Creative Error")
+                        if (config == null) {
+                            emitCreativeEvent("notOpened", creativeId)
+                            return@runOnUiThread
+                        }
+                        creative = Creative(config, rootView, currentActivity)
+                        creative?.trigger(createCreativeTriggerCallback(creativeId), creativeId)
+                        if (debugHelper.isDebuggingEnabled()) {
+                            val debugData = mutableMapOf<String, Any>()
+                            debugData["type"] = "trigger"
+                            debugData["creativeId"] = creativeId ?: "default"
+                            debugHelper.showDebugInfo("Creative Triggered", debugData)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Exception when triggering the creative on the UI thread: $e")
                         emitCreativeEvent("notOpened", creativeId)
-                        return@runOnUiThread
-                    }
-                    creative = Creative(config, rootView, currentActivity)
-                    creative?.trigger(createCreativeTriggerCallback(creativeId), creativeId)
-                    if (debugHelper.isDebuggingEnabled()) {
-                        val debugData = mutableMapOf<String, Any>()
-                        debugData["type"] = "trigger"
-                        debugData["creativeId"] = creativeId ?: "default"
-                        debugHelper.showDebugInfo("Creative Triggered", debugData)
                     }
                 }
             } else {

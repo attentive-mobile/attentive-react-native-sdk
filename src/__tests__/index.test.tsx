@@ -349,6 +349,9 @@ describe('Attentive SDK', () => {
       })
     })
 
+    // NOTE: the warning is emitted once per status per module instance, so each test asserting on
+    // it must use a status string no other test has already used — otherwise the warn is
+    // suppressed and the assertion fails for a reason that has nothing to do with the test.
     it('should drop unrecognized statuses with a warning', () => {
       const listener = jest.fn()
       addCreativeEventListener(listener)

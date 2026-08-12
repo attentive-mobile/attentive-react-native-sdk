@@ -301,25 +301,31 @@ Notes:
   comes from user-driven dismissal. Note the platforms diverge on what it actually does: on Android
   it removes the creative's web view, while on iOS it currently dismisses nothing — the creative
   stays on screen. Do not use it as a programmatic "hide the creative" call on iOS.
-- **The Android back button neither closes the creative nor emits an event.** The native SDK exposes
-  `Creative.onBackPressed()` for this, but nothing in this wrapper calls it, so a back press is
-  handled by React Native's own navigation while the creative's web view stays on screen. If you
-  gate UI on `closed`, that gate will not lift on a back press.
-- **Android caveat — a failed page load emits nothing.** With `attentive-android-sdk` 2.1.9, if the
-  creative page fails to load or hits the native 5-second render timeout, no event is delivered at
-  all: the timeout is reported to native as a bare `TIMED OUT` string, and the message handler only
-  dispatches JSON payloads, so `onCreativeNotOpened()` is never invoked. Network errors are logged
-  and dropped too. On Android, treat `notOpened` as best-effort and do not rely on it as a timeout
-  signal — if you need one, run your own timer alongside `triggerCreative()`. iOS reports
-  `notOpened` on both timeout and failure.
-- **Android caveat — a creative that fails to render in `Mode.DEBUG` freezes the app.** With
-  `attentive-android-sdk` 2.1.9, DEBUG mode makes the creative's full-screen web view visible
-  *before* the page loads. The view is transparent, so you see nothing — but a visible web view
-  consumes every touch, and because the creative never opened there are no bounds to filter
-  against. The app is unresponsive until the process is restarted, and per the caveat above no
-  `notOpened` arrives to detect it. This only affects DEBUG builds; in `Mode.PRODUCTION` the view
-  stays hidden and touches pass through. Trigger against a domain that serves a mobile-app
-  creative, or pass an explicit `creativeId`, when testing in DEBUG.
+- **The Android hardware back button neither closes the creative nor emits an event.** A back press
+  is handled by React Native's own navigation while the creative's web view stays on screen, so if
+  you gate UI on `closed`, that gate will not lift on a back press.
+- **Android: a failed page load or render timeout emits nothing.** With `attentive-android-sdk`
+  2.1.9, if the creative page fails to load, or does not render within the native five-second
+  window, no event is delivered on Android — network errors included. Treat `notOpened` as
+  best-effort there and do not rely on it as a timeout signal; if you need one, run your own timer
+  alongside `triggerCreative()`. iOS reports `notOpened` for both timeout and failure.
+- **Android: in `Mode.DEBUG`, a creative that never renders leaves the app unresponsive.** With
+  `attentive-android-sdk` 2.1.9, the creative's web view is placed on screen before its content
+  loads, and while it is there it receives touches — so if the creative never appears, taps stop
+  reaching your app until the process is restarted. Per the caveat above, no `notOpened` arrives to
+  detect it. `Mode.PRODUCTION` is unaffected. When testing in DEBUG, trigger against a domain that
+  serves a mobile-app creative, or pass an explicit `creativeId`.
+- **Trigger one creative at a time.** Overlapping `triggerCreative()` calls behave differently per
+  platform:
+  - While a creative is open or still launching, a second call is **dropped silently on iOS** — no
+    event of any kind. On **Android** it builds a second creative and emits a full
+    `opened`/`closed` stream.
+  - On iOS, if you trigger again after the first creative has timed out but while its page is still
+    resolving, the first creative's late `opened`/`closed` can arrive on the second call's listener,
+    echoed with the *second* `creativeId`.
+
+  Wait for a terminal event (`closed` or `notOpened`) before triggering the next creative. Both
+  behaviours come from the pinned native SDK versions and may change in a future release.
 - Always `remove()` the subscription when your component unmounts.
 
 ### Record user events

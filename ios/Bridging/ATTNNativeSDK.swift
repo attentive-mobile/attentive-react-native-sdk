@@ -108,11 +108,6 @@ struct DebugEvent {
     ATTNEventTracker.setup(with: sdk)
   }
 
-  @objc(trigger:)
-  public func trigger(_ view: UIView) {
-    performTrigger(view, creativeId: nil, handler: nil)
-  }
-
   /// Triggers the default creative and reports each lifecycle transition to `handler`.
   ///
   /// The native SDK retains the handler for the creative's lifetime, so it is invoked more than
@@ -123,11 +118,6 @@ struct DebugEvent {
     performTrigger(view, creativeId: nil, handler: handler)
   }
 
-  @objc(trigger:creativeId:)
-  public func trigger(_ view: UIView, creativeId: String) {
-    trigger(view, creativeId: creativeId, handler: nil)
-  }
-
   /// Triggers a specific creative and reports each lifecycle transition to `handler`.
   /// See `trigger(_:handler:)` for the callback contract.
   @objc(trigger:creativeId:handler:)
@@ -135,8 +125,13 @@ struct DebugEvent {
     performTrigger(view, creativeId: creativeId, handler: handler)
   }
 
-  /// Single implementation behind all four `trigger` selectors. `creativeId == nil` triggers the
+  /// Single implementation behind both `trigger` selectors. `creativeId == nil` triggers the
   /// creative chosen by online configuration; a non-nil id targets that specific creative.
+  ///
+  /// Pass `nil` for `handler` if you do not need the lifecycle events. The handler-less selectors
+  /// this class used to expose were removed with the lifecycle-events work: nothing called them,
+  /// and native code that wants to trigger a creative without going through React Native should
+  /// use `ATTNSDK` from `attentive-ios-sdk` directly rather than this bridging class.
   private func performTrigger(
     _ view: UIView,
     creativeId: String?,
