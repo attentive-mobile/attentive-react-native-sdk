@@ -210,10 +210,13 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 // bridge module registration, etc.). Kept here as a starting point for restoring old arch support
 // in a future ticket (MSDK-350).
 - (void)initialize:(NSDictionary*)configuration {
+    // pushEnabled defaults to YES when the key is absent, matching the TypeScript default.
+    NSNumber *pushEnabled = configuration[@"pushEnabled"];
     _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"]
                                             mode:configuration[@"mode"]
                          skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"]
-                                  enableDebugger:configuration[@"enableDebugger"]];
+                                  enableDebugger:configuration[@"enableDebugger"]
+                                     pushEnabled:pushEnabled ? [pushEnabled boolValue] : YES];
 
     // Make SDK instance accessible from native code (e.g., AppDelegate)
     [AttentiveSDKManager shared].sdk = _sdk;

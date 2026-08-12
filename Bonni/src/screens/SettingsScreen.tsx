@@ -164,48 +164,51 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    * Persist a restart-to-apply setting and notify. These settings are read at
    * SDK initialization, so the success alert notes the restart requirement.
    */
-  const persistRestartSetting = useCallback(
-    async (key: string, label: string, value: boolean) => {
-      try {
-        await setStoredBoolean(key, value)
-        if (displayAlerts) {
-          Alert.alert(
-            `${label} Setting`,
-            `${label} setting has been saved. Note: This setting requires app restart to take effect.`
-          )
+  const makeRestartToggle = useCallback(
+    (
+        key: string,
+        label: string,
+        setValue: (value: boolean) => void,
+        previousValue: boolean
+      ) =>
+      async (value: boolean) => {
+        // Flip the switch immediately, then roll back if the write fails so the
+        // UI never shows a state that won't survive the restart it promises.
+        setValue(value)
+        try {
+          await setStoredBoolean(key, value)
+          if (displayAlerts) {
+            Alert.alert(
+              `${label} Setting`,
+              `${label} setting has been saved. Note: This setting requires app restart to take effect.`
+            )
+          }
+        } catch (error) {
+          console.error(`Error saving ${label.toLowerCase()} setting:`, error)
+          setValue(previousValue)
+          if (displayAlerts) {
+            Alert.alert(
+              'Error',
+              `Failed to save ${label.toLowerCase()} setting`
+            )
+          }
         }
-      } catch (error) {
-        console.error(`Error saving ${label.toLowerCase()} setting:`, error)
-        if (displayAlerts) {
-          Alert.alert('Error', `Failed to save ${label.toLowerCase()} setting`)
-        }
-      }
-    },
+      },
     [displayAlerts]
   )
 
-  const handleDebuggerToggle = useCallback(
-    (value: boolean) => {
-      setDebuggerEnabled(value)
-      return persistRestartSetting(
-        CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED,
-        'Debugger',
-        value
-      )
-    },
-    [persistRestartSetting]
+  const handleDebuggerToggle = makeRestartToggle(
+    CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED,
+    'Debugger',
+    setDebuggerEnabled,
+    debuggerEnabled
   )
 
-  const handlePushToggle = useCallback(
-    (value: boolean) => {
-      setPushEnabled(value)
-      return persistRestartSetting(
-        CONFIG_STORAGE_KEYS.PUSH_ENABLED,
-        'Push',
-        value
-      )
-    },
-    [persistRestartSetting]
+  const handlePushToggle = makeRestartToggle(
+    CONFIG_STORAGE_KEYS.PUSH_ENABLED,
+    'Push',
+    setPushEnabled,
+    pushEnabled
   )
 
   /**
@@ -919,6 +922,12 @@ The SDK will handle the API request internally.`
           <View style={styles.configRow}>
             <View style={styles.configLabelContainer}>
               <Text style={styles.configLabel}>Push enabled</Text>
+              {Platform.OS === 'android' && (
+                <Text style={styles.configHint}>
+                  Gates this app&apos;s push registration only. The SDK-level
+                  flag is set natively in MainApplication.kt.
+                </Text>
+              )}
             </View>
             <Switch
               testID="pushEnabledSwitch"
@@ -1134,6 +1143,11 @@ const styles = StyleSheet.create({
   configLabel: {
     fontSize: Typography.sizes.medium,
     color: Colors.black,
+  },
+  configHint: {
+    fontSize: Typography.sizes.xs,
+    color: Colors.secondaryText,
+    marginTop: 2,
   },
   domainPickerButton: {
     flexDirection: 'row',
