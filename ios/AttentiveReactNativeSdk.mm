@@ -501,7 +501,9 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     // a consumer gating UI on the stream is not stranded. Matches the Android bail-out paths.
     if (self->_sdk == nil) {
       RCTLogWarn(@"[AttentiveSDK] triggerCreative called before initialize(); reporting notOpened.");
-      handler(@"notOpened");
+      // Use the Swift-owned constant rather than a literal so this synthesized status shares one
+      // source of truth with ATTNNativeSDK's normalizer (see -notOpenedStatus there).
+      handler(ATTNNativeSDK.notOpenedStatus);
       return;
     }
 

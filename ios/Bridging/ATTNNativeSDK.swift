@@ -170,6 +170,14 @@ struct DebugEvent {
     }
   }
 
+  /// The `notOpened` status exactly as it reaches JS, so the ObjC bridge's pre-`initialize()`
+  /// bail-out can report a failure without hardcoding the wire string a second time. Computed
+  /// through `normalizedCreativeStatus`, so it stays in lockstep with the mapping above rather
+  /// than drifting if a status string is ever renamed.
+  @objc public static var notOpenedStatus: String {
+    normalizedCreativeStatus(ATTNCreativeTriggerStatus.notOpened)
+  }
+
   /// Called from the native bridge when destroyCreative is invoked; shows debug overlay when debug mode is on.
   @objc
   public func notifyCreativeDestroyed() {

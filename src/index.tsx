@@ -91,14 +91,6 @@ const isCreativeStatus = (value?: string): value is CreativeStatus =>
   CREATIVE_STATUSES.includes(value as CreativeStatus)
 
 /**
- * Statuses already warned about, so an unrecognized status logs once per app session instead of
- * once per active subscriber. Each `addCreativeEventListener` call installs its own device-event
- * wrapper, so without this a single unknown status would log N identical lines for N listeners.
- * A `Set` rather than a `WeakSet` because statuses are strings, which a `WeakSet` cannot hold.
- */
-const warnedUnknownStatuses = new Set<string>()
-
-/**
  * Device-event name carrying creative lifecycle transitions.
  *
  * This string is a contract shared with both native bridges — `AttentiveReactNativeSdk.mm`
@@ -145,13 +137,9 @@ function addCreativeEventListener(
       // CreativeStatus union that consumers switch on.
       const status = event?.status
       if (!isCreativeStatus(status)) {
-        const key = String(status)
-        if (!warnedUnknownStatuses.has(key)) {
-          warnedUnknownStatuses.add(key)
-          console.warn(
-            `[AttentiveSDK] Ignoring creative event with unrecognized status "${key}".`
-          )
-        }
+        console.warn(
+          `[AttentiveSDK] Ignoring creative event with unrecognized status "${status}".`
+        )
         return
       }
 
