@@ -6,7 +6,8 @@ export interface Spec extends TurboModule {
     attentiveDomain: string,
     mode: string,
     skipFatigueOnCreatives: boolean,
-    enableDebugger: boolean
+    enableDebugger: boolean,
+    pushEnabled: boolean
   ) => void
   triggerCreative: (creativeId?: string) => void
   destroyCreative: () => void

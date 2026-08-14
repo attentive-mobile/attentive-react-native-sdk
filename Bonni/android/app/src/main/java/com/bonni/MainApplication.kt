@@ -79,6 +79,7 @@ class MainApplication : Application(), ReactApplication {
       .notificationIconId(R.drawable.bonni_logo)
       .skipFatigueOnCreatives(false)
       .logLevel(AttentiveLogLevel.VERBOSE)
+      .pushEnabled(true)
       .build()
 
     // Application.onCreate() is guaranteed by Android to run on the main thread.

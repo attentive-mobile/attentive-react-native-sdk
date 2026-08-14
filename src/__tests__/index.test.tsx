@@ -98,6 +98,7 @@ describe('Attentive SDK', () => {
         mode: 'debug',
         enableDebugger: true,
         skipFatigueOnCreatives: true,
+        pushEnabled: false,
       }
 
       initialize(config)
@@ -106,7 +107,8 @@ describe('Attentive SDK', () => {
         'test-domain',
         'debug',
         true,
-        true
+        true,
+        false
       )
     })
 
@@ -122,7 +124,8 @@ describe('Attentive SDK', () => {
         'test-domain',
         'production',
         false,
-        false
+        false,
+        true
       )
     })
   })
