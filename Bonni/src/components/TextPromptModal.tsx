@@ -100,7 +100,11 @@ export const TextPromptModal: React.FC<TextPromptModalProps> = ({
             {/* Actions */}
             <View style={styles.actions}>
               <Pressable
-                style={({ pressed }) => [styles.button, styles.cancelButton, pressed && styles.buttonPressed]}
+                style={({ pressed }) => [
+                  styles.button,
+                  styles.cancelButton,
+                  pressed && styles.buttonPressed,
+                ]}
                 onPress={onDismiss}
                 accessibilityRole="button"
                 accessibilityLabel={cancelText}
@@ -111,7 +115,11 @@ export const TextPromptModal: React.FC<TextPromptModalProps> = ({
               <View style={styles.buttonDivider} />
 
               <Pressable
-                style={({ pressed }) => [styles.button, styles.confirmButton, pressed && styles.buttonPressed]}
+                style={({ pressed }) => [
+                  styles.button,
+                  styles.confirmButton,
+                  pressed && styles.buttonPressed,
+                ]}
                 onPress={handleConfirm}
                 accessibilityRole="button"
                 accessibilityLabel={confirmText}

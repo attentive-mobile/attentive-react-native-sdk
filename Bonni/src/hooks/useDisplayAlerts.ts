@@ -4,9 +4,8 @@
  */
 
 import { useState, useEffect } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-
-const DISPLAY_ALERTS_KEY = 'attentive_display_alerts'
+import { CONFIG_STORAGE_KEYS } from '../constants/storage'
+import { getStoredBoolean } from '../services/storage'
 
 /**
  * Hook to get the current display alerts setting
@@ -21,10 +20,9 @@ export function useDisplayAlerts() {
 
   const loadDisplayAlerts = async () => {
     try {
-      const value = await AsyncStorage.getItem(DISPLAY_ALERTS_KEY)
-      if (value !== null) {
-        setDisplayAlerts(value === 'true')
-      }
+      setDisplayAlerts(
+        await getStoredBoolean(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, true)
+      )
     } catch (error) {
       console.error('Error loading display alerts setting:', error)
     }
@@ -32,5 +30,3 @@ export function useDisplayAlerts() {
 
   return displayAlerts
 }
-
-

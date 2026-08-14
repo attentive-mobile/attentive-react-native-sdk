@@ -200,7 +200,7 @@ public void onCreate() {
 
 > Do **not** call `AttentiveSdk.initialize()` from a background thread or a non-main coroutine dispatcher — AndroidX will throw an `IllegalStateException`. `onCreate()` is correct.
 >
-> The `notificationIconId(...)` / `skipFatigueOnCreatives(...)` / `logLevel(...)` builder options are not needed for base integration — `notificationIconId` is push-related. Leave them out for now.
+> The `notificationIconId(...)` / `skipFatigueOnCreatives(...)` / `logLevel(...)` / `pushEnabled(...)` builder options are not needed for base integration — `notificationIconId` is push-related and `pushEnabled` defaults to `true`. Leave them out for now. If the client asks to disable push: on Android set `.pushEnabled(false)` on this builder; on iOS set the optional `pushEnabled: false` field on the TypeScript config in 3a (it has no effect on Android). See the README's "Disabling push at initialization" section.
 
 ---
 
