@@ -112,20 +112,74 @@ struct DebugEvent {
     ATTNEventTracker.setup(with: sdk)
   }
 
-  @objc(trigger:)
-  public func trigger(_ view: UIView) {
-    sdk.trigger(view)
+  /// Triggers the default creative and reports each lifecycle transition to `handler`.
+  ///
+  /// The native SDK retains the handler for the creative's lifetime, so it is invoked more than
+  /// once on the happy path: `opened` when the creative renders, then `closed` when it is
+  /// dismissed. A creative that cannot be shown reports a single `notOpened`.
+  @objc(trigger:handler:)
+  public func trigger(_ view: UIView, handler: ((String) -> Void)?) {
+    performTrigger(view, creativeId: nil, handler: handler)
+  }
+
+  /// Triggers a specific creative and reports each lifecycle transition to `handler`.
+  /// See `trigger(_:handler:)` for the callback contract.
+  @objc(trigger:creativeId:handler:)
+  public func trigger(_ view: UIView, creativeId: String, handler: ((String) -> Void)?) {
+    performTrigger(view, creativeId: creativeId, handler: handler)
+  }
+
+  /// Single implementation behind both `trigger` selectors. `creativeId == nil` triggers the
+  /// creative chosen by online configuration; a non-nil id targets that specific creative.
+  ///
+  /// Pass `nil` for `handler` if you do not need the lifecycle events. The handler-less selectors
+  /// this class used to expose were removed with the lifecycle-events work: nothing called them,
+  /// and native code that wants to trigger a creative without going through React Native should
+  /// use `ATTNSDK` from `attentive-ios-sdk` directly rather than this bridging class.
+  private func performTrigger(
+    _ view: UIView,
+    creativeId: String?,
+    handler: ((String) -> Void)?
+  ) {
+    let forward: (String) -> Void = { status in
+      handler?(Self.normalizedCreativeStatus(status))
+    }
+
+    if let creativeId = creativeId {
+      sdk.trigger(view, creativeId: creativeId, handler: forward)
+    } else {
+      sdk.trigger(view, handler: forward)
+    }
+
     if debuggingEnabled {
-      showDebugInfo(event: "Creative Triggered", data: ["type": "trigger", "creativeId": "default"])
+      showDebugInfo(
+        event: "Creative Triggered",
+        data: ["type": "trigger", "creativeId": creativeId ?? "default"]
+      )
     }
   }
 
-  @objc(trigger:creativeId:)
-  public func trigger(_ view: UIView, creativeId: String) {
-    sdk.trigger(view, creativeId:creativeId)
-    if debuggingEnabled {
-      showDebugInfo(event: "Creative Triggered", data: ["type": "trigger", "creativeId": creativeId])
+  /// Maps `ATTNCreativeTriggerStatus` constants onto the `CreativeStatus` union published by the
+  /// React Native layer (`src/eventTypes.tsx`), keeping the wire vocabulary identical to Android.
+  ///
+  /// An unrecognized status passes through unchanged rather than being dropped, so a status added
+  /// by a future native SDK surfaces as a warning in JS instead of disappearing here.
+  private static func normalizedCreativeStatus(_ nativeStatus: String) -> String {
+    switch nativeStatus {
+    case ATTNCreativeTriggerStatus.opened: return "opened"
+    case ATTNCreativeTriggerStatus.closed: return "closed"
+    case ATTNCreativeTriggerStatus.notOpened: return "notOpened"
+    case ATTNCreativeTriggerStatus.notClosed: return "notClosed"
+    default: return nativeStatus
     }
+  }
+
+  /// The `notOpened` status exactly as it reaches JS, so the ObjC bridge's pre-`initialize()`
+  /// bail-out can report a failure without hardcoding the wire string a second time. Computed
+  /// through `normalizedCreativeStatus`, so it stays in lockstep with the mapping above rather
+  /// than drifting if a status string is ever renamed.
+  @objc public static var notOpenedStatus: String {
+    normalizedCreativeStatus(ATTNCreativeTriggerStatus.notOpened)
   }
 
   /// Called from the native bridge when destroyCreative is invoked; shows debug overlay when debug mode is on.

@@ -11,6 +11,7 @@ import com.attentive.androidsdk.AttentiveEventTracker
 import com.attentive.androidsdk.AttentiveSdk
 import com.attentive.androidsdk.UserIdentifiers
 import com.attentive.androidsdk.creatives.Creative
+import com.attentive.androidsdk.creatives.CreativeTriggerCallback
 import com.attentive.androidsdk.events.AddToCartEvent
 import com.attentive.androidsdk.events.Cart
 import com.attentive.androidsdk.events.CustomEvent
@@ -43,6 +44,14 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         const val NAME = "AttentiveReactNativeSdk"
         private const val TAG = NAME
         private const val PUSH_PERMISSION_REQUEST_CODE = 3901
+
+        /**
+         * Device-event name carrying creative lifecycle transitions to JS.
+         *
+         * Must stay in sync with `CREATIVE_EVENT_NAME` in `src/index.tsx` and the iOS bridge;
+         * a mismatch silently stops all creative events rather than failing loudly.
+         */
+        private const val CREATIVE_EVENT_NAME = "AttentiveCreativeEvent"
     }
 
     private var creative: Creative? = null
@@ -142,6 +151,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    /**
+     * Every bail-out below emits `notOpened` before returning — including a throw on the UI thread,
+     * which needs its own catch because `runOnUiThread` always posts (see the comment inline).
+     *
+     * The creative lifecycle is a public event stream, and a consumer that gates its own UI on it
+     * has no other way to learn the trigger went nowhere: without these emits, a trigger that
+     * never reached `Creative.trigger` produces no event at all and the gate never lifts. Failing
+     * to open is exactly what `notOpened` means, so these paths report it rather than staying
+     * silent — the alternative is a stream that can terminate with nothing.
+     */
     override fun triggerCreative(creativeId: String?) {
         Log.i(TAG, "Native Attentive module was called to trigger the creative.")
         try {
@@ -149,23 +168,101 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             if (currentActivity != null) {
                 val rootView =
                     currentActivity.window.decorView.rootView as ViewGroup
-                // The following calls edit the view hierarchy so they must run on the UI thread
+                // The following calls edit the view hierarchy so they must run on the UI thread.
+                //
+                // This lambda needs its OWN try/catch. `UiThreadUtil.runOnUiThread(Runnable)` is
+                // `getUiThreadHandler().postDelayed(runnable, 0)` — it always posts and never runs
+                // inline, even when the caller is already on the UI thread. So the outer catch below
+                // only guards the *posting* of this block; anything thrown inside it would escape,
+                // and the trigger would emit no event at all. That is not hypothetical: inflating a
+                // WebView throws when the Android System WebView provider is missing or mid-update
+                // (MissingWebViewPackageException, wrapped in AndroidRuntimeException).
                 UiThreadUtil.runOnUiThread {
-                    val config = currentConfig("Creative Error") ?: return@runOnUiThread
-                    creative = Creative(config, rootView, currentActivity)
-                    creative?.trigger(null, creativeId)
-                    if (debugHelper.isDebuggingEnabled()) {
-                        val debugData = mutableMapOf<String, Any>()
-                        debugData["type"] = "trigger"
-                        debugData["creativeId"] = creativeId ?: "default"
-                        debugHelper.showDebugInfo("Creative Triggered", debugData)
+                    try {
+                        val config = currentConfig("Creative Error")
+                        if (config == null) {
+                            emitCreativeEvent("notOpened", creativeId)
+                            return@runOnUiThread
+                        }
+                        creative = Creative(config, rootView, currentActivity)
+                        creative?.trigger(createCreativeTriggerCallback(creativeId), creativeId)
+                        if (debugHelper.isDebuggingEnabled()) {
+                            val debugData = mutableMapOf<String, Any>()
+                            debugData["type"] = "trigger"
+                            debugData["creativeId"] = creativeId ?: "default"
+                            debugHelper.showDebugInfo("Creative Triggered", debugData)
+                        }
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Exception when triggering the creative on the UI thread: $e")
+                        emitCreativeEvent("notOpened", creativeId)
                     }
                 }
             } else {
                 Log.w(TAG, "Could not trigger the Attentive Creative because the current Activity was null")
+                emitCreativeEvent("notOpened", creativeId)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Exception when triggering the creative: $e")
+            emitCreativeEvent("notOpened", creativeId)
+        }
+    }
+
+    /**
+     * Builds the callback that forwards creative lifecycle transitions to JS.
+     *
+     * A single trigger produces more than one callback over time — [CreativeTriggerCallback.onOpen]
+     * then [CreativeTriggerCallback.onClose] — or a single [CreativeTriggerCallback.onCreativeNotOpened]
+     * when the creative cannot be shown. The status vocabulary matches iOS, which normalizes the
+     * `ATTNCreativeTriggerStatus` constants to the same four strings.
+     *
+     * @param creativeId echoed back on each event; the native SDK does not report it, so the id
+     *   supplied to this trigger is captured here.
+     */
+    private fun createCreativeTriggerCallback(creativeId: String?): CreativeTriggerCallback =
+        object : CreativeTriggerCallback {
+            override fun onOpen() = emitCreativeEvent("opened", creativeId)
+
+            override fun onClose() = emitCreativeEvent("closed", creativeId)
+
+            override fun onCreativeNotOpened() = emitCreativeEvent("notOpened", creativeId)
+
+            override fun onCreativeNotClosed() = emitCreativeEvent("notClosed", creativeId)
+        }
+
+    /**
+     * Emits one creative lifecycle event to JS as a [CREATIVE_EVENT_NAME] device event.
+     */
+    private fun emitCreativeEvent(status: String, creativeId: String?) {
+        val payload = Arguments.createMap()
+        payload.putString("status", status)
+        if (creativeId != null) {
+            payload.putString("creativeId", creativeId)
+        }
+        emitDeviceEvent(CREATIVE_EVENT_NAME, payload)
+    }
+
+    /**
+     * The module's single path for sending a device event to JS.
+     *
+     * Uses [DeviceEventManagerModule.RCTDeviceEventEmitter] rather than a codegen event emitter so
+     * the SDK keeps working on React Native 0.74+ and on both architectures — codegen only parses
+     * `EventEmitter` in a TypeScript spec from 0.76 onward. Valid under bridgeless too
+     * (`BridgelessReactContext.getJSModule` proxies the call into JS).
+     *
+     * Failures are logged rather than thrown: an event must never take down the host app, and the
+     * emitter is unavailable until a JS runtime is attached.
+     *
+     * @param payload anything [DeviceEventManagerModule.RCTDeviceEventEmitter] accepts as a body —
+     *   a [com.facebook.react.bridge.WritableMap] for structured events, or a bare String.
+     */
+    private fun emitDeviceEvent(name: String, payload: Any?) {
+        try {
+            reactApplicationContext
+                .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
+                .emit(name, payload)
+            Log.i(TAG, "[AttentiveSDK] $name event emitted to JS")
+        } catch (e: Exception) {
+            Log.w(TAG, "[AttentiveSDK] Could not emit $name event: ${e.message}")
         }
     }
 
@@ -418,14 +515,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
 
                     // Emit the token to JS so the app can store it (e.g. for display in Settings)
                     // and mirror the iOS behavior where APNs delivers the token via a "register" event.
-                    try {
-                        reactApplicationContext
-                            .getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter::class.java)
-                            .emit("AttentiveDeviceToken", token)
-                        Log.i(TAG, "📡 [AttentiveSDK] AttentiveDeviceToken event emitted to JS")
-                    } catch (e: Exception) {
-                        Log.w(TAG, "⚠️  [AttentiveSDK] Could not emit AttentiveDeviceToken event: ${e.message}")
-                    }
+                    emitDeviceEvent("AttentiveDeviceToken", token)
 
                     if (debugHelper.isDebuggingEnabled()) {
                         val debugData = mutableMapOf<String, Any>()

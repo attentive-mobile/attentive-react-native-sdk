@@ -1,4 +1,4 @@
-import { Platform } from 'react-native'
+import { DeviceEventEmitter, Platform } from 'react-native'
 import type {
   UserIdentifiers,
   AttentiveSdkConfiguration,
@@ -7,6 +7,9 @@ import type {
   AddToCart,
   CustomEvent,
   Item,
+  CreativeStatus,
+  CreativeEvent,
+  CreativeEventSubscription,
   PushAuthorizationStatus,
   ApplicationState,
   PushNotificationUserInfo,
@@ -14,6 +17,7 @@ import type {
   MarketingSubscriptionParams,
   UpdateUserParams,
 } from './eventTypes'
+import { CREATIVE_STATUSES } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
@@ -85,6 +89,91 @@ function triggerCreative(creativeId?: string) {
  */
 function destroyCreative() {
   AttentiveReactNativeSdk.destroyCreative()
+}
+
+/**
+ * Narrows an untyped device-event status onto the published `CreativeStatus` union, so the
+ * runtime allowlist and the compile-time union can never drift apart.
+ */
+const isCreativeStatus = (value?: string): value is CreativeStatus =>
+  CREATIVE_STATUSES.includes(value as CreativeStatus)
+
+/**
+ * Device-event name carrying creative lifecycle transitions.
+ *
+ * This string is a contract shared with both native bridges — `AttentiveReactNativeSdk.mm`
+ * emits it through `callableJSModules`, and `AttentiveReactNativeSdkModule.kt` through
+ * `RCTDeviceEventEmitter`. Changing it here without changing both native sides silently
+ * stops all creative events.
+ */
+const CREATIVE_EVENT_NAME = 'AttentiveCreativeEvent'
+
+/**
+ * Subscribe to creative lifecycle events.
+ *
+ * A single `triggerCreative` call produces more than one event over time — `opened` when the
+ * creative renders and `closed` when the user dismisses it — or a single `notOpened` when it
+ * could not be shown at all (no creative configured, fatigued, load timed out). Because the
+ * lifecycle is a stream rather than a one-shot result, it is delivered as events instead of a
+ * callback or a promise.
+ *
+ * ```ts
+ * useEffect(() => {
+ *   const subscription = addCreativeEventListener(({ status, creativeId }) => {
+ *     console.log('creative', creativeId ?? 'default', status)
+ *   })
+ *   return () => subscription.remove()
+ * }, [])
+ * ```
+ *
+ * Supported on React Native 0.74+: events travel as `RCTDeviceEventEmitter` device events rather
+ * than through a codegen event emitter, which would have required 0.76+. The transport works on
+ * both architectures, but on iOS the New Architecture is still required — the native module only
+ * exports its methods under `RCT_NEW_ARCH_ENABLED` (see MSDK-350).
+ *
+ * @param listener - Invoked for each lifecycle transition
+ * @returns A subscription; call `remove()` to stop receiving events
+ */
+function addCreativeEventListener(
+  listener: (event: CreativeEvent) => void
+): CreativeEventSubscription {
+  return DeviceEventEmitter.addListener(
+    CREATIVE_EVENT_NAME,
+    (event: { status?: string; creativeId?: string }) => {
+      // Native sends the normalized vocabulary, but this is an untyped device event: guard so a
+      // status added by a future native SDK surfaces as a warning instead of breaking the
+      // CreativeStatus union that consumers switch on.
+      const status = event?.status
+      if (!isCreativeStatus(status)) {
+        console.warn(
+          `[AttentiveSDK] Ignoring creative event with unrecognized status "${status}".`
+        )
+        return
+      }
+
+      // Build the event without a `creativeId` key at all when there is no id, rather than
+      // setting it to undefined: `creativeId` is an optional property, so consumers are entitled
+      // to test it with `'creativeId' in event`.
+      const creativeEvent: CreativeEvent = { status }
+      if (event.creativeId != null) {
+        creativeEvent.creativeId = event.creativeId
+      }
+
+      // Isolate the consumer's listener. React Native's EventEmitter.emit has no try/catch, so a
+      // listener that throws would abort the emit loop — every other subscriber to this event
+      // would silently stop receiving it — and the exception would escape into the native->JS
+      // call. Both native emitters already log rather than throw; this keeps the JS edge of the
+      // bridge to the same rule.
+      try {
+        listener(creativeEvent)
+      } catch (error) {
+        console.error(
+          `[AttentiveSDK] A creative event listener threw while handling "${status}". Other listeners are unaffected.`,
+          error
+        )
+      }
+    }
+  )
 }
 
 /**
@@ -563,6 +652,7 @@ export {
   initialize,
   triggerCreative,
   destroyCreative,
+  addCreativeEventListener,
   updateDomain,
   identify,
   clearUser,
@@ -597,6 +687,10 @@ export type {
   AddToCart,
   CustomEvent,
   Item,
+  // Creative Event Types
+  CreativeStatus,
+  CreativeEvent,
+  CreativeEventSubscription,
   // Push Notification Types
   PushAuthorizationStatus,
   ApplicationState,

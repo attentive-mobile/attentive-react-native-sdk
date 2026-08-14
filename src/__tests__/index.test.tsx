@@ -41,11 +41,17 @@ jest.mock('react-native', () => ({
   TurboModuleRegistry: {
     get: () => null,
   },
+  // Creative lifecycle events travel as RCTDeviceEventEmitter device events rather than through
+  // a codegen emitter, so the JS side subscribes via DeviceEventEmitter.
+  DeviceEventEmitter: {
+    addListener: jest.fn(),
+  },
 }))
 
 // Retrieve a stable reference to the mock after jest.mock is evaluated.
 const mockNativeModule =
   require('react-native').NativeModules.AttentiveReactNativeSdk
+const mockDeviceEventEmitter = require('react-native').DeviceEventEmitter
 
 import {
   initialize,
@@ -53,6 +59,7 @@ import {
   clearUser,
   triggerCreative,
   destroyCreative,
+  addCreativeEventListener,
   updateDomain,
   recordProductViewEvent,
   recordAddToCartEvent,
@@ -244,6 +251,139 @@ describe('Attentive SDK', () => {
       destroyCreative()
 
       expect(mockNativeModule.destroyCreative).toHaveBeenCalled()
+    })
+  })
+
+  describe('Creative events', () => {
+    type NativeCreativeEvent = { status: string; creativeId?: string }
+
+    let warnSpy: jest.SpyInstance
+    let errorSpy: jest.SpyInstance
+    let removeNativeSubscription: jest.Mock
+    let emitFromNative: (event: NativeCreativeEvent) => void
+
+    beforeEach(() => {
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {})
+      removeNativeSubscription = jest.fn()
+      mockDeviceEventEmitter.addListener.mockImplementation(
+        (_name: string, handler: (event: NativeCreativeEvent) => void) => {
+          emitFromNative = handler
+          return { remove: removeNativeSubscription }
+        }
+      )
+    })
+
+    afterEach(() => {
+      warnSpy.mockRestore()
+      errorSpy.mockRestore()
+    })
+
+    it('should subscribe to the device event both native bridges emit', () => {
+      // The event name is a contract shared with AttentiveReactNativeSdk.mm and
+      // AttentiveReactNativeSdkModule.kt — pin it so a rename cannot pass silently.
+      addCreativeEventListener(jest.fn())
+
+      expect(mockDeviceEventEmitter.addListener).toHaveBeenCalledWith(
+        'AttentiveCreativeEvent',
+        expect.any(Function)
+      )
+    })
+
+    // A creativeId is echoed back when the trigger named one, and absent otherwise. Both native
+    // bridges echo it even on the failure paths (Kotlin `emitCreativeEvent("notOpened", creativeId)`,
+    // iOS the closure that captured `creativeId`), so the `notOpened` + id case is pinned here too.
+    it.each<NativeCreativeEvent>([
+      { status: 'opened', creativeId: 'creative-123' },
+      { status: 'closed', creativeId: 'creative-123' },
+      { status: 'notOpened', creativeId: 'creative-123' },
+      { status: 'notOpened' },
+      { status: 'notClosed' },
+    ])('should deliver %o to the listener', (event) => {
+      const listener = jest.fn()
+      addCreativeEventListener(listener)
+
+      emitFromNative(event)
+
+      expect(listener).toHaveBeenCalledWith(event)
+    })
+
+    it('should omit creativeId entirely rather than pass it as undefined', () => {
+      // `creativeId` is an optional property, so `'creativeId' in event` must be false for a
+      // default-creative trigger. toHaveBeenCalledWith cannot assert this — it treats a missing
+      // key and an undefined value as equal — so check the keys directly.
+      const listener = jest.fn()
+      addCreativeEventListener(listener)
+
+      emitFromNative({ status: 'notOpened' })
+
+      expect(Object.keys(listener.mock.calls[0][0])).toEqual(['status'])
+    })
+
+    it('should not let a throwing listener escape into the native emit loop', () => {
+      // React Native's EventEmitter.emit has no try/catch: an exception escaping here would abort
+      // the loop, so every other subscriber to this event would stop receiving it.
+      const boom = new Error('listener blew up')
+      const listener = jest.fn(() => {
+        throw boom
+      })
+      addCreativeEventListener(listener)
+
+      expect(() => emitFromNative({ status: 'opened' })).not.toThrow()
+      expect(listener).toHaveBeenCalled()
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining('opened'),
+        boom
+      )
+    })
+
+    it('should keep delivering to one subscription across the lifecycle', () => {
+      const listener = jest.fn()
+      addCreativeEventListener(listener)
+
+      emitFromNative({ status: 'opened', creativeId: 'creative-123' })
+      emitFromNative({ status: 'closed', creativeId: 'creative-123' })
+
+      expect(listener).toHaveBeenNthCalledWith(1, {
+        status: 'opened',
+        creativeId: 'creative-123',
+      })
+      expect(listener).toHaveBeenNthCalledWith(2, {
+        status: 'closed',
+        creativeId: 'creative-123',
+      })
+    })
+
+    it('should drop unrecognized statuses with a warning', () => {
+      const listener = jest.fn()
+      addCreativeEventListener(listener)
+
+      emitFromNative({ status: 'CREATIVE_TRIGGER_STATUS_SOMETHING_NEW' })
+
+      expect(listener).not.toHaveBeenCalled()
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('CREATIVE_TRIGGER_STATUS_SOMETHING_NEW')
+      )
+    })
+
+    it('should detach the native subscription on remove', () => {
+      const subscription = addCreativeEventListener(jest.fn())
+
+      subscription.remove()
+
+      expect(removeNativeSubscription).toHaveBeenCalled()
+    })
+
+    it('should drop malformed events that carry no status', () => {
+      const listener = jest.fn()
+      addCreativeEventListener(listener)
+
+      // Device events are untyped on the wire, so a body without `status` must not reach the
+      // listener as an undefined CreativeStatus.
+      emitFromNative({} as NativeCreativeEvent)
+
+      expect(listener).not.toHaveBeenCalled()
+      expect(warnSpy).toHaveBeenCalled()
     })
   })
 

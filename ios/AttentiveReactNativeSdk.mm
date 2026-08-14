@@ -10,6 +10,7 @@
 //
 
 #import "AttentiveReactNativeSdk.h"
+#import <React/RCTLog.h>
 #import <UserNotifications/UserNotifications.h>
 
 #ifdef RCT_NEW_ARCH_ENABLED
@@ -32,6 +33,18 @@
 @implementation AttentiveReactNativeSdk {
     ATTNNativeSDK* _sdk;
 }
+
+// Creative lifecycle events are delivered as RCTDeviceEventEmitter device events. This is the
+// only emit route that works on the old architecture, the new architecture, and bridgeless:
+// RCTBridgeModuleDecorator injects callableJSModules into any module implementing this setter,
+// and RCTCallableJSModules wraps both the bridge and the bridgeless module invoker. It is the
+// same mechanism RCTEventEmitter uses internally.
+@synthesize callableJSModules = _callableJSModules;
+
+// Device-event name carrying creative lifecycle transitions. Must stay in sync with
+// CREATIVE_EVENT_NAME in `src/index.tsx` and in the Android module; a mismatch silently stops all
+// creative events rather than failing loudly.
+static NSString *const kAttentiveCreativeEventName = @"AttentiveCreativeEvent";
 
 RCT_EXPORT_MODULE()
 
@@ -476,15 +489,68 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 - (void)triggerCreative:(NSString *)creativeId {
+  // Only `handler` needs the weak capture. The dispatch block below is transient — it is released
+  // as soon as it runs — so capturing self strongly there is safe and matches destroyCreative.
+  // The handler is different: the SDK retains it for the creative's lifetime and calls it on each
+  // transition (opened -> closed, or a single notOpened), so capturing self strongly there would
+  // form a self -> _sdk -> handler -> self cycle that ARC cannot collect. Weak also stops
+  // emitting once the module has been torn down.
+  __weak __typeof(self) weakSelf = self;
   dispatch_async(dispatch_get_main_queue(), ^{
+    void (^handler)(NSString *) = ^(NSString *status) {
+      [weakSelf emitCreativeEventWithStatus:status creativeId:creativeId];
+    };
+
+    // Messaging a nil _sdk is a silent no-op, which would leave the public event stream with no
+    // event at all when triggerCreative() runs before initialize(). Report notOpened instead, so
+    // a consumer gating UI on the stream is not stranded. Matches the Android bail-out paths.
+    if (self->_sdk == nil) {
+      RCTLogWarn(@"[AttentiveSDK] triggerCreative called before initialize(); reporting notOpened.");
+      // Use the Swift-owned constant rather than a literal so this synthesized status shares one
+      // source of truth with ATTNNativeSDK's normalizer (see -notOpenedStatus there).
+      handler(ATTNNativeSDK.notOpenedStatus);
+      return;
+    }
+
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];
     UIView *topView = window.rootViewController.view;
+
     if (creativeId == nil) {
-      [self->_sdk trigger:topView];
+      [self->_sdk trigger:topView handler:handler];
     } else {
-      [self->_sdk trigger:topView creativeId:creativeId];
+      [self->_sdk trigger:topView creativeId:creativeId handler:handler];
     }
   });
+}
+
+/**
+ * Forwards a creative lifecycle transition to JS as an `AttentiveCreativeEvent` device event.
+ *
+ * `status` arrives already normalized by ATTNNativeSDK ('opened' / 'closed' / 'notOpened' /
+ * 'notClosed'); `creativeId` echoes the id passed to triggerCreative, which the native SDK does
+ * not report back.
+ *
+ * `callableJSModules` is nil until the module is attached to a runtime, so a transition arriving
+ * that early is dropped rather than crashing.
+ */
+- (void)emitCreativeEventWithStatus:(NSString *)status creativeId:(NSString *)creativeId {
+  if (status == nil) {
+    return;
+  }
+
+  if (_callableJSModules == nil) {
+    RCTLogWarn(@"[AttentiveSDK] Dropping creative event '%@': no JS runtime attached yet.", status);
+    return;
+  }
+
+  NSMutableDictionary *payload = [NSMutableDictionary dictionaryWithObject:status forKey:@"status"];
+  if (creativeId != nil) {
+    payload[@"creativeId"] = creativeId;
+  }
+
+  [_callableJSModules invokeModule:@"RCTDeviceEventEmitter"
+                            method:@"emit"
+                          withArgs:@[ kAttentiveCreativeEventName, payload ]];
 }
 
 - (void)destroyCreative {

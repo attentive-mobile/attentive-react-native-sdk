@@ -256,7 +256,7 @@ npx react-native run-android   # or build in Android Studio
 3. After the block above, call out **Creatives** explicitly — do not let them get lost in that list. Creatives are the in-app sign-up units and messages Attentive renders over the host app, and they are a core part of the SDK. However, **when and where to trigger one is a domain-specific product decision** (which screen, which moment in the user journey), so the user must place that call themselves — your job is to surface the documentation, not to write the trigger. Emit this to the user, verbatim (same link rules as above):
 
    ```
-   One follow-up worth prioritizing: Creatives — Attentive's in-app sign-up units and messages — are a core part of the SDK, and this integration intentionally did not wire them up. When and where to show one is specific to your app (e.g. after onboarding, on a first product view), so that decision is yours. Once you've picked the moment, see [Load the Creative](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#load-the-creative) in the README — it's a single `triggerCreative()` call, plus [`destroyCreative()`](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#destroy-the-creative) if you need to dismiss it programmatically.
+   One follow-up worth prioritizing: Creatives — Attentive's in-app sign-up units and messages — are a core part of the SDK, and this integration intentionally did not wire them up. When and where to show one is specific to your app (e.g. after onboarding, on a first product view), so that decision is yours. Once you've picked the moment, see [Load the Creative](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#load-the-creative) in the README — it's a single `triggerCreative()` call, plus [`destroyCreative()`](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#destroy-the-creative) if you need to dismiss it programmatically. If you want to know whether a creative actually opened, or react when the user dismisses it, [Observe creative lifecycle events](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#observe-creative-lifecycle-events) covers the listener API.
    ```
 
    Do not add `triggerCreative()` calls yourself, even if an obvious spot presents itself — pointing the user to the docs is the entire task here.
@@ -267,7 +267,7 @@ Do not run the app on a device or simulator unless asked.
 
 ## Things NOT to do
 
-- Do not add `identify()`, `clearUser()`, any `recordXEvent()`, `triggerCreative()`/`destroyCreative()`, or marketing-subscription calls.
+- Do not add `identify()`, `clearUser()`, any `recordXEvent()`, `triggerCreative()`/`destroyCreative()`, `addCreativeEventListener()`, or marketing-subscription calls.
 - Do not do any push setup — no `POST_NOTIFICATIONS` in the manifest, no `MainActivity.onNewIntent` override, no `AppDelegate` push handlers, no FCM / `google-services.json`, no `@react-native-community/push-notification-ios`.
 - Do not call `AttentiveSdk.initialize()` outside `Application.onCreate()` or on a background thread.
 - Do not try to initialize Android from TypeScript — the JS `initialize()` is a no-op there.

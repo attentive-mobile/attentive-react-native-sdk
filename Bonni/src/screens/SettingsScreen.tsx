@@ -249,8 +249,18 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   }, [])
 
   const handleShowCreative = useCallback(() => {
-    triggerAttentiveCreative()
-  }, [triggerAttentiveCreative])
+    // Prompting for the id keeps both paths on one button: confirm targets a specific
+    // creative (bypassing the eligibility rules that pick the default one), cancel
+    // triggers the default creative as before.
+    showScreenPrompt({
+      title: 'Show Creative',
+      message: 'Enter a creative ID, or cancel to show the default creative.',
+      placeholder: 'attn_creative_id',
+      confirmText: 'Show',
+      onConfirm: (creativeId: string) => triggerAttentiveCreative(creativeId),
+      onCancel: () => triggerAttentiveCreative(),
+    })
+  }, [showScreenPrompt, triggerAttentiveCreative])
 
   const handleShowPushPermission = useCallback(() => {
     // Use the SDK method to request push notification permissions
