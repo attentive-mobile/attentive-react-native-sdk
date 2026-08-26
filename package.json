@@ -194,7 +194,7 @@
   },
   "codegenConfig": {
     "name": "AttentiveReactNativeSdkSpec",
-    "type": "modules",
+    "type": "all",
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "com.attentivereactnativesdk"

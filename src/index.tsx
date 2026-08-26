@@ -21,6 +21,8 @@ import { CREATIVE_STATUSES } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
+import AttentiveInboxView from './AttentiveInboxViewNativeComponent'
+import type { NativeProps as AttentiveInboxViewProps } from './AttentiveInboxViewNativeComponent'
 
 const LINKING_ERROR =
   `The package 'attentive-react-native-sdk' doesn't seem to be linked. Make sure: \n\n` +
@@ -677,6 +679,8 @@ export {
   optInMarketingSubscription,
   optOutMarketingSubscription,
   updateUser,
+  // Inbox
+  AttentiveInboxView,
 }
 
 export type {
@@ -699,4 +703,6 @@ export type {
   // Marketing Subscription Types
   MarketingSubscriptionParams,
   UpdateUserParams,
+  // Inbox Types
+  AttentiveInboxViewProps,
 }

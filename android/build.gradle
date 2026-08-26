@@ -83,6 +83,13 @@ dependencies {
 
   // Coroutines required to call AttentiveSdk suspend functions (optUserIntoMarketingSubscription, etc.)
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+
+  // Compile-time only: the inbox default renderer (AttentiveInboxView) extends Compose's
+  // AbstractComposeView, but the Attentive Android SDK declares Compose as `implementation`,
+  // so the supertype is absent from our compile classpath and the compiler can't see that
+  // AttentiveInboxView is a View. We only need the type to resolve — the artifact itself
+  // arrives at runtime through the SDK. Version matches what the SDK's Compose BOM resolves.
+  compileOnly "androidx.compose.ui:ui:1.8.2"
 }
 
 if (isNewArchitectureEnabled()) {
