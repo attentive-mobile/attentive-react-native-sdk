@@ -2,6 +2,11 @@
  * Custom Navigation Header
  * Matches the iOS app's custom navigation bar with peach background and centered logo
  * Shows back button when navigation can go back, otherwise shows burger icon
+ *
+ * The inbox entry point mirrors the native Android example app, which puts a Material
+ * mail_outline icon in the Products toolbar (`Icons.Filled.MailOutline`). Unlike that app
+ * there is no unread badge here: the unread count lives on `AttentiveSdk.inboxState`, which
+ * is not bridged to React Native yet — only the drop-in view is.
  */
 
 import React from 'react'
@@ -16,6 +21,7 @@ import { Colors, Spacing, Typography } from '../constants/theme'
 import BackIcon from '../assets/images/ui/icons/back-icon.svg'
 import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg'
 import CartIcon from '../assets/images/ui/icons/cart-icon.svg'
+import InboxIcon from '../assets/images/ui/icons/inbox-icon.svg'
 import BonniLogo from '../assets/images/ui/icons/bonni-logo.svg'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -29,6 +35,7 @@ interface CustomHeaderProps {
  * Custom header component that displays navigation controls
  * - Shows burger icon on ProductList screen (main screen)
  * - Shows back button on other screens when navigation can go back
+ * - Shows the Attentive inbox icon on the ProductList screen, left of the cart
  * - Always shows cart icon on the right
  * - Buttons are positioned at screen edges with proper offset
  */
@@ -86,8 +93,18 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         {/* Center - Logo */}
         <View style={styles.centerContent}>{showLogo && <BonniLogo />}</View>
 
-        {/* Right Button - Cart */}
+        {/* Right Buttons - Inbox (ProductList only) + Cart */}
         <View style={styles.rightButton}>
+          {isProductListScreen && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Inbox')}
+              style={styles.iconButton}
+              accessibilityLabel="Inbox"
+              accessibilityRole="button"
+            >
+              <InboxIcon />
+            </TouchableOpacity>
+          )}
           {showCartIcon && (
             <TouchableOpacity
               onPress={() => navigation.navigate('Cart')}
@@ -121,7 +138,9 @@ const styles = StyleSheet.create({
     height: 56,
   },
   leftButton: {
-    width: 56,
+    // Kept the same width as rightButton so the centred logo stays centred when the
+    // right side carries two icons.
+    width: 96,
     alignItems: 'flex-start',
     paddingLeft: Spacing.base,
     justifyContent: 'center',
@@ -132,10 +151,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rightButton: {
-    width: 56,
-    alignItems: 'flex-end',
+    width: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     paddingRight: Spacing.base,
-    justifyContent: 'center',
   },
   iconButton: {
     position: 'relative',

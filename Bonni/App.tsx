@@ -45,6 +45,7 @@ import CartScreen from './src/screens/CartScreen'
 import CheckoutScreen from './src/screens/CheckoutScreen'
 import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
+import InboxScreen from './src/screens/InboxScreen'
 import { RootStackParamList } from './src/types/navigation'
 import { Colors } from './src/constants/theme'
 import { CONFIG_STORAGE_KEYS } from './src/constants/storage'
@@ -867,6 +868,14 @@ function App(): React.JSX.Element {
             <Stack.Screen
               name="Settings"
               component={SettingsScreen}
+              options={{
+                header: renderCustomHeader,
+              }}
+            />
+
+            <Stack.Screen
+              name="Inbox"
+              component={InboxScreen}
               options={{
                 header: renderCustomHeader,
               }}

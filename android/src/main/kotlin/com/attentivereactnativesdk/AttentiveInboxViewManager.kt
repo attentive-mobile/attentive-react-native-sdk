@@ -2,6 +2,9 @@ package com.attentivereactnativesdk
 
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
+import com.facebook.react.uimanager.ViewManagerDelegate
+import com.facebook.react.viewmanagers.AttentiveInboxViewManagerDelegate
+import com.facebook.react.viewmanagers.AttentiveInboxViewManagerInterface
 
 /**
  * Hosts the Attentive Android SDK's drop-in inbox UI ("default renderer") as a React Native view.
@@ -19,18 +22,47 @@ import com.facebook.react.uimanager.ThemedReactContext
  * foreground. Pull-to-refresh and pagination are internal to it too, so there is nothing to drive
  * from JS.
  *
- * No props yet — see `AttentiveInboxViewNativeComponent.ts` for why. When theming props land
- * (MSDK-480) this should also implement the generated `AttentiveInboxViewManagerInterface` and
- * return an `AttentiveInboxViewManagerDelegate` from `getDelegate()`, so codegen compile-checks
- * setter coverage instead of falling back to reflection. Message taps are currently not observable
- * at all from the View wrapper (MSDK-478).
+ * Props come in through the codegen-generated [AttentiveInboxViewManagerInterface] and
+ * [AttentiveInboxViewManagerDelegate] rather than `@ReactProp` + reflection, so adding a prop to
+ * the TypeScript spec without implementing it here is a compile error instead of a silent no-op.
+ * `ColorValue` props arrive already processed as a nullable `Int`; null means "prop absent", which
+ * the host view turns back into the SDK's default colour. Message taps are currently not
+ * observable at all from the View wrapper (MSDK-478).
  */
-class AttentiveInboxViewManager : SimpleViewManager<AttentiveInboxHostView>() {
+class AttentiveInboxViewManager :
+    SimpleViewManager<AttentiveInboxHostView>(),
+    AttentiveInboxViewManagerInterface<AttentiveInboxHostView> {
+
+    private val delegate by lazy {
+        AttentiveInboxViewManagerDelegate<AttentiveInboxHostView, AttentiveInboxViewManager>(this)
+    }
 
     override fun getName(): String = REACT_CLASS
 
+    override fun getDelegate(): ViewManagerDelegate<AttentiveInboxHostView> = delegate
+
     override fun createViewInstance(reactContext: ThemedReactContext): AttentiveInboxHostView =
         AttentiveInboxHostView(reactContext)
+
+    override fun setUnreadIndicatorColor(view: AttentiveInboxHostView, value: Int?) {
+        view.setUnreadIndicatorColor(value)
+    }
+
+    override fun setTitleTextColor(view: AttentiveInboxHostView, value: Int?) {
+        view.setTitleTextColor(value)
+    }
+
+    override fun setBodyTextColor(view: AttentiveInboxHostView, value: Int?) {
+        view.setBodyTextColor(value)
+    }
+
+    override fun setTimestampTextColor(view: AttentiveInboxHostView, value: Int?) {
+        view.setTimestampTextColor(value)
+    }
+
+    override fun setSwipeBackgroundColor(view: AttentiveInboxHostView, value: Int?) {
+        view.setSwipeBackgroundColor(value)
+    }
 
     companion object {
         const val REACT_CLASS = "AttentiveInboxView"

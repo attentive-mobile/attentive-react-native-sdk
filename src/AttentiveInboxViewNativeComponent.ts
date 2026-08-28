@@ -1,14 +1,44 @@
-import type { ViewProps } from 'react-native'
+import type { ColorValue, ViewProps } from 'react-native'
 import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent'
 
 /**
  * Props for the inbox default renderer.
  *
- * Deliberately `ViewProps` only for now — the native views own their own layout,
- * refresh, and pagination, so the host just gives them a box to fill. Theming props
- * arrive once iOS `InboxStyle` gains Android's colour knobs (MSDK-480), and
- * `onMessageTap` once Android forwards taps through `AttentiveInboxView` (MSDK-478).
+ * The native views own their own layout, refresh, and pagination, so the host just gives them a
+ * box to fill — these props only theme what the SDKs actually expose.
+ *
+ * **Android only for now.** Every prop here maps to a setter on the Android SDK's
+ * `AttentiveInboxView`. iOS's `InboxStyle` covers title/body/timestamp font + colour and has no
+ * equivalent for the indicator or swipe colours, so the iOS component ignores all of these until
+ * MSDK-480 lands; passing them is safe, just inert there.
+ *
+ * Omitting a prop (or setting it to `undefined`) restores the SDK's own default colour, so a
+ * recycled view never inherits the previous screen's theme.
+ *
+ * Two knobs are deliberately absent:
+ *  - **backgroundColor** — the Android SDK accepts it but never applies it (`MessageList` declares
+ *    the parameter and then hardcodes `Color.White`), so wiring it would be a lie. Blocked on an
+ *    SDK fix.
+ *  - **fonts** — `setTitleFontFamily(fontResId: Int)` and friends only accept an Android font
+ *    *resource id*, and React Native ships fonts in `assets/fonts/`, not `res/font/`. Needs an SDK
+ *    overload taking a `FontFamily`/`Typeface` before it can be driven from JS.
+ *
+ * `onMessageTap` is still not observable from the Android `View` wrapper at all (MSDK-478).
  */
-export interface NativeProps extends ViewProps {}
+export interface NativeProps extends ViewProps {
+  /** Dot marking an unread message. */
+  unreadIndicatorColor?: ColorValue
+  /** Message title text. */
+  titleTextColor?: ColorValue
+  /** Message body/preview text. */
+  bodyTextColor?: ColorValue
+  /** Message timestamp text. */
+  timestampTextColor?: ColorValue
+  /**
+   * Background revealed by the swipe-left "mark as unread" action. The swipe-right delete action
+   * is hardcoded red in the SDK and is not themeable.
+   */
+  swipeBackgroundColor?: ColorValue
+}
 
 export default codegenNativeComponent<NativeProps>('AttentiveInboxView')

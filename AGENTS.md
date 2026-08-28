@@ -249,6 +249,7 @@ npx react-native run-android   # or build in Android Studio
    - [Record user events](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#record-user-events) — `recordPurchaseEvent`, `recordAddToCartEvent`, `recordProductViewEvent`, `recordCustomEvent`, plus the `Item` / `Purchase` / `ProductView` / `AddToCart` types.
    - [Show a Creative](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#load-the-creative) and [destroy it](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#destroy-the-creative) — in-app messages rendered over your app.
    - [Push notifications (iOS & Android)](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#push-notifications-ios-and-android) and [App events on Android](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#app-events-on-android) — the iOS `AppDelegate` hook, Android manifest/FCM setup, and token registration.
+   - [Inbox](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#inbox) — `<AttentiveInboxView />`, a drop-in message center. Rendering it is the whole integration, but it needs a push-registered device, bounded height, and the New Architecture on iOS; its five theming props apply on Android and are inert on iOS today.
    - [Debugging features](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/README.md#debugging-features) — `enableDebugger`, debug overlays, and log export.
    - `clearUser`, `updateDomain`, and marketing subscription helpers (`optInMarketingSubscription` / `optOutMarketingSubscription`) are exported from the package — see the API surface in [src/index.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/src/index.tsx) and the types in [src/eventTypes.tsx](https://github.com/attentive-mobile/attentive-react-native-sdk/blob/main/src/eventTypes.tsx).
    ```
@@ -268,6 +269,7 @@ Do not run the app on a device or simulator unless asked.
 ## Things NOT to do
 
 - Do not add `identify()`, `clearUser()`, any `recordXEvent()`, `triggerCreative()`/`destroyCreative()`, `addCreativeEventListener()`, or marketing-subscription calls.
+- Do not add `<AttentiveInboxView />` to a screen. Where the inbox lives is a navigation and product decision, and the view needs a bounded-height container to render at all — surface the README section and let the user place it.
 - Do not do any push setup — no `POST_NOTIFICATIONS` in the manifest, no `MainActivity.onNewIntent` override, no `AppDelegate` push handlers, no FCM / `google-services.json`, no `@react-native-community/push-notification-ios`.
 - Do not call `AttentiveSdk.initialize()` outside `Application.onCreate()` or on a background thread.
 - Do not try to initialize Android from TypeScript — the JS `initialize()` is a no-op there.
@@ -286,4 +288,4 @@ Do not run the app on a device or simulator unless asked.
 
 ### What this guide intentionally skipped
 
-The base-integration guide does not wire up identify/clearUser, event recording, Creatives, marketing subscriptions, runtime domain changes, or any push setup. Step 5 already emits the linked README pointers for these to the user — see that step for the canonical block.
+The base-integration guide does not wire up identify/clearUser, event recording, Creatives, the Inbox view, marketing subscriptions, runtime domain changes, or any push setup. Step 5 already emits the linked README pointers for these to the user — see that step for the canonical block.

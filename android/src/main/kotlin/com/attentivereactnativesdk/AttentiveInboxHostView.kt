@@ -2,6 +2,10 @@ package com.attentivereactnativesdk
 
 import android.content.Context
 import android.widget.FrameLayout
+import androidx.annotation.ColorInt
+import androidx.annotation.ColorRes
+import androidx.core.content.ContextCompat
+import com.attentive.androidsdk.R as SdkR
 import com.attentive.androidsdk.inbox.AttentiveInboxView
 
 /**
@@ -34,14 +38,23 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  * and the child's lifetime is the host's. Deliberately no `onDropViewInstance` cleanup — under
  * `ReactNativeFeatureFlags.enableViewRecycling()` a host can be handed back out of RN's recycle
  * pool, and a host that had its child removed would come back empty per (2).
+ *
+ * ## Theming
+ *
+ * The colour setters below forward straight to the child, whose backing fields are
+ * `mutableStateOf`, so a change recomposes without touching the view tree. Each one takes a
+ * nullable colour and substitutes the SDK's own `R.color.attentive_inbox_*` default when null —
+ * that is what makes unsetting a prop restore the default instead of keeping the last value, which
+ * matters precisely because of the recycling note above: a recycled host must not inherit the
+ * previous screen's theme. Reading the defaults from the SDK's resources (rather than hardcoding
+ * them here) keeps us honest if the SDK restyles.
  */
 class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
+    private val inbox = AttentiveInboxView(context)
+
     init {
-        addView(
-            AttentiveInboxView(context),
-            LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
-        )
+        addView(inbox, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     }
 
     private val measureAndLayout = Runnable {
@@ -75,4 +88,27 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
         super.requestLayout()
         post(measureAndLayout)
     }
+
+    fun setUnreadIndicatorColor(@ColorInt color: Int?) {
+        inbox.setUnreadIndicatorColor(color ?: default(SdkR.color.attentive_inbox_unread_indicator))
+    }
+
+    fun setTitleTextColor(@ColorInt color: Int?) {
+        inbox.setTitleTextColor(color ?: default(SdkR.color.attentive_inbox_title_text))
+    }
+
+    fun setBodyTextColor(@ColorInt color: Int?) {
+        inbox.setBodyTextColor(color ?: default(SdkR.color.attentive_inbox_body_text))
+    }
+
+    fun setTimestampTextColor(@ColorInt color: Int?) {
+        inbox.setTimestampTextColor(color ?: default(SdkR.color.attentive_inbox_timestamp_text))
+    }
+
+    fun setSwipeBackgroundColor(@ColorInt color: Int?) {
+        inbox.setSwipeBackgroundColor(color ?: default(SdkR.color.attentive_inbox_swipe_background))
+    }
+
+    @ColorInt
+    private fun default(@ColorRes id: Int): Int = ContextCompat.getColor(context, id)
 }
