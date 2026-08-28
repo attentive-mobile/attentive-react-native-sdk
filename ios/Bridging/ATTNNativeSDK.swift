@@ -564,6 +564,70 @@ struct DebugEvent {
     }
   }
 
+  // MARK: - Inbox (default renderer)
+
+  /// Builds the SDK's drop-in inbox UI ("default renderer") as a `UIViewController`.
+  ///
+  /// `ATTNSDK.inboxViewController(style:onMessageTap:)` can't be called from Objective-C — it is
+  /// `@MainActor`, takes defaulted Swift arguments, and its tap callback carries a `Message`
+  /// struct — so the RN view component goes through this shim. The returned controller is a
+  /// `UIHostingController` wrapping the SwiftUI inbox, which fetches its first page, refreshes on
+  /// foreground, and paginates on its own; there is nothing to drive from JS.
+  ///
+  /// Tap handling is intentionally left at the SDK default for now: click tracking fires and the
+  /// message's `actionURL` opens. Routing taps into JS needs an `onMessageTap` prop, which is
+  /// blocked on Android's side of the parity work (MSDK-478) — adding it on iOS alone would give
+  /// consumers a prop that silently does nothing on half their users' devices.
+  @MainActor
+  @objc(makeInboxViewController)
+  public func makeInboxViewController() -> UIViewController {
+    sdk.inboxViewController()
+  }
+
+  /// Refreshes the unread inbox count from the server, then reports it.
+  ///
+  /// `ATTNSDK.refreshInboxUnreadCount()` is `async`, and `inboxUnreadCount` is a plain
+  /// synchronous mirror that does *not* itself fetch — so a caller that only reads the mirror
+  /// gets whatever the last fetch left behind. This wrapper does both, in that order, because
+  /// Attentive's iOS guidance is to refresh when the app comes to the foreground and after a
+  /// push open, and the React Native bridge has no other way to honour that.
+  ///
+  /// The completion runs on the main actor, which is where React Native resolves promises.
+  ///
+  /// Android has no equivalent: its refresh entry points are still `internal` (MSDK-476), so the
+  /// TypeScript API documents this call as refreshing on iOS and reading a cache on Android.
+  @objc(refreshInboxUnreadCountWithCompletion:)
+  public func refreshInboxUnreadCount(completion: @escaping (Int) -> Void) {
+    Task { @MainActor [weak self] in
+      guard let self else {
+        completion(0)
+        return
+      }
+      await self.sdk.refreshInboxUnreadCount()
+      completion(self.sdk.inboxUnreadCount)
+    }
+  }
+
+  /// Observes unread-count changes and forwards each one to `handler` on the main queue.
+  ///
+  /// Uses the SDK's `.ATTNSDKInboxUnreadCountChanged` notification rather than
+  /// `inboxStateStream`, because the notification is already deduped on same-value writes and
+  /// needs no task to keep alive — the bridge only wants the count, not the message list.
+  /// Filtered to this SDK instance via `object:`.
+  ///
+  /// - Returns: the observer token; hand it back to `NotificationCenter.removeObserver` to stop.
+  @objc(observeInboxUnreadCountWithHandler:)
+  public func observeInboxUnreadCount(handler: @escaping (Int) -> Void) -> NSObjectProtocol {
+    NotificationCenter.default.addObserver(
+      forName: .ATTNSDKInboxUnreadCountChanged,
+      object: sdk,
+      queue: .main
+    ) { note in
+      let count = note.userInfo?["attentiveInboxUnreadCount"] as? Int ?? 0
+      handler(count)
+    }
+  }
+
   // MARK: - Marketing Subscriptions (React Native Bridge)
 
   @objc(optInMarketingSubscriptionWithEmail:phone:completion:)

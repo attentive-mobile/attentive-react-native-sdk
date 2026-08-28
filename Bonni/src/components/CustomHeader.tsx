@@ -4,16 +4,19 @@
  * Shows back button when navigation can go back, otherwise shows burger icon
  *
  * The inbox entry point mirrors the native Android example app, which puts a Material
- * mail_outline icon in the Products toolbar (`Icons.Filled.MailOutline`). Unlike that app
- * there is no unread badge here: the unread count lives on `AttentiveSdk.inboxState`, which
- * is not bridged to React Native yet — only the drop-in view is.
+ * mail_outline icon in the Products toolbar (`Icons.Filled.MailOutline`) inside a `BadgedBox`
+ * driven by the unread count.
  */
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import {
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
+} from '@attentive-mobile/attentive-react-native-sdk'
 import { useCart } from '../models/CartContext'
 import { RootStackParamList } from '../types/navigation'
 import { Colors, Spacing, Typography } from '../constants/theme'
@@ -53,6 +56,27 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   const shouldShowBackButton = !isProductListScreen && canGoBack
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+
+  // Inbox badge. getInboxUnreadCount() is what starts the inbox — it kicks off the first fetch
+  // and, on Android, the observer behind the listener — so the listener is registered first and
+  // the read follows. Only wired up where the icon actually renders.
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!isProductListScreen) {
+      return
+    }
+
+    const subscription = addInboxUnreadCountListener(setInboxUnreadCount)
+    getInboxUnreadCount()
+      .then(setInboxUnreadCount)
+      .catch(() => {
+        // Most likely the SDK is not initialized yet. Leaving the badge hidden is the right
+        // failure mode for a header — nothing to surface to the user.
+      })
+
+    return () => subscription.remove()
+  }, [isProductListScreen])
 
   const handleBackPress = () => {
     if (canGoBack) {
@@ -99,10 +123,17 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
             <TouchableOpacity
               onPress={() => navigation.navigate('Inbox')}
               style={styles.iconButton}
-              accessibilityLabel="Inbox"
+              accessibilityLabel={`Inbox${
+                inboxUnreadCount > 0 ? `, ${inboxUnreadCount} unread` : ''
+              }`}
               accessibilityRole="button"
             >
               <InboxIcon />
+              {inboxUnreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{inboxUnreadCount}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           )}
           {showCartIcon && (

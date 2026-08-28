@@ -543,15 +543,49 @@ Two knobs are deliberately **not** exposed:
 
 The swipe-right delete action is a fixed red in the native SDK and is not themeable.
 
+#### Unread badge
+
+`getInboxUnreadCount()` reads the count and is also what *starts* the inbox — it kicks off the first
+fetch and, on Android, the observer behind the change events. Register the listener first, then read:
+
+```tsx
+import {
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+const [unreadCount, setUnreadCount] = useState(0)
+
+useEffect(() => {
+  const subscription = addInboxUnreadCountListener(setUnreadCount)
+  getInboxUnreadCount().then(setUnreadCount).catch(() => {})
+  return () => subscription.remove()
+}, [])
+```
+
+The listener fires on every change the SDK makes — a completed fetch, a message read or deleted in
+the inbox UI, an identity change. Repeat values are filtered out natively, so a re-fetch returning
+the same number won't churn your badge. A listener on its own receives nothing until something
+starts the inbox, which is why the read call above is not optional.
+
+`0` is both the initial value and the "nothing unread" value, so it cannot tell you whether the
+first fetch has landed. Track that separately if you need to distinguish them.
+
+> **Refresh differs by platform, and it affects badge accuracy.** On **iOS** every
+> `getInboxUnreadCount()` call refreshes from the server, so calling it on app foreground and after
+> a push open — Attentive's iOS guidance — keeps the badge correct. On **Android** only the *first*
+> call fetches; the native refresh entry points are still internal, so afterwards an Android badge
+> updates when a push arrives while the app is foregrounded, and whenever the inbox view is on
+> screen. A plain foreground with no push and no inbox visit will not refresh it.
+
 #### Not yet available from TypeScript
 
-The native SDKs expose more than the drop-in view. The following are **native-only** today — they are
-not bridged to React Native:
+The native SDKs expose more than the drop-in view and the unread count. The following are
+**native-only** today — they are not bridged to React Native:
 
-- unread badge count (Android `AttentiveSdk.inboxState`, iOS `sdk.inboxUnreadCount`)
 - programmatic `markRead` / `markUnread` / `deleteMessage` / load-next-page
 - a custom tap handler that replaces the default mark-read-and-open-deep-link behavior
-- subscribing to the message stream to build your own UI
+- subscribing to the full message stream to build your own inbox UI
 
 If you need any of these, talk to your Attentive contact before designing around the drop-in view.
 

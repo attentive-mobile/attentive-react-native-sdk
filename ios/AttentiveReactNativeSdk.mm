@@ -32,6 +32,8 @@
 
 @implementation AttentiveReactNativeSdk {
     ATTNNativeSDK* _sdk;
+    // Block-based NSNotificationCenter token for inbox unread-count changes; removed in dealloc.
+    id<NSObject> _inboxUnreadCountObserver;
 }
 
 // Creative lifecycle events are delivered as RCTDeviceEventEmitter device events. This is the
@@ -45,6 +47,11 @@
 // CREATIVE_EVENT_NAME in `src/index.tsx` and in the Android module; a mismatch silently stops all
 // creative events rather than failing loudly.
 static NSString *const kAttentiveCreativeEventName = @"AttentiveCreativeEvent";
+
+// Device-event name carrying inbox unread-count changes. Same contract as the creative event
+// name: must stay in sync with INBOX_UNREAD_COUNT_EVENT_NAME in `src/index.tsx` and in the
+// Android module.
+static NSString *const kAttentiveInboxUnreadCountEventName = @"AttentiveInboxUnreadCount";
 
 RCT_EXPORT_MODULE()
 
@@ -551,6 +558,73 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   [_callableJSModules invokeModule:@"RCTDeviceEventEmitter"
                             method:@"emit"
                           withArgs:@[ kAttentiveCreativeEventName, payload ]];
+}
+
+// =============================================================================
+// Inbox (both architectures)
+// =============================================================================
+
+// Refreshes the unread count from the server, then resolves it.
+//
+// Unlike Android — where the native refresh entry points are still internal (MSDK-476) and only
+// the first read fetches — iOS exposes a public refresh, so every call here hits the server. That
+// is what makes an inbox badge on iOS accurate on app foreground and after a push open.
+//
+// Starting the observer here as well means one JS call delivers both the initial value and every
+// later change, so a consumer never has to sequence two native calls.
+- (void)getInboxUnreadCount:(RCTPromiseResolveBlock)resolve
+                     reject:(RCTPromiseRejectBlock)reject {
+  if (_sdk == nil) {
+    reject(@"inbox_unread_count_error",
+           @"The Attentive SDK is not initialized. Call initialize() before reading the inbox.",
+           nil);
+    return;
+  }
+
+  [self startObservingInboxUnreadCount];
+
+  __weak __typeof(self) weakSelf = self;
+  [_sdk refreshInboxUnreadCountWithCompletion:^(NSInteger unreadCount) {
+    // Emit as well as resolve: a listener that mounted before this call should see the refreshed
+    // value even if the caller discards the promise.
+    [weakSelf emitInboxUnreadCount:unreadCount];
+    resolve(@(unreadCount));
+  }];
+}
+
+// Idempotent — the token is created once and reused, so repeated getInboxUnreadCount calls do not
+// stack observers.
+- (void)startObservingInboxUnreadCount {
+  if (_inboxUnreadCountObserver != nil || _sdk == nil) {
+    return;
+  }
+
+  __weak __typeof(self) weakSelf = self;
+  _inboxUnreadCountObserver = [_sdk observeInboxUnreadCountWithHandler:^(NSInteger unreadCount) {
+    [weakSelf emitInboxUnreadCount:unreadCount];
+  }];
+}
+
+- (void)emitInboxUnreadCount:(NSInteger)unreadCount {
+  if (_callableJSModules == nil) {
+    RCTLogWarn(@"[AttentiveSDK] Dropping inbox unread count %ld: no JS runtime attached yet.",
+               (long)unreadCount);
+    return;
+  }
+
+  [_callableJSModules invokeModule:@"RCTDeviceEventEmitter"
+                            method:@"emit"
+                          withArgs:@[ kAttentiveInboxUnreadCountEventName,
+                                      @{ @"unreadCount": @(unreadCount) } ]];
+}
+
+// The observer is block-based, so it must be removed explicitly; a weak self in the handler stops
+// calls into a dead module but would still leak the registration itself.
+- (void)dealloc {
+  if (_inboxUnreadCountObserver != nil) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_inboxUnreadCountObserver];
+    _inboxUnreadCountObserver = nil;
+  }
 }
 
 - (void)destroyCreative {

@@ -10,6 +10,7 @@ import type {
   CreativeStatus,
   CreativeEvent,
   CreativeEventSubscription,
+  InboxUnreadCountSubscription,
   PushAuthorizationStatus,
   ApplicationState,
   PushNotificationUserInfo,
@@ -109,6 +110,15 @@ const isCreativeStatus = (value?: string): value is CreativeStatus =>
  * stops all creative events.
  */
 const CREATIVE_EVENT_NAME = 'AttentiveCreativeEvent'
+
+/**
+ * Device-event name carrying inbox unread-count changes.
+ *
+ * Same contract as [CREATIVE_EVENT_NAME]: shared verbatim with `AttentiveReactNativeSdk.mm`
+ * and `AttentiveReactNativeSdkModule.kt`. Changing it on one side only silently stops the
+ * badge from ever updating.
+ */
+const INBOX_UNREAD_COUNT_EVENT_NAME = 'AttentiveInboxUnreadCount'
 
 /**
  * Subscribe to creative lifecycle events.
@@ -650,6 +660,78 @@ function updateUser(params: UpdateUserParams): Promise<void> {
   return AttentiveReactNativeSdk.updateUser(params?.email, params?.phone)
 }
 
+/**
+ * Reads the unread inbox message count, and starts the inbox.
+ *
+ * This is the call that gets an inbox badge going: it kicks off the first server fetch and,
+ * on Android, starts the observer behind `addInboxUnreadCountListener`. Render the count it
+ * resolves with, then let the listener keep it current.
+ *
+ * ```ts
+ * useEffect(() => {
+ *   const subscription = addInboxUnreadCountListener(setCount)
+ *   getInboxUnreadCount().then(setCount).catch(() => {})
+ *   return () => subscription.remove()
+ * }, [])
+ * ```
+ *
+ * `0` is both the initial value and the "nothing unread" value, so it cannot tell you whether
+ * the first fetch has landed.
+ *
+ * Refresh behaviour is platform-specific — on iOS every call refreshes from the server, on
+ * Android only the first one does. See the JSDoc on the native spec for why, and what that
+ * means for badge accuracy.
+ *
+ * @returns Promise resolving to the unread count
+ */
+function getInboxUnreadCount(): Promise<number> {
+  return AttentiveReactNativeSdk.getInboxUnreadCount()
+}
+
+/**
+ * Subscribe to inbox unread-count changes.
+ *
+ * Fires whenever the count the native SDK holds changes — after a fetch, after a message is
+ * read or deleted in the inbox UI, and when the user's identity changes. Repeats of the same
+ * value are filtered out natively, so a re-fetch returning an unchanged count will not churn
+ * your badge.
+ *
+ * Pair it with [getInboxUnreadCount] for the initial value; a listener on its own receives
+ * nothing until something starts the inbox.
+ *
+ * @param listener - Invoked with the new unread count
+ * @returns A subscription; call `remove()` to stop receiving updates
+ */
+function addInboxUnreadCountListener(
+  listener: (unreadCount: number) => void
+): InboxUnreadCountSubscription {
+  return DeviceEventEmitter.addListener(
+    INBOX_UNREAD_COUNT_EVENT_NAME,
+    (event: { unreadCount?: number }) => {
+      const unreadCount = event?.unreadCount
+      if (typeof unreadCount !== 'number' || !Number.isFinite(unreadCount)) {
+        console.warn(
+          `[AttentiveSDK] Ignoring inbox unread-count event with a non-numeric count: ${String(
+            unreadCount
+          )}.`
+        )
+        return
+      }
+
+      // Same isolation rule as the creative listener: EventEmitter.emit has no try/catch, so a
+      // throwing listener would stop every other subscriber from being notified.
+      try {
+        listener(unreadCount)
+      } catch (error) {
+        console.error(
+          '[AttentiveSDK] An inbox unread-count listener threw. Other listeners are unaffected.',
+          error
+        )
+      }
+    }
+  )
+}
+
 export {
   initialize,
   triggerCreative,
@@ -681,6 +763,8 @@ export {
   updateUser,
   // Inbox
   AttentiveInboxView,
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
 }
 
 export type {
@@ -705,4 +789,5 @@ export type {
   UpdateUserParams,
   // Inbox Types
   AttentiveInboxViewProps,
+  InboxUnreadCountSubscription,
 }

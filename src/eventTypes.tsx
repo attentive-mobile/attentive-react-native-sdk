@@ -83,6 +83,11 @@ export type CreativeEventSubscription = {
   remove: () => void
 }
 
+/** Handle returned by `addInboxUnreadCountListener`; call `remove()` to unsubscribe. */
+export type InboxUnreadCountSubscription = {
+  remove: () => void
+}
+
 // Codegen does not support nested objects. We must flatten the Purchase type.
 export type Purchase = {
   items: Item[]

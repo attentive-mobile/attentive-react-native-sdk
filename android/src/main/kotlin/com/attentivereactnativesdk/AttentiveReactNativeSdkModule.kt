@@ -22,6 +22,14 @@ import com.attentive.androidsdk.events.Price
 import com.attentive.androidsdk.events.ProductViewEvent
 import com.attentive.androidsdk.events.PurchaseEvent
 import com.attentive.androidsdk.push.TokenFetchResult
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
@@ -53,9 +61,29 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
          * a mismatch silently stops all creative events rather than failing loudly.
          */
         private const val CREATIVE_EVENT_NAME = "AttentiveCreativeEvent"
+
+        /**
+         * Device-event name carrying inbox unread-count changes to JS.
+         *
+         * Same contract as [CREATIVE_EVENT_NAME] — shared verbatim with
+         * `INBOX_UNREAD_COUNT_EVENT_NAME` in `src/index.tsx` and the iOS bridge.
+         */
+        private const val INBOX_UNREAD_COUNT_EVENT_NAME = "AttentiveInboxUnreadCount"
     }
 
     private var creative: Creative? = null
+
+    /**
+     * Scope for observing the SDK's inbox state.
+     *
+     * The bridge owns this one (unlike the suspend SDK calls, which run their own coroutines)
+     * because a `StateFlow` collector outlives the call that started it. `Dispatchers.Main.immediate`
+     * keeps emission on the thread React Native already expects for JS calls, and `SupervisorJob`
+     * stops a failed collector from cancelling anything else added here later. Cancelled in
+     * [invalidate].
+     */
+    private val inboxScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var inboxUnreadCountJob: Job? = null
     private val debugHelper: AttentiveDebugHelper
 
     init {
@@ -265,6 +293,71 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.w(TAG, "[AttentiveSDK] Could not emit $name event: ${e.message}")
         }
+    }
+
+    // =========================================================================
+    // Inbox
+    // =========================================================================
+
+    /**
+     * Resolves the unread inbox count and starts the inbox.
+     *
+     * `AttentiveSdk.getUnreadCount()` does double duty: it returns the current snapshot and, on
+     * its first call across the app's lifetime, triggers the SDK's inbox initialization, which
+     * kicks off the first server fetch. Later calls are pure reads — the native refresh entry
+     * points (`refreshInbox`, `refreshInboxUnreadCount`) are `internal`, so this bridge cannot
+     * force a refetch (MSDK-476). iOS can, and does so on every call, which is why the
+     * TypeScript API documents the two platforms as behaving differently here.
+     *
+     * Starting the observer here too means one JS call yields both the initial value and every
+     * subsequent [INBOX_UNREAD_COUNT_EVENT_NAME] event.
+     *
+     * NOTE: `getUnreadCount()` is deleted in favour of `startInbox()` + collecting `inboxState`
+     * (MSDK-479, attentive-android-sdk#268). This is the only call site to swap when that lands.
+     */
+    override fun getInboxUnreadCount(promise: Promise) {
+        try {
+            val unreadCount = AttentiveSdk.getUnreadCount()
+            startObservingInboxUnreadCount()
+            promise.resolve(unreadCount)
+        } catch (e: Exception) {
+            Log.w(TAG, "[AttentiveSDK] Could not read the inbox unread count: ${e.message}")
+            promise.reject("inbox_unread_count_error", e)
+        }
+    }
+
+    /**
+     * Collects `AttentiveSdk.inboxState` and emits each distinct unread count to JS.
+     *
+     * Idempotent — the job is created once and reused, so repeated [getInboxUnreadCount] calls
+     * don't stack collectors. Mapping to the count before [distinctUntilChanged] means a refetch
+     * returning the same number doesn't churn the consumer's badge, matching the dedupe iOS does
+     * in its own unread-count box. A `StateFlow` replays its current value to each new collector,
+     * so the first event repeats the value [getInboxUnreadCount] just resolved; that is
+     * deliberate, since dropping it would lose a fetch that completed in between.
+     */
+    private fun startObservingInboxUnreadCount() {
+        if (inboxUnreadCountJob != null) return
+        inboxUnreadCountJob = inboxScope.launch {
+            AttentiveSdk.inboxState
+                .map { it.unreadCount }
+                .distinctUntilChanged()
+                .collect { unreadCount ->
+                    val payload = Arguments.createMap()
+                    payload.putInt("unreadCount", unreadCount)
+                    emitDeviceEvent(INBOX_UNREAD_COUNT_EVENT_NAME, payload)
+                }
+        }
+    }
+
+    /**
+     * Stops the inbox observer when React Native tears the module down, so a reload doesn't leave
+     * a collector emitting into a dead JS runtime.
+     */
+    override fun invalidate() {
+        inboxScope.cancel()
+        inboxUnreadCountJob = null
+        super.invalidate()
     }
 
     override fun destroyCreative() {
