@@ -60,6 +60,28 @@ class AppDelegate: RCTAppDelegate {
     print("[Attentive] Remote notification received")
     RNCPushNotificationIOS.didReceiveRemoteNotification(userInfo, fetchCompletionHandler: completionHandler)
   }
+
+  /// Deliver custom-scheme URLs (`bonni-rn://…`) to React Native's Linking module.
+  ///
+  /// Required: `RCTAppDelegate` does not implement this, so without it iOS brings the app to the
+  /// foreground and `Linking.addEventListener('url', …)` never fires — the failure looks like a
+  /// broken deep link when nothing is actually wrong with the URL.
+  ///
+  /// `override` is required even though `RCTAppDelegate` has no implementation of its own: it
+  /// declares `UIApplicationDelegate` conformance, and Swift treats that protocol's optional
+  /// requirements as overridable members in a subclass. The push delegate methods above are
+  /// marked the same way for the same reason.
+  ///
+  /// Universal links would additionally need `application(_:continue:restorationHandler:)`; the
+  /// Attentive inbox opens `actionURL` directly, so only the scheme path is wired here.
+  override func application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey: Any] = [:]
+  ) -> Bool {
+    print("[Attentive] openURL: \(url.absoluteString)")
+    return RCTLinkingManager.application(app, open: url, options: options)
+  }
 }
 
 // MARK: - UNUserNotificationCenterDelegate
