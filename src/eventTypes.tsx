@@ -48,7 +48,7 @@ export type ProductView = {
  *   load timed out, or an unknown exception occurred. Android does not report it for a failed
  *   page load or render timeout (see the README caveats).
  * - `notClosed` — the creative failed to close cleanly (rare; e.g. the web view was already
- *   gone at close time). Android only in practice: `attentive-ios-sdk` 2.0.15 declares this
+ *   gone at close time). Android only in practice: `attentive-ios-sdk` 2.0.18-beta.1 declares this
  *   status but has no call site for it.
  */
 export const CREATIVE_STATUSES = [

@@ -363,7 +363,7 @@ promise.
 | `opened` | The creative rendered and is visible. |
 | `closed` | The creative was dismissed by the user tapping the creative's own close control. The Android hardware back button does **not** produce this event — see the caveats below. |
 | `notOpened` | The creative could not be shown: no creative is configured for the app, the creative was fatigued, the load timed out, or an unknown error occurred. This is the single catch-all failure status on both platforms — it does not distinguish between those causes. See the Android caveat below. |
-| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `attentive-ios-sdk` 2.0.15 declares this status but never reports it, so an iOS-only integration will never see it. |
+| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `attentive-ios-sdk` 2.0.18-beta.1 declares this status but never reports it, so an iOS-only integration will never see it. |
 
 `creativeId` echoes the id you passed to `triggerCreative(creativeId)`, and is absent when you
 triggered the default creative.
@@ -530,9 +530,10 @@ Each accepts any React Native `ColorValue` — hex strings, named colors, `Platf
 />
 ```
 
-> **Platform support:** Android applies all five. iOS accepts them but does not apply them yet — its
-> `InboxStyle` covers title/body/timestamp font and color and has no equivalent for the indicator or
-> swipe colors, so the props are inert there rather than partially applied.
+> **Platform support:** Android applies all five. iOS applies `titleTextColor`, `bodyTextColor`, and
+> `timestampTextColor` — the three its `InboxStyle` can express. `unreadIndicatorColor` and
+> `swipeBackgroundColor` are Android-only, because `InboxStyle` has no equivalent for either; iOS
+> logs once when you set them rather than dropping them silently.
 
 Two knobs are deliberately **not** exposed:
 

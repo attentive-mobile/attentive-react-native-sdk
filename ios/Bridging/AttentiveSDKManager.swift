@@ -37,12 +37,25 @@ import UserNotifications
     /// Shared singleton instance
     @objc public static let shared: AttentiveSDKManager = AttentiveSDKManager()
 
+    /// Broadcast when `sdk` transitions from nil to a live instance.
+    ///
+    /// Native views that need the SDK can be mounted before JS calls `initialize()` — a host app
+    /// is free to make the inbox its very first screen — so they observe this instead of capturing
+    /// whatever `sdk` happened to be at attach time. The raw string is duplicated in
+    /// `AttentiveInboxView.mm`; changing it here without changing that silently stops such views
+    /// from ever recovering.
+    public static let sdkDidBecomeAvailable = Notification.Name("ATTNSDKDidBecomeAvailable")
+
     /// The Attentive SDK instance as AnyObject for Objective-C compatibility.
     /// When set, any pending (untracked) notification response is automatically flushed.
     @objc public var sdk: AnyObject? {
         didSet {
             if sdk != nil {
                 flushPendingResponseIfNeeded()
+                NotificationCenter.default.post(
+                    name: AttentiveSDKManager.sdkDidBecomeAvailable,
+                    object: self
+                )
             }
         }
     }

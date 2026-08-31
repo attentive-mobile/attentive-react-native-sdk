@@ -8,6 +8,7 @@
 
 import Foundation
 import ATTNSDKFramework
+import SwiftUI
 import UIKit
 import UserNotifications
 
@@ -578,10 +579,37 @@ struct DebugEvent {
   /// message's `actionURL` opens. Routing taps into JS needs an `onMessageTap` prop, which is
   /// blocked on Android's side of the parity work (MSDK-478) — adding it on iOS alone would give
   /// consumers a prop that silently does nothing on half their users' devices.
+  ///
+  /// The colours are the subset of the React Native theming props that `InboxStyle` can express.
+  /// Android additionally themes the unread indicator and the swipe background; `InboxStyle` has no
+  /// equivalent for either, which is MSDK-480. A nil colour keeps the SDK's own default, so the
+  /// defaults below must stay in step with `InboxStyle.init`'s (.headline/.primary,
+  /// .subheadline/.secondary, .caption/.secondary) — passing a style always replaces all three.
+  ///
+  /// Fonts stay at the SDK defaults: React Native has no font props yet, because Android's font
+  /// setters take an Android resource id that an RN app has no way to produce.
   @MainActor
-  @objc(makeInboxViewController)
-  public func makeInboxViewController() -> UIViewController {
-    sdk.inboxViewController()
+  @objc(makeInboxViewControllerWithTitleColor:bodyColor:timestampColor:)
+  public func makeInboxViewController(
+    titleColor: UIColor?,
+    bodyColor: UIColor?,
+    timestampColor: UIColor?
+  ) -> UIViewController {
+    let style = InboxStyle(
+      title: InboxStyle.Text(
+        font: .headline,
+        color: titleColor.map { Color(uiColor: $0) } ?? .primary
+      ),
+      body: InboxStyle.Text(
+        font: .subheadline,
+        color: bodyColor.map { Color(uiColor: $0) } ?? .secondary
+      ),
+      timestamp: InboxStyle.Text(
+        font: .caption,
+        color: timestampColor.map { Color(uiColor: $0) } ?? .secondary
+      )
+    )
+    return sdk.inboxViewController(style: style)
   }
 
   /// Refreshes the unread inbox count from the server, then reports it.

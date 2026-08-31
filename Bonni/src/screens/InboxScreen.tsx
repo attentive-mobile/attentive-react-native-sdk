@@ -7,8 +7,9 @@
  * call to make from JS — rendering the component is the integration.
  *
  * The theming props below map Bonni's design system onto the inbox: peach for the swipe
- * action so it matches the nav bar, muted grey for secondary text. Android applies all
- * five; iOS ignores them until its InboxStyle grows the same knobs.
+ * action so it matches the nav bar, muted grey for secondary text. Android applies all five;
+ * iOS applies the three text colours and ignores the indicator and swipe colours, which its
+ * InboxStyle cannot express yet.
  */
 
 import React from 'react'

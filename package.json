@@ -198,6 +198,11 @@
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "com.attentivereactnativesdk"
+    },
+    "ios": {
+      "componentProvider": {
+        "AttentiveInboxView": "AttentiveInboxView"
+      }
     }
   },
   "dependencies": {

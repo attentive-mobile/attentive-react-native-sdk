@@ -20,7 +20,7 @@ target 'AttentiveReactNativeSdk' do
   flags = get_default_flags()
 
   # Ensure Swift support
-  pod 'ATTNSDKFramework', '2.0.15'
+  pod 'ATTNSDKFramework', '2.0.18-beta.1'
 
   use_react_native!(
     :path => config[:reactNativePath],
