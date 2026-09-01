@@ -34,6 +34,12 @@
     ATTNNativeSDK* _sdk;
     // Block-based NSNotificationCenter token for inbox unread-count changes; removed in dealloc.
     id<NSObject> _inboxUnreadCountObserver;
+    // Last count actually delivered to JS, so repeats can be filtered. See emitInboxUnreadCount:.
+    NSInteger _lastEmittedUnreadCount;
+    BOOL _hasEmittedUnreadCount;
+    // Bumped on every delivery that reached JS, so an explicit refresh can tell whether the change
+    // observer already delivered its value. See deliverRefreshedInboxUnreadCount:ifNoDeliverySince:.
+    uint64_t _unreadCountDeliveries;
 }
 
 // Creative lifecycle events are delivered as RCTDeviceEventEmitter device events. This is the
@@ -540,13 +546,26 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
  * `callableJSModules` is nil until the module is attached to a runtime, so a transition arriving
  * that early is dropped rather than crashing.
  */
-- (void)emitCreativeEventWithStatus:(NSString *)status creativeId:(NSString *)creativeId {
-  if (status == nil) {
-    return;
+/**
+ * The single native->JS emit path, the counterpart of the Android module's `emitDeviceEvent`.
+ *
+ * Keeps the `RCTDeviceEventEmitter`/`emit` pair and the "no runtime yet" drop in one place, so a
+ * future event cannot get a third hand-rolled copy of them. Returns NO when there was no runtime
+ * to emit into; callers log that themselves, since only they know what was dropped.
+ */
+- (BOOL)emitDeviceEvent:(NSString *)name payload:(id)payload {
+  if (_callableJSModules == nil) {
+    return NO;
   }
 
-  if (_callableJSModules == nil) {
-    RCTLogWarn(@"[AttentiveSDK] Dropping creative event '%@': no JS runtime attached yet.", status);
+  [_callableJSModules invokeModule:@"RCTDeviceEventEmitter"
+                            method:@"emit"
+                          withArgs:@[ name, payload ]];
+  return YES;
+}
+
+- (void)emitCreativeEventWithStatus:(NSString *)status creativeId:(NSString *)creativeId {
+  if (status == nil) {
     return;
   }
 
@@ -555,9 +574,9 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     payload[@"creativeId"] = creativeId;
   }
 
-  [_callableJSModules invokeModule:@"RCTDeviceEventEmitter"
-                            method:@"emit"
-                          withArgs:@[ kAttentiveCreativeEventName, payload ]];
+  if (![self emitDeviceEvent:kAttentiveCreativeEventName payload:payload]) {
+    RCTLogWarn(@"[AttentiveSDK] Dropping creative event '%@': no JS runtime attached yet.", status);
+  }
 }
 
 // =============================================================================
@@ -583,11 +602,14 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
   [self startObservingInboxUnreadCount];
 
+  // Sampled before the refresh so the completion can tell whether the change observer already
+  // delivered this refresh's value.
+  uint64_t deliveriesBeforeRefresh = _unreadCountDeliveries;
+
   __weak __typeof(self) weakSelf = self;
   [_sdk refreshInboxUnreadCountWithCompletion:^(NSInteger unreadCount) {
-    // Emit as well as resolve: a listener that mounted before this call should see the refreshed
-    // value even if the caller discards the promise.
-    [weakSelf emitInboxUnreadCount:unreadCount];
+    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount
+                           ifNoDeliverySince:deliveriesBeforeRefresh];
     resolve(@(unreadCount));
   }];
 }
@@ -605,17 +627,53 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   }];
 }
 
+/**
+ * Delivers an explicitly refreshed count, unless the change observer already delivered it.
+ *
+ * An explicit refresh has to reach JS even when the value did not change: the caller may discard
+ * the promise, and device events have no replay, so a listener that mounted since the last
+ * delivery would otherwise never learn the count. But when the count *did* change, the observer
+ * has already emitted it during this refresh, and repeating it is exactly the redundant hop
+ * emitInboxUnreadCount: filters out. The delivery counter separates those two cases without a
+ * second source of truth for "what has JS seen".
+ */
+- (void)deliverRefreshedInboxUnreadCount:(NSInteger)unreadCount
+                       ifNoDeliverySince:(uint64_t)deliveries {
+  if (_unreadCountDeliveries != deliveries) {
+    return;
+  }
+
+  [self emitInboxUnreadCount:unreadCount force:YES];
+}
+
 - (void)emitInboxUnreadCount:(NSInteger)unreadCount {
-  if (_callableJSModules == nil) {
+  [self emitInboxUnreadCount:unreadCount force:NO];
+}
+
+- (void)emitInboxUnreadCount:(NSInteger)unreadCount force:(BOOL)force {
+  // Filter repeats, which is what addInboxUnreadCountListener already documents ("repeats of the
+  // same value are filtered out natively"). Android gets this free from StateFlow's
+  // distinctUntilChanged; iOS has two paths into this method — the change observer and the explicit
+  // emit in getInboxUnreadCount's completion — so without a last-value check a refresh delivers the
+  // count twice when it changed and re-delivers it when it did not. That is not a one-off: README
+  // and AGENTS tell iOS integrators to refresh on every foreground and after every push open, and
+  // each redundant delivery costs a native->JS hop plus a setState in every subscriber.
+  if (!force && _hasEmittedUnreadCount && unreadCount == _lastEmittedUnreadCount) {
+    return;
+  }
+
+  if (![self emitDeviceEvent:kAttentiveInboxUnreadCountEventName
+                     payload:@{ @"unreadCount" : @(unreadCount) }]) {
     RCTLogWarn(@"[AttentiveSDK] Dropping inbox unread count %ld: no JS runtime attached yet.",
                (long)unreadCount);
     return;
   }
 
-  [_callableJSModules invokeModule:@"RCTDeviceEventEmitter"
-                            method:@"emit"
-                          withArgs:@[ kAttentiveInboxUnreadCountEventName,
-                                      @{ @"unreadCount": @(unreadCount) } ]];
+  // Recorded only after a delivery that actually happened, so a drop does not suppress the next
+  // identical value.
+  _lastEmittedUnreadCount = unreadCount;
+  _hasEmittedUnreadCount = YES;
+  _unreadCountDeliveries++;
 }
 
 // The observer is block-based, so it must be removed explicitly; a weak self in the handler stops

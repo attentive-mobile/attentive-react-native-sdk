@@ -51,18 +51,23 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  */
 class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
-    private val inbox = AttentiveInboxView(context)
-
-    init {
-        addView(inbox, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
-    }
-
+    // Declared before `inbox` and the init block on purpose. `ViewGroup.addView` calls
+    // `requestLayout()` before it attaches the child, so the init block below re-enters the
+    // override in this class — and Kotlin initialises properties in declaration order, so a
+    // Runnable declared after it would still be null at that point and `post(null)` would queue an
+    // empty message instead of the layout pass.
     private val measureAndLayout = Runnable {
         measure(
             MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY),
         )
         layout(left, top, right, bottom)
+    }
+
+    private val inbox = AttentiveInboxView(context)
+
+    init {
+        addView(inbox, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     }
 
     override fun onAttachedToWindow() {
@@ -86,7 +91,18 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
     override fun requestLayout() {
         super.requestLayout()
+        // Coalesce: Handler allocates a Message per post and does not dedupe identical Runnables,
+        // so without the removal N requestLayout() calls inside one message-queue drain would each
+        // cost a full measure + layout pass over the Compose subtree.
+        removeCallbacks(measureAndLayout)
         post(measureAndLayout)
+    }
+
+    override fun onDetachedFromWindow() {
+        // A pass posted while attached would otherwise still run after detach, where onMeasure
+        // skips the children and layout() replays stale bounds.
+        removeCallbacks(measureAndLayout)
+        super.onDetachedFromWindow()
     }
 
     fun setUnreadIndicatorColor(@ColorInt color: Int?) {

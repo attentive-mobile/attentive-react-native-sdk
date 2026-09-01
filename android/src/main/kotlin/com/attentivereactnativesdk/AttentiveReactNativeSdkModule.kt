@@ -22,6 +22,7 @@ import com.attentive.androidsdk.events.Price
 import com.attentive.androidsdk.events.ProductViewEvent
 import com.attentive.androidsdk.events.PurchaseEvent
 import com.attentive.androidsdk.push.TokenFetchResult
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -82,7 +83,21 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * stops a failed collector from cancelling anything else added here later. Cancelled in
      * [invalidate].
      */
-    private val inboxScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    /**
+     * Handler, not just a [SupervisorJob]: the job stops one failed child from cancelling the
+     * others, but it does not swallow the exception — with no handler in the context it reaches
+     * `Thread.getDefaultUncaughtExceptionHandler` and terminates the process. [emitDeviceEvent] is
+     * already guarded, but `AttentiveSdk.inboxState` and the `map` over it are not, so a throw from
+     * the SDK's flow would crash the host app. Every other native entry point in this module
+     * catches and logs; this makes the collector behave the same way.
+     */
+    private val inboxExceptionHandler = CoroutineExceptionHandler { _, error ->
+        Log.w(TAG, "[AttentiveSDK] Inbox unread-count observer failed: ${error.message}", error)
+    }
+
+    private val inboxScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate + inboxExceptionHandler,
+    )
     private var inboxUnreadCountJob: Job? = null
     private val debugHelper: AttentiveDebugHelper
 
@@ -317,8 +332,13 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      */
     override fun getInboxUnreadCount(promise: Promise) {
         try {
-            val unreadCount = AttentiveSdk.getUnreadCount()
+            // Started before the read, not after: this method is documented as the call that starts
+            // the inbox, so a throw from getUnreadCount() (inbox not enabled for the company,
+            // identity not resolved yet) used to leave the observer unstarted and the badge dead
+            // for the rest of the process — and the documented consumer pattern swallows the
+            // rejection, so nothing surfaced.
             startObservingInboxUnreadCount()
+            val unreadCount = AttentiveSdk.getUnreadCount()
             promise.resolve(unreadCount)
         } catch (e: Exception) {
             Log.w(TAG, "[AttentiveSDK] Could not read the inbox unread count: ${e.message}")
@@ -356,7 +376,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      */
     override fun invalidate() {
         inboxScope.cancel()
-        inboxUnreadCountJob = null
         super.invalidate()
     }
 

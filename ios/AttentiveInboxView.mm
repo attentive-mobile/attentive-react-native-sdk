@@ -16,6 +16,7 @@
 #import <react/renderer/components/AttentiveReactNativeSdkSpec/RCTComponentViewHelpers.h>
 #import <React/RCTConversions.h>
 #import <React/RCTLog.h>
+#import <React/RCTUtils.h>
 #import <React/UIView+React.h>
 
 // Must precede the generated Swift header: ATTNNativeSDK's push methods surface
@@ -69,11 +70,6 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
 - (void)didMoveToWindow
 {
   [super didMoveToWindow];
-
-  if (self.window == nil) {
-    return;
-  }
-
   [self attachInboxIfPossible];
 }
 
@@ -87,6 +83,14 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
  */
 - (void)attachInboxIfPossible
 {
+  // The window precondition lives here rather than at each call site: a controller embedded in a
+  // view with no window has nothing to attach to, and every caller would otherwise have to know
+  // that. Cheap to re-check, and it means didMoveToWindow, the updateProps rebuild and
+  // sdkDidBecomeAvailable can all just call this.
+  if (self.window == nil) {
+    return;
+  }
+
   if (_inboxViewController == nil) {
     id maybeSDK = AttentiveSDKManager.shared.sdk;
     ATTNNativeSDK *sdk = [maybeSDK isKindOfClass:ATTNNativeSDK.class] ? (ATTNNativeSDK *)maybeSDK : nil;
@@ -106,7 +110,17 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
   // renders but never learns it became visible.
   UIViewController *parent = self.reactViewController;
   if (parent != nil && _inboxViewController.parentViewController != parent) {
-    [_inboxViewController willMoveToParentViewController:parent];
+    // Detach from any previous parent first. The guard above is also true when the controller is
+    // already parented somewhere *else* (the view moved between screen controllers, e.g. into a
+    // modal), and UIKit requires an explicit removal before re-parenting.
+    if (_inboxViewController.parentViewController != nil) {
+      [_inboxViewController willMoveToParentViewController:nil];
+      [_inboxViewController removeFromParentViewController];
+    }
+
+    // No explicit willMoveToParentViewController: here — addChildViewController: sends it, so
+    // calling it as well delivers two willMove callbacks for one transition. Only the didMove half
+    // has to be sent by hand.
     [parent addChildViewController:_inboxViewController];
     [_inboxViewController didMoveToParentViewController:parent];
   }
@@ -165,9 +179,7 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
 
   if (styleChanged && _inboxViewController != nil) {
     [self teardownInboxViewController];
-    if (self.window != nil) {
-      [self attachInboxIfPossible];
-    }
+    [self attachInboxIfPossible];
   }
 }
 
@@ -207,20 +219,13 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
 
 - (void)sdkDidBecomeAvailable
 {
-  // The manager posts from whatever thread set `sdk`; UIKit work has to be on main.
-  if (NSThread.isMainThread) {
-    if (self.window != nil) {
-      [self attachInboxIfPossible];
-    }
-  } else {
-    __weak __typeof(self) weakSelf = self;
-    dispatch_async(dispatch_get_main_queue(), ^{
-      __typeof(self) strongSelf = weakSelf;
-      if (strongSelf != nil && strongSelf.window != nil) {
-        [strongSelf attachInboxIfPossible];
-      }
-    });
-  }
+  // The manager posts from whatever thread set `sdk`, and UIKit work has to be on main.
+  // RCTExecuteOnMainQueue runs the block inline when already on the main queue and dispatches
+  // otherwise, which is exactly the branch this used to spell out by hand.
+  __weak __typeof(self) weakSelf = self;
+  RCTExecuteOnMainQueue(^{
+    [weakSelf attachInboxIfPossible];
+  });
 }
 
 - (void)layoutSubviews
@@ -232,6 +237,13 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
 - (void)dealloc
 {
   [self stopObservingSDKAvailability];
+  // Also tear down the child controller. prepareForRecycle covers the pooling path, but a
+  // component view can be deallocated outright (pool eviction, surface stop, recycling disabled),
+  // and releasing self takes the controller's *view* out of the hierarchy while the screen's
+  // controller still holds the UIHostingController in childViewControllers — a controller whose
+  // view has no superview, still receiving appearance callbacks and still keeping the inbox's view
+  // model alive for the life of the screen.
+  [self teardownInboxViewController];
 }
 
 - (void)prepareForRecycle
@@ -246,6 +258,19 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
 
 @end
 
+/**
+ * Registration hook for React Native 0.76 and earlier. Do not delete: nothing in this file calls
+ * it, so it reads as dead code.
+ *
+ * The two RN generations discover third-party Fabric components differently, and this component
+ * satisfies both. Up to 0.76, codegen walks every library's spec and emits
+ * `RCTThirdPartyFabricComponentsProvider` containing `{"AttentiveInboxView", AttentiveInboxViewCls}`
+ * — it links against this symbol by name, so its absence is a link error in a consumer's app, not
+ * here. From 0.77, `codegenConfig.ios.componentProvider` in package.json generates
+ * `RCTThirdPartyComponentsProvider` with an `NSClassFromString` lookup instead, and this function
+ * goes unreferenced. Keeping both is what lets the component work across the RN range the package
+ * declares; 0.76-and-earlier codegen ignores the `componentProvider` key, which it does not know.
+ */
 Class<RCTComponentViewProtocol> AttentiveInboxViewCls(void)
 {
   return AttentiveInboxView.class;

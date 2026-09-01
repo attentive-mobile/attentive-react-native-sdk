@@ -627,10 +627,12 @@ struct DebugEvent {
   @objc(refreshInboxUnreadCountWithCompletion:)
   public func refreshInboxUnreadCount(completion: @escaping (Int) -> Void) {
     Task { @MainActor [weak self] in
-      guard let self else {
-        completion(0)
-        return
-      }
+      // No completion at all when the shim is gone (module torn down, or a JS reload mid-flight).
+      // Calling back with 0 would be worse than staying silent: 0 is a legitimate count, so the
+      // caller would read "nothing unread" and overwrite a correct badge with no way to tell that
+      // the refresh never happened.
+      guard let self else { return }
+
       await self.sdk.refreshInboxUnreadCount()
       completion(self.sdk.inboxUnreadCount)
     }
