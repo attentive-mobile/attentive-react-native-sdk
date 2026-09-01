@@ -73,20 +73,23 @@ export type CreativeEvent = {
 }
 
 /**
- * Handle returned by `addCreativeEventListener`. Call `remove()` to stop receiving events.
+ * Handle returned by any of the SDK's event subscriptions. Call `remove()` to stop receiving
+ * events.
  *
  * Deliberately minimal rather than React Native's `EventSubscription`, whose published
  * TypeScript shape (`eventType` / `key` / `subscriber`) is an internal detail that has
- * differed across RN versions.
+ * differed across RN versions. Every per-event alias below points here so that rationale is
+ * stated once and cannot be "simplified" away for one event but not another.
  */
-export type CreativeEventSubscription = {
+export type AttentiveEventSubscription = {
   remove: () => void
 }
 
+/** Handle returned by `addCreativeEventListener`. Call `remove()` to stop receiving events. */
+export type CreativeEventSubscription = AttentiveEventSubscription
+
 /** Handle returned by `addInboxUnreadCountListener`; call `remove()` to unsubscribe. */
-export type InboxUnreadCountSubscription = {
-  remove: () => void
-}
+export type InboxUnreadCountSubscription = AttentiveEventSubscription
 
 // Codegen does not support nested objects. We must flatten the Purchase type.
 export type Purchase = {

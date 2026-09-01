@@ -810,6 +810,19 @@ function App(): React.JSX.Element {
     }
 
     const handleDeepLink = (url: string, source: string) => {
+      try {
+        routeDeepLink(url, source)
+      } catch (error) {
+        // decodeURIComponent throws URIError on a malformed escape (`?utm=100%`), and on the
+        // `url`-event path this function is called straight from React Native's EventEmitter,
+        // which has no try/catch of its own — an escaping throw would abort the emit loop and
+        // silently stop every other `url` subscriber for the rest of the session. Same rule the
+        // SDK applies at its own bridge edge in addDeviceEventListener.
+        console.error(`❌ [Bonni] Could not handle deep link ${url}:`, error)
+      }
+    }
+
+    const routeDeepLink = (url: string, source: string) => {
       const { target, params } = describe(url)
       console.log(`🔗 [Bonni] Deep link via ${source}: ${url}`)
       console.log(`   target: ${target}`)
@@ -897,6 +910,10 @@ function App(): React.JSX.Element {
   /**
    * Applies a deep link that landed before the navigator existed (see [pendingDeepLinkRef]), on
    * top of the status-bar sync that already ran here.
+   *
+   * Routes back through [goToDeepLinkTarget] rather than navigating directly, so there is exactly
+   * one place that knows how a target becomes a navigation — and so this path keeps the
+   * `isReady()` guard instead of assuming readiness from the callback's name.
    */
   const handleNavigationReady = useCallback(() => {
     handleNavigationStateChange()
@@ -904,12 +921,9 @@ function App(): React.JSX.Element {
     const pending = pendingDeepLinkRef.current
     if (pending) {
       pendingDeepLinkRef.current = null
-      console.log(
-        `🔗 [Bonni] Navigator ready, applying held deep link: ${pending}`
-      )
-      navigationRef.navigate(pending)
+      goToDeepLinkTarget(pending)
     }
-  }, [handleNavigationStateChange, navigationRef])
+  }, [handleNavigationStateChange, goToDeepLinkTarget])
 
   // For Android, transparent string might not work - use rgba format
   // With translucent=true, the background will still show through

@@ -1,4 +1,5 @@
 import { DeviceEventEmitter, Platform } from 'react-native'
+import { DEVICE_EVENT_NAMES } from './eventNames'
 import type {
   UserIdentifiers,
   AttentiveSdkConfiguration,
@@ -9,6 +10,7 @@ import type {
   Item,
   CreativeStatus,
   CreativeEvent,
+  AttentiveEventSubscription,
   CreativeEventSubscription,
   InboxUnreadCountSubscription,
   PushAuthorizationStatus,
@@ -24,6 +26,10 @@ import NativeAttentiveReactNativeSdkModule, {
 } from './NativeAttentiveReactNativeSdk'
 import AttentiveInboxView from './AttentiveInboxViewNativeComponent'
 import type { NativeProps as AttentiveInboxViewProps } from './AttentiveInboxViewNativeComponent'
+
+/** Any name in [DEVICE_EVENT_NAMES] — the only names either native bridge emits. */
+type DeviceEventName =
+  (typeof DEVICE_EVENT_NAMES)[keyof typeof DEVICE_EVENT_NAMES]
 
 const LINKING_ERROR =
   `The package 'attentive-react-native-sdk' doesn't seem to be linked. Make sure: \n\n` +
@@ -102,23 +108,48 @@ const isCreativeStatus = (value?: string): value is CreativeStatus =>
   CREATIVE_STATUSES.includes(value as CreativeStatus)
 
 /**
- * Device-event name carrying creative lifecycle transitions.
+ * Wraps a device-event listener with the two rules every bridged event here follows: drop a
+ * payload the native side should never have sent, and isolate the consumer's callback.
  *
- * This string is a contract shared with both native bridges — `AttentiveReactNativeSdk.mm`
- * emits it through `callableJSModules`, and `AttentiveReactNativeSdkModule.kt` through
- * `RCTDeviceEventEmitter`. Changing it here without changing both native sides silently
- * stops all creative events.
+ * The isolation is the load-bearing part. React Native's `EventEmitter.emit` has no try/catch, so
+ * a listener that throws would abort the emit loop — every other subscriber to the same event
+ * would silently stop receiving it — and the exception would escape into the native->JS call.
+ * Both native emitters already log rather than throw; this keeps the JS edge of the bridge to the
+ * same rule.
+ *
+ * @param eventName - Device-event name to subscribe to. Typed off [DEVICE_EVENT_NAMES] rather
+ *   than `string`, so a typo'd name is a compile error instead of a listener that never fires —
+ *   which is the whole point of that table existing.
+ * @param decode - Returns the typed payload, or `undefined` to drop the event. A decoder is
+ *   expected to log its own reason for dropping, since only it knows what was wrong. Payload
+ *   types that include `undefined` as a legitimate value cannot use this helper.
+ * @param listener - The consumer's callback
  */
-const CREATIVE_EVENT_NAME = 'AttentiveCreativeEvent'
+function addDeviceEventListener<TRaw, TPayload>(
+  eventName: DeviceEventName,
+  decode: (raw: TRaw) => TPayload | undefined,
+  listener: (payload: TPayload) => void
+): AttentiveEventSubscription {
+  return DeviceEventEmitter.addListener(eventName, (raw: TRaw) => {
+    const payload = decode(raw)
+    if (payload === undefined) {
+      return
+    }
 
-/**
- * Device-event name carrying inbox unread-count changes.
- *
- * Same contract as [CREATIVE_EVENT_NAME]: shared verbatim with `AttentiveReactNativeSdk.mm`
- * and `AttentiveReactNativeSdkModule.kt`. Changing it on one side only silently stops the
- * badge from ever updating.
- */
-const INBOX_UNREAD_COUNT_EVENT_NAME = 'AttentiveInboxUnreadCount'
+    try {
+      listener(payload)
+    } catch (error) {
+      // The decoded payload goes in the message, not just the event name: knowing a creative
+      // listener threw is much less useful than knowing it threw on `opened`.
+      console.error(
+        `[AttentiveSDK] A ${eventName} listener threw while handling ${JSON.stringify(
+          payload
+        )}. Other listeners are unaffected.`,
+        error
+      )
+    }
+  })
+}
 
 /**
  * Subscribe to creative lifecycle events.
@@ -149,8 +180,8 @@ const INBOX_UNREAD_COUNT_EVENT_NAME = 'AttentiveInboxUnreadCount'
 function addCreativeEventListener(
   listener: (event: CreativeEvent) => void
 ): CreativeEventSubscription {
-  return DeviceEventEmitter.addListener(
-    CREATIVE_EVENT_NAME,
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.creativeEvent,
     (event: { status?: string; creativeId?: string }) => {
       // Native sends the normalized vocabulary, but this is an untyped device event: guard so a
       // status added by a future native SDK surfaces as a warning instead of breaking the
@@ -160,7 +191,7 @@ function addCreativeEventListener(
         console.warn(
           `[AttentiveSDK] Ignoring creative event with unrecognized status "${status}".`
         )
-        return
+        return undefined
       }
 
       // Build the event without a `creativeId` key at all when there is no id, rather than
@@ -170,21 +201,9 @@ function addCreativeEventListener(
       if (event.creativeId != null) {
         creativeEvent.creativeId = event.creativeId
       }
-
-      // Isolate the consumer's listener. React Native's EventEmitter.emit has no try/catch, so a
-      // listener that throws would abort the emit loop — every other subscriber to this event
-      // would silently stop receiving it — and the exception would escape into the native->JS
-      // call. Both native emitters already log rather than throw; this keeps the JS edge of the
-      // bridge to the same rule.
-      try {
-        listener(creativeEvent)
-      } catch (error) {
-        console.error(
-          `[AttentiveSDK] A creative event listener threw while handling "${status}". Other listeners are unaffected.`,
-          error
-        )
-      }
-    }
+      return creativeEvent
+    },
+    listener
   )
 }
 
@@ -705,8 +724,8 @@ function getInboxUnreadCount(): Promise<number> {
 function addInboxUnreadCountListener(
   listener: (unreadCount: number) => void
 ): InboxUnreadCountSubscription {
-  return DeviceEventEmitter.addListener(
-    INBOX_UNREAD_COUNT_EVENT_NAME,
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.inboxUnreadCount,
     (event: { unreadCount?: number }) => {
       const unreadCount = event?.unreadCount
       if (typeof unreadCount !== 'number' || !Number.isFinite(unreadCount)) {
@@ -715,20 +734,11 @@ function addInboxUnreadCountListener(
             unreadCount
           )}.`
         )
-        return
+        return undefined
       }
-
-      // Same isolation rule as the creative listener: EventEmitter.emit has no try/catch, so a
-      // throwing listener would stop every other subscriber from being notified.
-      try {
-        listener(unreadCount)
-      } catch (error) {
-        console.error(
-          '[AttentiveSDK] An inbox unread-count listener threw. Other listeners are unaffected.',
-          error
-        )
-      }
-    }
+      return unreadCount
+    },
+    listener
   )
 }
 
