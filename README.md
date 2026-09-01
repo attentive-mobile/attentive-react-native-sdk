@@ -20,7 +20,14 @@ This project uses **npm** as the preferred package manager for consistency and a
 | CocoaPods    | ~> 1.16   |
 | Xcode        | >= 15     |
 | Android SDK  | API 24+   |
+| Android `compileSdk` | 35 |
 | JDK          | 17        |
+
+> **Android `compileSdk` 35.** Set `compileSdkVersion` (or `android.compileSdk`) to at least 35 in
+> your app. The native Attentive Android SDK and the Compose runtime the inbox view builds on both
+> declare `minCompileSdk=35` in their AAR metadata, so a lower value fails the build with
+> `Dependency '…' requires libraries and applications that depend on it to compile against version
+> 35 or later of the Android APIs`. Releases before the inbox built against 34.
 
 ## Installation
 
