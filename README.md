@@ -24,8 +24,8 @@ This project uses **npm** as the preferred package manager for consistency and a
 | JDK          | 17        |
 
 > **Android `compileSdk` 35.** Set `compileSdkVersion` (or `android.compileSdk`) to at least 35 in
-> your app. The native Attentive Android SDK and the Compose runtime the inbox view builds on both
-> declare `minCompileSdk=35` in their AAR metadata, so a lower value fails the build with
+> your app. The native Attentive Android SDK and its dependencies declare `minCompileSdk=35` in
+> their AAR metadata, so a lower value fails the build with
 > `Dependency '…' requires libraries and applications that depend on it to compile against version
 > 35 or later of the Android APIs`. Releases before the inbox built against 34.
 
@@ -538,18 +538,15 @@ Each accepts any React Native `ColorValue` — hex strings, named colors, `Platf
 ```
 
 > **Platform support:** Android applies all five. iOS applies `titleTextColor`, `bodyTextColor`, and
-> `timestampTextColor` — the three its `InboxStyle` can express. `unreadIndicatorColor` and
-> `swipeBackgroundColor` are Android-only, because `InboxStyle` has no equivalent for either; iOS
-> logs once when you set them rather than dropping them silently.
+> `timestampTextColor`. `unreadIndicatorColor` and `swipeBackgroundColor` are Android-only. Setting
+> them on iOS is safe and logs once, so they are never dropped silently.
 
 Two knobs are deliberately **not** exposed:
 
-- **Background color** — the native Android setter exists but is never applied by the message list, so
-  a prop would be misleading. Style the container behind the view instead.
-- **Fonts** — the native font setters take an Android font *resource id*, and React Native ships fonts
-  in `assets/fonts/`. This needs a native SDK change before it can be driven from JS.
+- **Background color** — not themeable yet. Style the container behind the view instead.
+- **Fonts** — not themeable from React Native yet; the inbox uses the SDK's own type styles.
 
-The swipe-right delete action is a fixed red in the native SDK and is not themeable.
+The swipe-right delete action is a fixed red and is not themeable.
 
 #### Unread badge
 
