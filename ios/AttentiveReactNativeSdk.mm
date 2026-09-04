@@ -626,22 +626,38 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 // Main queue only.
-- (void)readInboxUnreadCountWithSDK:(ATTNNativeSDK *)sdk
+- (void)readInboxUnreadCountWithSDK:(ATTNNativeSDK *)capturedSDK
                             resolve:(RCTPromiseResolveBlock)resolve
                              reject:(RCTPromiseRejectBlock)reject {
+  ATTNNativeSDK *sdk = capturedSDK;
+
   if (sdk == nil) {
     // Rejecting alone would strand the badge. This method is documented as the call that starts
     // the inbox, and it is the only caller of startObservingInboxUnreadCount — so returning here
     // without arranging a retry means no observer is ever registered, no unread-count event ever
     // fires, and the badge sits at its initial value for the whole session. The documented
-    // consumer pattern catches and ignores the rejection, so nothing surfaces. Wait for the SDK
-    // instead; Android recovers on a later call, and this is how iOS gets the same property.
+    // consumer pattern catches and ignores the rejection, so nothing surfaces.
+    //
+    // Subscribe first, then re-read — the same order attachInboxIfPossible uses, and for a wider
+    // window. `capturedSDK` was sampled on the method queue *before* this block was scheduled, so
+    // initialize() can have landed during the hop; its didSet posts the availability broadcast
+    // synchronously, and `sdk` only ever transitions nil -> non-nil once. Subscribing after that
+    // post would leave an observer that can never fire, which is the stranded badge this whole
+    // path exists to prevent. Re-reading after subscribing catches the post we may have missed.
     [self startObservingSDKAvailabilityForInbox];
-    reject(@"inbox_unread_count_error",
-           @"The Attentive SDK is not initialized. Call initialize() before reading the inbox. "
-            "The unread count will be delivered to addInboxUnreadCountListener once it is.",
-           nil);
-    return;
+
+    sdk = [self availableSDKFromManager];
+    if (sdk == nil) {
+      reject(@"inbox_unread_count_error",
+             @"The Attentive SDK is not initialized. Call initialize() before reading the inbox. "
+              "The unread count will be delivered to addInboxUnreadCountListener once it is.",
+             nil);
+      return;
+    }
+
+    // The SDK arrived during the hop. Nothing to wait for, and the promise can resolve with a
+    // real count rather than rejecting.
+    [self stopObservingSDKAvailabilityForInbox];
   }
 
   [self startObservingInboxUnreadCountWithSDK:sdk];
@@ -702,13 +718,22 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   _inboxSDKAvailabilityObserver = nil;
 }
 
+/**
+ * The SDK instance as seen from the main queue.
+ *
+ * Reads the manager rather than `_sdk`, which is owned by the method queue: initialize() writes it
+ * there, so reading it from main would be a data race. The manager is the agreed hand-off point —
+ * AttentiveInboxView reads it the same way, with the same class check. (The manager's own property
+ * is not yet synchronised; MSDK-509.)
+ */
+- (ATTNNativeSDK *)availableSDKFromManager {
+  id maybeSDK = AttentiveSDKManager.shared.sdk;
+  return [maybeSDK isKindOfClass:ATTNNativeSDK.class] ? (ATTNNativeSDK *)maybeSDK : nil;
+}
+
 // Main queue only.
 - (void)inboxSDKDidBecomeAvailable {
-  // Read the instance off the manager rather than `_sdk`: the broadcast is posted from whichever
-  // thread ran initialize(), which owns `_sdk`, and this handler is on main. The manager is the
-  // agreed hand-off point — AttentiveInboxView reads it the same way, with the same class check.
-  id maybeSDK = AttentiveSDKManager.shared.sdk;
-  ATTNNativeSDK *sdk = [maybeSDK isKindOfClass:ATTNNativeSDK.class] ? (ATTNNativeSDK *)maybeSDK : nil;
+  ATTNNativeSDK *sdk = [self availableSDKFromManager];
   if (sdk == nil) {
     return;
   }
