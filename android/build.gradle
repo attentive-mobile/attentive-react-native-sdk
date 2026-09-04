@@ -73,7 +73,7 @@ dependencies {
   // Use `api` so that the Attentive Android SDK types (AttentiveSdk, CustomEvent, etc.)
   // are visible to app-level code (e.g. Bonni's AttentiveFirebaseMessagingService) that
   // depends on this library and needs to call the SDK directly from native components.
-  api 'com.attentive:attentive-android-sdk:2.1.9'
+  api 'com.attentive:attentive-android-sdk:2.2.4-beta.1'
   implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
   implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.9.10"))
   
@@ -83,6 +83,13 @@ dependencies {
 
   // Coroutines required to call AttentiveSdk suspend functions (optUserIntoMarketingSubscription, etc.)
   implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3"
+
+  // Compile-time only: the inbox default renderer (AttentiveInboxView) extends Compose's
+  // AbstractComposeView, but the Attentive Android SDK declares Compose as `implementation`,
+  // so the supertype is absent from our compile classpath and the compiler can't see that
+  // AttentiveInboxView is a View. We only need the type to resolve — the artifact itself
+  // arrives at runtime through the SDK. Version matches what the SDK's Compose BOM resolves.
+  compileOnly "androidx.compose.ui:ui:1.8.2"
 }
 
 if (isNewArchitectureEnabled()) {

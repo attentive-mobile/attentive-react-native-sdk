@@ -2,13 +2,21 @@
  * Custom Navigation Header
  * Matches the iOS app's custom navigation bar with peach background and centered logo
  * Shows back button when navigation can go back, otherwise shows burger icon
+ *
+ * The inbox entry point mirrors the native Android example app, which puts a Material
+ * mail_outline icon in the Products toolbar (`Icons.Filled.MailOutline`) inside a `BadgedBox`
+ * driven by the unread count.
  */
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import { useNavigation, useRoute } from '@react-navigation/native'
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import {
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
+} from '@attentive-mobile/attentive-react-native-sdk'
 import { useCart } from '../models/CartContext'
 import { RootStackParamList } from '../types/navigation'
 import { Colors, Spacing, Typography } from '../constants/theme'
@@ -16,6 +24,7 @@ import { Colors, Spacing, Typography } from '../constants/theme'
 import BackIcon from '../assets/images/ui/icons/back-icon.svg'
 import BurgerIcon from '../assets/images/ui/icons/burger-icon.svg'
 import CartIcon from '../assets/images/ui/icons/cart-icon.svg'
+import InboxIcon from '../assets/images/ui/icons/inbox-icon.svg'
 import BonniLogo from '../assets/images/ui/icons/bonni-logo.svg'
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList>
@@ -29,6 +38,7 @@ interface CustomHeaderProps {
  * Custom header component that displays navigation controls
  * - Shows burger icon on ProductList screen (main screen)
  * - Shows back button on other screens when navigation can go back
+ * - Shows the Attentive inbox icon on the ProductList screen, left of the cart
  * - Always shows cart icon on the right
  * - Buttons are positioned at screen edges with proper offset
  */
@@ -46,6 +56,34 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   const shouldShowBackButton = !isProductListScreen && canGoBack
 
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
+
+  // Inbox badge. getInboxUnreadCount() is what starts the inbox — it kicks off the first fetch
+  // and, on Android, the observer behind the listener — so the listener is registered first and
+  // the read follows. Only wired up where the icon actually renders.
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0)
+
+  useEffect(() => {
+    if (!isProductListScreen) {
+      return
+    }
+
+    const subscription = addInboxUnreadCountListener(setInboxUnreadCount)
+    getInboxUnreadCount()
+      .then(setInboxUnreadCount)
+      .catch((error: unknown) => {
+        // Keep the badge hidden — that is the right failure mode for a header, since 0 and
+        // "unknown" look the same to a user and there is nothing actionable to show.
+        //
+        // But log it rather than swallow it. The common cause is a read that beat initialize(),
+        // and the SDK now recovers from that on its own: it waits for initialization, then
+        // delivers the count through the listener registered above, so the badge fills in without
+        // a remount. Anything else reaching here is a real failure, and an empty catch is how it
+        // would go unnoticed.
+        console.warn('[Bonni] Could not read the inbox unread count:', error)
+      })
+
+    return () => subscription.remove()
+  }, [isProductListScreen])
 
   const handleBackPress = () => {
     if (canGoBack) {
@@ -86,8 +124,25 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         {/* Center - Logo */}
         <View style={styles.centerContent}>{showLogo && <BonniLogo />}</View>
 
-        {/* Right Button - Cart */}
+        {/* Right Buttons - Inbox (ProductList only) + Cart */}
         <View style={styles.rightButton}>
+          {isProductListScreen && (
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Inbox')}
+              style={styles.iconButton}
+              accessibilityLabel={`Inbox${
+                inboxUnreadCount > 0 ? `, ${inboxUnreadCount} unread` : ''
+              }`}
+              accessibilityRole="button"
+            >
+              <InboxIcon />
+              {inboxUnreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{inboxUnreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
           {showCartIcon && (
             <TouchableOpacity
               onPress={() => navigation.navigate('Cart')}
@@ -121,7 +176,9 @@ const styles = StyleSheet.create({
     height: 56,
   },
   leftButton: {
-    width: 56,
+    // Kept the same width as rightButton so the centred logo stays centred when the
+    // right side carries two icons.
+    width: 96,
     alignItems: 'flex-start',
     paddingLeft: Spacing.base,
     justifyContent: 'center',
@@ -132,10 +189,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rightButton: {
-    width: 56,
-    alignItems: 'flex-end',
+    width: 96,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
     paddingRight: Spacing.base,
-    justifyContent: 'center',
   },
   iconButton: {
     position: 'relative',

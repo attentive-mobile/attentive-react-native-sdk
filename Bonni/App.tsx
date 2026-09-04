@@ -8,6 +8,7 @@ import {
   StatusBar,
   Platform,
   AppState,
+  Linking,
   NativeEventEmitter,
   NativeModules,
 } from 'react-native'
@@ -45,12 +46,34 @@ import CartScreen from './src/screens/CartScreen'
 import CheckoutScreen from './src/screens/CheckoutScreen'
 import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
+import InboxScreen from './src/screens/InboxScreen'
 import { RootStackParamList } from './src/types/navigation'
 import { Colors } from './src/constants/theme'
 import { CONFIG_STORAGE_KEYS } from './src/constants/storage'
 import { getStoredBoolean } from './src/services/storage'
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
+
+/**
+ * Screens a deep link may open, keyed by the first segment of the URL.
+ *
+ * Mirrors the native Android example, which claims `bonni://cart` in its manifest and navigates
+ * `MainActivity` -> `Routes.CartScreen` for exactly that URL, logging anything else as an unknown
+ * deep link. The extra entries here exist because this app is also the harness for testing inbox
+ * message links, whose target is chosen by whoever composes the message.
+ *
+ * Only param-less screens can appear: a URL carries no `Product` object and no order id, so
+ * ProductDetail and OrderConfirmation are unreachable this way. `navigate()` is typed against
+ * `RootStackParamList`, so renaming a screen breaks this table at compile time.
+ */
+type DeepLinkTarget = 'Cart' | 'Inbox' | 'ProductList'
+
+const DEEP_LINK_ROUTES: Record<string, DeepLinkTarget> = {
+  cart: 'Cart',
+  inbox: 'Inbox',
+  products: 'ProductList',
+  home: 'ProductList',
+}
 
 // Stable function reference to avoid recreating on every render
 const renderCustomHeader = () => <CustomHeader />
@@ -726,6 +749,119 @@ function App(): React.JSX.Element {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  /**
+   * A deep link that arrived before the navigator was mounted.
+   *
+   * `getInitialURL()` resolves during the first render pass, but `navigationRef.isReady()` only
+   * turns true on the container's `onReady`, so a cold-start link has nowhere to go yet. The
+   * native example drops it in that window (`NavController not initialized yet, skipping deep
+   * link`); holding it here and flushing it in [handleNavigationReady] costs one ref and makes a
+   * cold tap behave like a warm one.
+   */
+  const pendingDeepLinkRef = useRef<DeepLinkTarget | null>(null)
+
+  const goToDeepLinkTarget = useCallback(
+    (target: DeepLinkTarget) => {
+      if (!navigationRef.isReady()) {
+        console.log(
+          `🔗 [Bonni] Navigator not ready, holding deep link target: ${target}`
+        )
+        pendingDeepLinkRef.current = target
+        return
+      }
+
+      console.log(`🔗 [Bonni] Navigating to ${target} via deep link`)
+      navigationRef.navigate(target)
+    },
+    [navigationRef]
+  )
+
+  /**
+   * Logs and routes every deep link that reaches the app.
+   *
+   * Inbox and push action URLs are opened by the native SDKs themselves — Android fires a bare
+   * `Intent.ACTION_VIEW` (AttentiveInbox.kt) and iOS opens the message's `actionURL` — so JS only
+   * sees them when the OS routes the URL back into this app. That is what the `bonni-rn` scheme in
+   * AndroidManifest.xml and Info.plist is for: an `https://` action URL would open a browser
+   * instead and nothing would arrive here.
+   *
+   * Both paths are needed. `getInitialURL()` covers a cold start, where the URL is in the launch
+   * intent before any listener exists; the `url` event covers a warm app, which on Android also
+   * requires `launchMode="singleTask"` — otherwise the intent starts a second activity and never
+   * reaches the running instance. An app opening a scheme it claims itself is delivered straight
+   * back to it, with no confirmation prompt and no visible app switch on either platform.
+   */
+  useEffect(() => {
+    const describe = (url: string) => {
+      // Deliberately not using `new URL()`: React Native's URL polyfill is incomplete and
+      // `searchParams` is not dependably present, so a custom scheme can throw there.
+      const [target, query = ''] = url.split('?')
+      const params = query
+        .split('&')
+        .filter(Boolean)
+        .reduce<Record<string, string>>((acc, pair) => {
+          const [key, value = ''] = pair.split('=')
+          if (key) {
+            acc[decodeURIComponent(key)] = decodeURIComponent(value)
+          }
+          return acc
+        }, {})
+      return { target, params }
+    }
+
+    const handleDeepLink = (url: string, source: string) => {
+      try {
+        routeDeepLink(url, source)
+      } catch (error) {
+        // decodeURIComponent throws URIError on a malformed escape (`?utm=100%`), and on the
+        // `url`-event path this function is called straight from React Native's EventEmitter,
+        // which has no try/catch of its own — an escaping throw would abort the emit loop and
+        // silently stop every other `url` subscriber for the rest of the session. Same rule the
+        // SDK applies at its own bridge edge in addDeviceEventListener.
+        console.error(`❌ [Bonni] Could not handle deep link ${url}:`, error)
+      }
+    }
+
+    const routeDeepLink = (url: string, source: string) => {
+      const { target, params } = describe(url)
+      console.log(`🔗 [Bonni] Deep link via ${source}: ${url}`)
+      console.log(`   target: ${target}`)
+      console.log(`   params: ${JSON.stringify(params)}`)
+
+      // `bonni-rn://cart` puts "cart" in the host position while `bonni-rn://inbox/test` puts it in
+      // the first path segment; dropping the scheme and taking the first non-empty segment treats
+      // both the same, which is what a marketer writing either URL would expect.
+      const [, rest = ''] = target.split('://')
+      const segment = rest.split('/').filter(Boolean)[0]?.toLowerCase()
+      const screen = segment ? DEEP_LINK_ROUTES[segment] : undefined
+
+      if (!screen) {
+        console.warn(`🔗 [Bonni] Unknown deep link, staying put: ${url}`)
+        return
+      }
+
+      goToDeepLinkTarget(screen)
+    }
+
+    const subscription = Linking.addEventListener('url', ({ url }) => {
+      handleDeepLink(url, 'url event (app already running)')
+    })
+
+    Linking.getInitialURL()
+      .then((url) => {
+        if (url) {
+          handleDeepLink(url, 'getInitialURL (cold start)')
+        } else {
+          console.log('🔗 [Bonni] No initial deep link on this launch')
+        }
+      })
+      .catch((error) => {
+        console.error('❌ [Bonni] getInitialURL failed:', error)
+      })
+
+    return () => subscription.remove()
+  }, [goToDeepLinkTarget])
+
   // Set initial status bar color for Login screen (initial route)
   useEffect(() => {
     // Login is the initial route, so set transparent immediately
@@ -771,6 +907,24 @@ function App(): React.JSX.Element {
     }
   }, [navigationRef])
 
+  /**
+   * Applies a deep link that landed before the navigator existed (see [pendingDeepLinkRef]), on
+   * top of the status-bar sync that already ran here.
+   *
+   * Routes back through [goToDeepLinkTarget] rather than navigating directly, so there is exactly
+   * one place that knows how a target becomes a navigation — and so this path keeps the
+   * `isReady()` guard instead of assuming readiness from the callback's name.
+   */
+  const handleNavigationReady = useCallback(() => {
+    handleNavigationStateChange()
+
+    const pending = pendingDeepLinkRef.current
+    if (pending) {
+      pendingDeepLinkRef.current = null
+      goToDeepLinkTarget(pending)
+    }
+  }, [handleNavigationStateChange, goToDeepLinkTarget])
+
   // For Android, transparent string might not work - use rgba format
   // With translucent=true, the background will still show through
   const statusBarColor =
@@ -788,7 +942,7 @@ function App(): React.JSX.Element {
       <CartProvider>
         <NavigationContainer
           ref={navigationRef}
-          onReady={handleNavigationStateChange}
+          onReady={handleNavigationReady}
           onStateChange={handleNavigationStateChange}
         >
           <Stack.Navigator
@@ -867,6 +1021,14 @@ function App(): React.JSX.Element {
             <Stack.Screen
               name="Settings"
               component={SettingsScreen}
+              options={{
+                header: renderCustomHeader,
+              }}
+            />
+
+            <Stack.Screen
+              name="Inbox"
+              component={InboxScreen}
               options={{
                 header: renderCustomHeader,
               }}

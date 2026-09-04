@@ -1,4 +1,5 @@
 import { DeviceEventEmitter, Platform } from 'react-native'
+import { DEVICE_EVENT_NAMES } from './eventNames'
 import type {
   UserIdentifiers,
   AttentiveSdkConfiguration,
@@ -9,7 +10,9 @@ import type {
   Item,
   CreativeStatus,
   CreativeEvent,
+  AttentiveEventSubscription,
   CreativeEventSubscription,
+  InboxUnreadCountSubscription,
   PushAuthorizationStatus,
   ApplicationState,
   PushNotificationUserInfo,
@@ -21,6 +24,12 @@ import { CREATIVE_STATUSES } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
+import AttentiveInboxView from './AttentiveInboxViewNativeComponent'
+import type { NativeProps as AttentiveInboxViewProps } from './AttentiveInboxViewNativeComponent'
+
+/** Any name in [DEVICE_EVENT_NAMES] — the only names either native bridge emits. */
+type DeviceEventName =
+  (typeof DEVICE_EVENT_NAMES)[keyof typeof DEVICE_EVENT_NAMES]
 
 const LINKING_ERROR =
   `The package 'attentive-react-native-sdk' doesn't seem to be linked. Make sure: \n\n` +
@@ -99,14 +108,48 @@ const isCreativeStatus = (value?: string): value is CreativeStatus =>
   CREATIVE_STATUSES.includes(value as CreativeStatus)
 
 /**
- * Device-event name carrying creative lifecycle transitions.
+ * Wraps a device-event listener with the two rules every bridged event here follows: drop a
+ * payload the native side should never have sent, and isolate the consumer's callback.
  *
- * This string is a contract shared with both native bridges — `AttentiveReactNativeSdk.mm`
- * emits it through `callableJSModules`, and `AttentiveReactNativeSdkModule.kt` through
- * `RCTDeviceEventEmitter`. Changing it here without changing both native sides silently
- * stops all creative events.
+ * The isolation is the load-bearing part. React Native's `EventEmitter.emit` has no try/catch, so
+ * a listener that throws would abort the emit loop — every other subscriber to the same event
+ * would silently stop receiving it — and the exception would escape into the native->JS call.
+ * Both native emitters already log rather than throw; this keeps the JS edge of the bridge to the
+ * same rule.
+ *
+ * @param eventName - Device-event name to subscribe to. Typed off [DEVICE_EVENT_NAMES] rather
+ *   than `string`, so a typo'd name is a compile error instead of a listener that never fires —
+ *   which is the whole point of that table existing.
+ * @param decode - Returns the typed payload, or `undefined` to drop the event. A decoder is
+ *   expected to log its own reason for dropping, since only it knows what was wrong. Payload
+ *   types that include `undefined` as a legitimate value cannot use this helper.
+ * @param listener - The consumer's callback
  */
-const CREATIVE_EVENT_NAME = 'AttentiveCreativeEvent'
+function addDeviceEventListener<TRaw, TPayload>(
+  eventName: DeviceEventName,
+  decode: (raw: TRaw) => TPayload | undefined,
+  listener: (payload: TPayload) => void
+): AttentiveEventSubscription {
+  return DeviceEventEmitter.addListener(eventName, (raw: TRaw) => {
+    const payload = decode(raw)
+    if (payload === undefined) {
+      return
+    }
+
+    try {
+      listener(payload)
+    } catch (error) {
+      // The decoded payload goes in the message, not just the event name: knowing a creative
+      // listener threw is much less useful than knowing it threw on `opened`.
+      console.error(
+        `[AttentiveSDK] A ${eventName} listener threw while handling ${JSON.stringify(
+          payload
+        )}. Other listeners are unaffected.`,
+        error
+      )
+    }
+  })
+}
 
 /**
  * Subscribe to creative lifecycle events.
@@ -129,7 +172,8 @@ const CREATIVE_EVENT_NAME = 'AttentiveCreativeEvent'
  * Supported on React Native 0.74+: events travel as `RCTDeviceEventEmitter` device events rather
  * than through a codegen event emitter, which would have required 0.76+. The transport works on
  * both architectures, but on iOS the New Architecture is still required — the native module only
- * exports its methods under `RCT_NEW_ARCH_ENABLED` (see MSDK-350).
+ * exports its methods under `RCT_NEW_ARCH_ENABLED`; old-architecture iOS support is not
+ * implemented yet.
  *
  * @param listener - Invoked for each lifecycle transition
  * @returns A subscription; call `remove()` to stop receiving events
@@ -137,8 +181,8 @@ const CREATIVE_EVENT_NAME = 'AttentiveCreativeEvent'
 function addCreativeEventListener(
   listener: (event: CreativeEvent) => void
 ): CreativeEventSubscription {
-  return DeviceEventEmitter.addListener(
-    CREATIVE_EVENT_NAME,
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.creativeEvent,
     (event: { status?: string; creativeId?: string }) => {
       // Native sends the normalized vocabulary, but this is an untyped device event: guard so a
       // status added by a future native SDK surfaces as a warning instead of breaking the
@@ -148,7 +192,7 @@ function addCreativeEventListener(
         console.warn(
           `[AttentiveSDK] Ignoring creative event with unrecognized status "${status}".`
         )
-        return
+        return undefined
       }
 
       // Build the event without a `creativeId` key at all when there is no id, rather than
@@ -158,21 +202,9 @@ function addCreativeEventListener(
       if (event.creativeId != null) {
         creativeEvent.creativeId = event.creativeId
       }
-
-      // Isolate the consumer's listener. React Native's EventEmitter.emit has no try/catch, so a
-      // listener that throws would abort the emit loop — every other subscriber to this event
-      // would silently stop receiving it — and the exception would escape into the native->JS
-      // call. Both native emitters already log rather than throw; this keeps the JS edge of the
-      // bridge to the same rule.
-      try {
-        listener(creativeEvent)
-      } catch (error) {
-        console.error(
-          `[AttentiveSDK] A creative event listener threw while handling "${status}". Other listeners are unaffected.`,
-          error
-        )
-      }
-    }
+      return creativeEvent
+    },
+    listener
   )
 }
 
@@ -648,6 +680,76 @@ function updateUser(params: UpdateUserParams): Promise<void> {
   return AttentiveReactNativeSdk.updateUser(params?.email, params?.phone)
 }
 
+/**
+ * Reads the unread inbox message count, and starts the inbox.
+ *
+ * This is the call that gets an inbox badge going: it kicks off the first server fetch and,
+ * on Android, starts the observer behind `addInboxUnreadCountListener`. Render the count it
+ * resolves with, then let the listener keep it current.
+ *
+ * ```ts
+ * useEffect(() => {
+ *   const subscription = addInboxUnreadCountListener(setCount)
+ *   getInboxUnreadCount()
+ *     .then(setCount)
+ *     .catch((error) => console.warn('Inbox unread count unavailable:', error))
+ *   return () => subscription.remove()
+ * }, [])
+ * ```
+ *
+ * Register the listener before the read, as above. If the read lands before `initialize()` it
+ * rejects, but the count is not lost: the native side waits for initialization and then delivers
+ * it to the listener, so the badge fills in without a remount. Log the rejection rather than
+ * discarding it — any *other* cause is a real failure, and an empty catch is how it goes unnoticed.
+ *
+ * `0` is both the initial value and the "nothing unread" value, so it cannot tell you whether
+ * the first fetch has landed.
+ *
+ * Refresh behaviour is platform-specific — on iOS every call refreshes from the server, on
+ * Android only the first one does. See the JSDoc on the native spec for why, and what that
+ * means for badge accuracy.
+ *
+ * @returns Promise resolving to the unread count
+ */
+function getInboxUnreadCount(): Promise<number> {
+  return AttentiveReactNativeSdk.getInboxUnreadCount()
+}
+
+/**
+ * Subscribe to inbox unread-count changes.
+ *
+ * Fires whenever the count the native SDK holds changes — after a fetch, after a message is
+ * read or deleted in the inbox UI, and when the user's identity changes. Repeats of the same
+ * value are filtered out natively, so a re-fetch returning an unchanged count will not churn
+ * your badge.
+ *
+ * Pair it with [getInboxUnreadCount] for the initial value; a listener on its own receives
+ * nothing until something starts the inbox.
+ *
+ * @param listener - Invoked with the new unread count
+ * @returns A subscription; call `remove()` to stop receiving updates
+ */
+function addInboxUnreadCountListener(
+  listener: (unreadCount: number) => void
+): InboxUnreadCountSubscription {
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.inboxUnreadCount,
+    (event: { unreadCount?: number }) => {
+      const unreadCount = event?.unreadCount
+      if (typeof unreadCount !== 'number' || !Number.isFinite(unreadCount)) {
+        console.warn(
+          `[AttentiveSDK] Ignoring inbox unread-count event with a non-numeric count: ${String(
+            unreadCount
+          )}.`
+        )
+        return undefined
+      }
+      return unreadCount
+    },
+    listener
+  )
+}
+
 export {
   initialize,
   triggerCreative,
@@ -677,6 +779,10 @@ export {
   optInMarketingSubscription,
   optOutMarketingSubscription,
   updateUser,
+  // Inbox
+  AttentiveInboxView,
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
 }
 
 export type {
@@ -699,4 +805,7 @@ export type {
   // Marketing Subscription Types
   MarketingSubscriptionParams,
   UpdateUserParams,
+  // Inbox Types
+  AttentiveInboxViewProps,
+  InboxUnreadCountSubscription,
 }
