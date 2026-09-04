@@ -620,21 +620,30 @@ struct DebugEvent {
   /// Attentive's iOS guidance is to refresh when the app comes to the foreground and after a
   /// push open, and the React Native bridge has no other way to honour that.
   ///
-  /// The completion runs on the main actor, which is where React Native resolves promises.
+  /// The completion runs on the main actor, which is where React Native resolves promises, and it
+  /// is guaranteed to run exactly once — `nil` meaning the refresh could not be performed.
+  ///
+  /// The count is optional rather than a plain `Int` because there are three outcomes, not two:
+  /// a real count, and two flavours of failure. Reporting `0` on failure would be wrong (`0` is a
+  /// legitimate count, so a caller would overwrite a correct badge with "nothing unread"), and
+  /// skipping the completion would be worse still — the bridge turns this into a JS promise, and a
+  /// promise that never settles hangs every `await` on it for the life of the runtime.
   ///
   /// Android has no equivalent: its refresh entry points are still `internal`, so the
   /// TypeScript API documents this call as refreshing on iOS and reading a cache on Android.
   @objc(refreshInboxUnreadCountWithCompletion:)
-  public func refreshInboxUnreadCount(completion: @escaping (Int) -> Void) {
+  public func refreshInboxUnreadCount(completion: @escaping (NSNumber?) -> Void) {
     Task { @MainActor [weak self] in
-      // No completion at all when the shim is gone (module torn down, or a JS reload mid-flight).
-      // Calling back with 0 would be worse than staying silent: 0 is a legitimate count, so the
-      // caller would read "nothing unread" and overwrite a correct badge with no way to tell that
-      // the refresh never happened.
-      guard let self else { return }
+      // The shim is gone: the module was torn down, or a JS reload landed mid-refresh. The
+      // completion is captured strongly by this task, so it can still be called even though
+      // `self` cannot.
+      guard let self else {
+        completion(nil)
+        return
+      }
 
       await self.sdk.refreshInboxUnreadCount()
-      completion(self.sdk.inboxUnreadCount)
+      completion(NSNumber(value: self.sdk.inboxUnreadCount))
     }
   }
 

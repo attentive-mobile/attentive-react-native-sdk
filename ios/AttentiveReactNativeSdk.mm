@@ -11,6 +11,7 @@
 
 #import "AttentiveReactNativeSdk.h"
 #import <React/RCTLog.h>
+#import <React/RCTUtils.h>
 #import <UserNotifications/UserNotifications.h>
 
 #ifdef RCT_NEW_ARCH_ENABLED
@@ -32,8 +33,26 @@
 
 @implementation AttentiveReactNativeSdk {
     ATTNNativeSDK* _sdk;
+
+    // --- Inbox unread count: main queue only. ---
+    //
+    // This module declares no methodQueue, so RCTTurboModuleManager runs its methods on the
+    // shared serial queue it creates for such modules ("com.meta.react.turbomodulemanager.queue")
+    // — not the JS thread, and not main. Both writers below, however, are on main: the change
+    // observer is registered with `queue: .main` and the refresh completion is `@MainActor`.
+    // Reading them from a method body would therefore be a genuine data race, and the
+    // delivery-counter handshake in particular is a check-then-act that misbehaves when the
+    // sample and the comparison happen on different threads. So every inbox entry point hops to
+    // main first, and these five are only ever touched there.
+    //
+    // dealloc is the one exception, and is safe by construction: nothing else can be running
+    // against an object that is being destroyed.
+
     // Block-based NSNotificationCenter token for inbox unread-count changes; removed in dealloc.
     id<NSObject> _inboxUnreadCountObserver;
+    // Token for AttentiveSDKManager's availability broadcast, held only while an inbox read is
+    // waiting for initialize(). See startObservingSDKAvailabilityForInbox.
+    id<NSObject> _inboxSDKAvailabilityObserver;
     // Last count actually delivered to JS, so repeats can be filtered. See emitInboxUnreadCount:.
     NSInteger _lastEmittedUnreadCount;
     BOOL _hasEmittedUnreadCount;
@@ -593,36 +612,134 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 // later change, so a consumer never has to sequence two native calls.
 - (void)getInboxUnreadCount:(RCTPromiseResolveBlock)resolve
                      reject:(RCTPromiseRejectBlock)reject {
-  if (_sdk == nil) {
+  // Two different owners, so read each on its own thread. `_sdk` belongs to the method queue —
+  // initialize: writes it there, and every other method reads it there — so it is captured *here*
+  // and handed over, rather than read again on main. The inbox counters belong to main. Reading
+  // `_sdk` from main would just trade the counter race for a pointer race.
+  //
+  // self is captured strongly on purpose: the promise has to settle, and a weak self gone nil
+  // would drop the block and leave the JS caller awaiting forever.
+  ATTNNativeSDK *sdk = _sdk;
+  RCTExecuteOnMainQueue(^{
+    [self readInboxUnreadCountWithSDK:sdk resolve:resolve reject:reject];
+  });
+}
+
+// Main queue only.
+- (void)readInboxUnreadCountWithSDK:(ATTNNativeSDK *)sdk
+                            resolve:(RCTPromiseResolveBlock)resolve
+                             reject:(RCTPromiseRejectBlock)reject {
+  if (sdk == nil) {
+    // Rejecting alone would strand the badge. This method is documented as the call that starts
+    // the inbox, and it is the only caller of startObservingInboxUnreadCount — so returning here
+    // without arranging a retry means no observer is ever registered, no unread-count event ever
+    // fires, and the badge sits at its initial value for the whole session. The documented
+    // consumer pattern catches and ignores the rejection, so nothing surfaces. Wait for the SDK
+    // instead; Android recovers on a later call, and this is how iOS gets the same property.
+    [self startObservingSDKAvailabilityForInbox];
     reject(@"inbox_unread_count_error",
-           @"The Attentive SDK is not initialized. Call initialize() before reading the inbox.",
+           @"The Attentive SDK is not initialized. Call initialize() before reading the inbox. "
+            "The unread count will be delivered to addInboxUnreadCountListener once it is.",
            nil);
     return;
   }
 
-  [self startObservingInboxUnreadCount];
+  [self startObservingInboxUnreadCountWithSDK:sdk];
 
   // Sampled before the refresh so the completion can tell whether the change observer already
   // delivered this refresh's value.
   uint64_t deliveriesBeforeRefresh = _unreadCountDeliveries;
 
   __weak __typeof(self) weakSelf = self;
-  [_sdk refreshInboxUnreadCountWithCompletion:^(NSInteger unreadCount) {
-    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount
-                           ifNoDeliverySince:deliveriesBeforeRefresh];
-    resolve(@(unreadCount));
+  [sdk refreshInboxUnreadCountWithCompletion:^(NSNumber *unreadCount) {
+    // nil means the refresh could not be performed — the shim was released mid-flight by a module
+    // teardown or a JS reload. Reject rather than resolve: the promise has to settle either way,
+    // and resolving with a placeholder count would overwrite a correct badge.
+    if (unreadCount == nil) {
+      reject(@"inbox_unread_count_error",
+             @"The Attentive SDK was torn down before the inbox unread count came back.",
+             nil);
+      return;
+    }
+
+    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount.integerValue
+                            ifNoDeliverySince:deliveriesBeforeRefresh];
+    resolve(unreadCount);
   }];
 }
 
-// Idempotent — the token is created once and reused, so repeated getInboxUnreadCount calls do not
-// stack observers.
-- (void)startObservingInboxUnreadCount {
-  if (_inboxUnreadCountObserver != nil || _sdk == nil) {
+/**
+ * Waits for the SDK so an inbox read that arrived before initialize() is not lost.
+ *
+ * Main queue only. Idempotent, and torn down as soon as it fires: this is a one-shot recovery for
+ * the mounted-before-initialize case, not a standing subscription.
+ *
+ * The iOS unread-count observer is bound to a specific ATTNSDK instance (`object: sdk`), so unlike
+ * Android there is nothing to register against while the SDK is nil — the retry has to be driven
+ * by AttentiveSDKManager's broadcast. AttentiveInboxView does the same thing for the same reason.
+ */
+- (void)startObservingSDKAvailabilityForInbox {
+  if (_inboxSDKAvailabilityObserver != nil) {
     return;
   }
 
   __weak __typeof(self) weakSelf = self;
-  _inboxUnreadCountObserver = [_sdk observeInboxUnreadCountWithHandler:^(NSInteger unreadCount) {
+  _inboxSDKAvailabilityObserver = [NSNotificationCenter.defaultCenter
+      addObserverForName:AttentiveSDKManager.sdkDidBecomeAvailableName
+                  object:nil
+                   queue:NSOperationQueue.mainQueue
+              usingBlock:^(__unused NSNotification *note) {
+                [weakSelf inboxSDKDidBecomeAvailable];
+              }];
+}
+
+// Main queue only — NSOperationQueue.mainQueue above guarantees it.
+- (void)stopObservingSDKAvailabilityForInbox {
+  if (_inboxSDKAvailabilityObserver == nil) {
+    return;
+  }
+  [NSNotificationCenter.defaultCenter removeObserver:_inboxSDKAvailabilityObserver];
+  _inboxSDKAvailabilityObserver = nil;
+}
+
+// Main queue only.
+- (void)inboxSDKDidBecomeAvailable {
+  // Read the instance off the manager rather than `_sdk`: the broadcast is posted from whichever
+  // thread ran initialize(), which owns `_sdk`, and this handler is on main. The manager is the
+  // agreed hand-off point — AttentiveInboxView reads it the same way, with the same class check.
+  id maybeSDK = AttentiveSDKManager.shared.sdk;
+  ATTNNativeSDK *sdk = [maybeSDK isKindOfClass:ATTNNativeSDK.class] ? (ATTNNativeSDK *)maybeSDK : nil;
+  if (sdk == nil) {
+    return;
+  }
+
+  [self stopObservingSDKAvailabilityForInbox];
+  [self startObservingInboxUnreadCountWithSDK:sdk];
+
+  // Registering the observer is not enough on its own: it only carries *changes*, so a consumer
+  // whose read was rejected would keep showing the initial value until the count next moved.
+  // Refresh so the first real count is delivered too — the caller asked for it, and this is the
+  // call they would otherwise have to know to make again.
+  uint64_t deliveriesBeforeRefresh = _unreadCountDeliveries;
+  __weak __typeof(self) weakSelf = self;
+  [sdk refreshInboxUnreadCountWithCompletion:^(NSNumber *unreadCount) {
+    if (unreadCount == nil) {
+      return;
+    }
+    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount.integerValue
+                            ifNoDeliverySince:deliveriesBeforeRefresh];
+  }];
+}
+
+// Idempotent — the token is created once and reused, so repeated getInboxUnreadCount calls do not
+// stack observers. Main queue only.
+- (void)startObservingInboxUnreadCountWithSDK:(ATTNNativeSDK *)sdk {
+  if (_inboxUnreadCountObserver != nil || sdk == nil) {
+    return;
+  }
+
+  __weak __typeof(self) weakSelf = self;
+  _inboxUnreadCountObserver = [sdk observeInboxUnreadCountWithHandler:^(NSInteger unreadCount) {
     [weakSelf emitInboxUnreadCount:unreadCount];
   }];
 }
@@ -682,6 +799,10 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   if (_inboxUnreadCountObserver != nil) {
     [[NSNotificationCenter defaultCenter] removeObserver:_inboxUnreadCountObserver];
     _inboxUnreadCountObserver = nil;
+  }
+  if (_inboxSDKAvailabilityObserver != nil) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_inboxSDKAvailabilityObserver];
+    _inboxSDKAvailabilityObserver = nil;
   }
 }
 

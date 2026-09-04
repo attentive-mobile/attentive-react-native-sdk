@@ -39,12 +39,18 @@ import UserNotifications
 
     /// Broadcast when `sdk` transitions from nil to a live instance.
     ///
-    /// Native views that need the SDK can be mounted before JS calls `initialize()` — a host app
-    /// is free to make the inbox its very first screen — so they observe this instead of capturing
-    /// whatever `sdk` happened to be at attach time. The raw string is duplicated in
-    /// `AttentiveInboxView.mm`; changing it here without changing that silently stops such views
-    /// from ever recovering.
-    public static let sdkDidBecomeAvailable = Notification.Name("ATTNSDKDidBecomeAvailable")
+    /// Native code that needs the SDK can run before JS calls `initialize()` — a host app is free
+    /// to make the inbox its very first screen, and the unread-count bridge can be asked for a
+    /// count before the SDK exists — so both observe this instead of capturing whatever `sdk`
+    /// happened to be at the time and giving up.
+    public static let sdkDidBecomeAvailable = Notification.Name(sdkDidBecomeAvailableName)
+
+    /// The same name as a plain `String`, for the Objective-C side.
+    ///
+    /// `Notification.Name` is a Swift struct and cannot cross into Objective-C, so the `.mm` files
+    /// used to re-declare the literal. They read this instead: a rename here now reaches every
+    /// observer, where before it would silently stop them from ever recovering.
+    @objc public static let sdkDidBecomeAvailableName = "ATTNSDKDidBecomeAvailable"
 
     /// The Attentive SDK instance as AnyObject for Objective-C compatibility.
     /// When set, any pending (untracked) notification response is automatically flushed.

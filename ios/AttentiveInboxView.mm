@@ -34,10 +34,6 @@
 
 using namespace facebook::react;
 
-// Paired with AttentiveSDKManager.sdkDidBecomeAvailable on the Swift side. Notification.Name is a
-// Swift struct and so can't cross into Objective-C as a constant; the literal is the contract.
-static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvailable";
-
 @interface AttentiveInboxView () <RCTAttentiveInboxViewViewProtocol>
 @end
 
@@ -92,12 +88,24 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
   }
 
   if (_inboxViewController == nil) {
+    // Subscribe *before* reading, not after. `AttentiveSDKManager.sdk` is set from whichever
+    // thread called initialize() — the module's method queue, not this one — and its didSet posts
+    // the broadcast synchronously. Read-then-subscribe therefore has a window: a read that finds
+    // nil, a post that lands before the observer exists, and then a subscription that will never
+    // hear anything. That broadcast is the *only* thing that ever brings this view back, so losing
+    // it means a permanently blank inbox for the whole session, recoverable only by a remount.
+    //
+    // Subscribing first cannot lose the post, and costs an add/remove pair on the path where the
+    // SDK already exists. observeSDKAvailability is idempotent, so repeat calls are free.
+    [self observeSDKAvailability];
+
     id maybeSDK = AttentiveSDKManager.shared.sdk;
     ATTNNativeSDK *sdk = [maybeSDK isKindOfClass:ATTNNativeSDK.class] ? (ATTNNativeSDK *)maybeSDK : nil;
     if (sdk == nil) {
-      [self observeSDKAvailability];
+      // Stay subscribed; sdkDidBecomeAvailable calls back into this method.
       return;
     }
+
     [self stopObservingSDKAvailability];
     _inboxViewController = [self makeInboxViewControllerWithSDK:sdk];
     _inboxViewController.view.frame = self.bounds;
@@ -202,7 +210,7 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
   _observingSDKAvailability = YES;
   [NSNotificationCenter.defaultCenter addObserver:self
                                         selector:@selector(sdkDidBecomeAvailable)
-                                            name:kAttentiveSDKDidBecomeAvailable
+                                            name:AttentiveSDKManager.sdkDidBecomeAvailableName
                                           object:nil];
 }
 
@@ -213,7 +221,7 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
   }
   _observingSDKAvailability = NO;
   [NSNotificationCenter.defaultCenter removeObserver:self
-                                               name:kAttentiveSDKDidBecomeAvailable
+                                               name:AttentiveSDKManager.sdkDidBecomeAvailableName
                                              object:nil];
 }
 
