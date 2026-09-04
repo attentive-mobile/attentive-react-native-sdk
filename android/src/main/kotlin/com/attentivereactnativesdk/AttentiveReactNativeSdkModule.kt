@@ -349,15 +349,21 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /**
      * Collects `AttentiveSdk.inboxState` and emits each distinct unread count to JS.
      *
-     * Idempotent — the job is created once and reused, so repeated [getInboxUnreadCount] calls
-     * don't stack collectors. Mapping to the count before [distinctUntilChanged] means a refetch
-     * returning the same number doesn't churn the consumer's badge, matching the dedupe iOS does
-     * in its own unread-count box. A `StateFlow` replays its current value to each new collector,
-     * so the first event repeats the value [getInboxUnreadCount] just resolved; that is
-     * deliberate, since dropping it would lose a fetch that completed in between.
+     * Idempotent — a live collector is reused, so repeated [getInboxUnreadCount] calls don't stack
+     * collectors. The guard tests `isActive` rather than the reference on purpose:
+     * [inboxExceptionHandler] keeps a throw from `inboxState` non-fatal, but the job still
+     * *completes*, and a reference check would then read that dead job as running and never
+     * relaunch it — freezing the badge for the rest of the process, which is the very outcome the
+     * handler exists to avoid.
+     *
+     * Mapping to the count before [distinctUntilChanged] means a refetch returning the same number
+     * doesn't churn the consumer's badge, matching the dedupe iOS does in its own unread-count box.
+     * A `StateFlow` replays its current value to each new collector, so the first event repeats the
+     * value [getInboxUnreadCount] just resolved; that is deliberate, since dropping it would lose a
+     * fetch that completed in between.
      */
     private fun startObservingInboxUnreadCount() {
-        if (inboxUnreadCountJob != null) return
+        if (inboxUnreadCountJob?.isActive == true) return
         inboxUnreadCountJob = inboxScope.launch {
             AttentiveSdk.inboxState
                 .map { it.unreadCount }

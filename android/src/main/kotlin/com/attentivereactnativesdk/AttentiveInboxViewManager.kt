@@ -44,6 +44,27 @@ class AttentiveInboxViewManager :
     override fun createViewInstance(reactContext: ThemedReactContext): AttentiveInboxHostView =
         AttentiveInboxHostView(reactContext)
 
+    /**
+     * Clears the previous mount's theme before a pooled host is reused.
+     *
+     * Under `ReactNativeFeatureFlags.enableViewRecycling()` a dropped host goes into a per-surface
+     * pool and is handed back here instead of through [createViewInstance]. Fabric then applies
+     * only the props JS wrote for the new mount, so a colour set on the first screen and omitted
+     * on the second is never overwritten and the recycled view keeps it. Resetting here — the last
+     * point before `updateProperties` runs — means the new mount always starts from the SDK
+     * defaults, whether the host is fresh or reused.
+     *
+     * This is deliberately not [prepareToRecycleView]: that hook can decline recycling by
+     * returning null, and declining is a heavier decision than this needs.
+     */
+    override fun recycleView(
+        reactContext: ThemedReactContext,
+        view: AttentiveInboxHostView,
+    ): AttentiveInboxHostView {
+        view.resetTheme()
+        return super.recycleView(reactContext, view)
+    }
+
     override fun setUnreadIndicatorColor(view: AttentiveInboxHostView, value: Int?) {
         view.setUnreadIndicatorColor(value)
     }

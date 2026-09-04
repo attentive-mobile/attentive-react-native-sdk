@@ -105,6 +105,27 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
         super.onDetachedFromWindow()
     }
 
+    /**
+     * Restores every colour to the SDK's own default.
+     *
+     * Called from the view manager when a pooled host is handed back out. Fabric delivers only the
+     * props JS actually wrote at mount time, so a colour omitted on the second mount never reaches
+     * a setter — verified on device: a mount with `unreadIndicatorColor` absent produced setter
+     * calls for the other four props and none for that one. On a fresh view that is harmless (the
+     * SDK's own initial value is already the default), but a recycled view would keep the previous
+     * screen's colour, contradicting the contract documented above.
+     *
+     * Passing null routes through the same `?: default(...)` path a real unset prop takes, so
+     * there is no second copy of the defaults to drift.
+     */
+    fun resetTheme() {
+        setUnreadIndicatorColor(null)
+        setTitleTextColor(null)
+        setBodyTextColor(null)
+        setTimestampTextColor(null)
+        setSwipeBackgroundColor(null)
+    }
+
     fun setUnreadIndicatorColor(@ColorInt color: Int?) {
         inbox.setUnreadIndicatorColor(color ?: default(SdkR.color.attentive_inbox_unread_indicator))
     }
