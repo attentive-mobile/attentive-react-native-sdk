@@ -237,7 +237,7 @@ export interface Spec extends TurboModule {
    *   publicly. Calling this on app foreground and after a push open — Attentive's own iOS
    *   guidance — therefore keeps a badge accurate.
    * - **Android** fetches only on the *first* call. `refreshInbox()` and
-   *   `refreshInboxUnreadCount()` are still `internal` in the native SDK (MSDK-476), so later
+   *   `refreshInboxUnreadCount()` are still `internal` in the native SDK, so later
    *   calls return the cached value. An Android badge updates on that first call, on push
    *   received while the app is foregrounded, and whenever the inbox view is on screen.
    *

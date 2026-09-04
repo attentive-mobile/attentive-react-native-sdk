@@ -585,7 +585,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
 // Refreshes the unread count from the server, then resolves it.
 //
-// Unlike Android — where the native refresh entry points are still internal (MSDK-476) and only
+// Unlike Android — where the native refresh entry points are still internal and only
 // the first read fetches — iOS exposes a public refresh, so every call here hits the server. That
 // is what makes an inbox badge on iOS accurate on app foreground and after a push open.
 //

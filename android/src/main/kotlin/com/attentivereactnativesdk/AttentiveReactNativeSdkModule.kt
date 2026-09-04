@@ -321,14 +321,14 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * its first call across the app's lifetime, triggers the SDK's inbox initialization, which
      * kicks off the first server fetch. Later calls are pure reads — the native refresh entry
      * points (`refreshInbox`, `refreshInboxUnreadCount`) are `internal`, so this bridge cannot
-     * force a refetch (MSDK-476). iOS can, and does so on every call, which is why the
+     * force a refetch. iOS can, and does so on every call, which is why the
      * TypeScript API documents the two platforms as behaving differently here.
      *
      * Starting the observer here too means one JS call yields both the initial value and every
      * subsequent [INBOX_UNREAD_COUNT_EVENT_NAME] event.
      *
      * NOTE: `getUnreadCount()` is deleted in favour of `startInbox()` + collecting `inboxState`
-     * (MSDK-479, attentive-android-sdk#268). This is the only call site to swap when that lands.
+     * in a later native SDK release. This is the only call site to swap when that lands.
      */
     override fun getInboxUnreadCount(promise: Promise) {
         try {

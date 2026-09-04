@@ -23,7 +23,7 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  *    *resource id*, and React Native ships fonts in `assets/fonts/`, not `res/font/`. Needs an SDK
  *    overload taking a `FontFamily`/`Typeface` before it can be driven from JS.
  *
- * `onMessageTap` is still not observable from the Android `View` wrapper at all (MSDK-478).
+ * `onMessageTap` is still not observable from the Android `View` wrapper at all.
  */
 export interface NativeProps extends ViewProps {
   /** Dot marking an unread message. */

@@ -577,7 +577,7 @@ struct DebugEvent {
   ///
   /// Tap handling is intentionally left at the SDK default for now: click tracking fires and the
   /// message's `actionURL` opens. Routing taps into JS needs an `onMessageTap` prop, which is
-  /// blocked on Android's side of the parity work (MSDK-478) — adding it on iOS alone would give
+  /// blocked on Android's side of the parity work — adding it on iOS alone would give
   /// consumers a prop that silently does nothing on half their users' devices.
   ///
   /// The colours are the subset of the React Native theming props that `InboxStyle` can express.
@@ -622,7 +622,7 @@ struct DebugEvent {
   ///
   /// The completion runs on the main actor, which is where React Native resolves promises.
   ///
-  /// Android has no equivalent: its refresh entry points are still `internal` (MSDK-476), so the
+  /// Android has no equivalent: its refresh entry points are still `internal`, so the
   /// TypeScript API documents this call as refreshing on iOS and reading a cache on Android.
   @objc(refreshInboxUnreadCountWithCompletion:)
   public func refreshInboxUnreadCount(completion: @escaping (Int) -> Void) {

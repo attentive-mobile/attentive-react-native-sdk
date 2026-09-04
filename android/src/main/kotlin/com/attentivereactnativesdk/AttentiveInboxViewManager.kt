@@ -27,7 +27,7 @@ import com.facebook.react.viewmanagers.AttentiveInboxViewManagerInterface
  * the TypeScript spec without implementing it here is a compile error instead of a silent no-op.
  * `ColorValue` props arrive already processed as a nullable `Int`; null means "prop absent", which
  * the host view turns back into the SDK's default colour. Message taps are currently not
- * observable at all from the View wrapper (MSDK-478).
+ * observable at all from the View wrapper.
  */
 class AttentiveInboxViewManager :
     SimpleViewManager<AttentiveInboxHostView>(),
