@@ -172,7 +172,8 @@ function addDeviceEventListener<TRaw, TPayload>(
  * Supported on React Native 0.74+: events travel as `RCTDeviceEventEmitter` device events rather
  * than through a codegen event emitter, which would have required 0.76+. The transport works on
  * both architectures, but on iOS the New Architecture is still required — the native module only
- * exports its methods under `RCT_NEW_ARCH_ENABLED` (see MSDK-350).
+ * exports its methods under `RCT_NEW_ARCH_ENABLED`; old-architecture iOS support is not
+ * implemented yet.
  *
  * @param listener - Invoked for each lifecycle transition
  * @returns A subscription; call `remove()` to stop receiving events

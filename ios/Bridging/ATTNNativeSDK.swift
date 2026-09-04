@@ -582,7 +582,7 @@ struct DebugEvent {
   ///
   /// The colours are the subset of the React Native theming props that `InboxStyle` can express.
   /// Android additionally themes the unread indicator and the swipe background; `InboxStyle` has no
-  /// equivalent for either, which is MSDK-480. A nil colour keeps the SDK's own default, so the
+  /// equivalent for either. A nil colour keeps the SDK's own default, so the
   /// defaults below must stay in step with `InboxStyle.init`'s (.headline/.primary,
   /// .subheadline/.secondary, .caption/.secondary) — passing a style always replaces all three.
   ///

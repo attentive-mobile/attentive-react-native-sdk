@@ -4,7 +4,7 @@
 //
 //  Like AttentiveReactNativeSdk.mm, only the new architecture path is implemented here. The old
 //  architecture would need an RCTViewManager; that work is tracked with the module's own old-arch
-//  gap (MSDK-350) rather than duplicated per component.
+//  gap rather than duplicated per component.
 //
 
 #import "AttentiveInboxView.h"
@@ -131,7 +131,7 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
  *
  * `InboxStyle` covers title/body/timestamp colour, which is three of the five colour props the
  * component accepts. `unreadIndicatorColor` and `swipeBackgroundColor` have no iOS equivalent
- * (MSDK-480); they are logged once rather than silently dropped, since a prop that works on Android
+ * yet; they are logged once rather than silently dropped, since a prop that works on Android
  * and does nothing here is exactly the kind of thing that costs someone an afternoon.
  */
 - (UIViewController *)makeInboxViewControllerWithSDK:(ATTNNativeSDK *)sdk
@@ -141,7 +141,7 @@ static NSString *const kAttentiveSDKDidBecomeAvailable = @"ATTNSDKDidBecomeAvail
   if (!_loggedUnsupportedProps && (props.unreadIndicatorColor || props.swipeBackgroundColor)) {
     _loggedUnsupportedProps = YES;
     RCTLogInfo(@"[AttentiveSDK] unreadIndicatorColor and swipeBackgroundColor are Android-only for "
-                "now; iOS InboxStyle has no equivalent (MSDK-480). Other inbox colours apply.");
+                "now and have no effect on iOS. Other inbox colours apply.");
   }
 
   // Convert only colours that were actually set. An unset SharedColor holds Color(nullptr), which

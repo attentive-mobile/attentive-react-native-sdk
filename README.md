@@ -380,7 +380,7 @@ Notes:
 - Supported on React Native 0.74+. Events travel as `RCTDeviceEventEmitter` device events rather
   than through a codegen event emitter, so the transport itself needs no New Architecture opt-in.
   **On iOS the New Architecture is still required**, because the native module only exports its
-  methods under `RCT_NEW_ARCH_ENABLED` (old-architecture iOS support is tracked in MSDK-350). With
+  methods under `RCT_NEW_ARCH_ENABLED`; old-architecture iOS support is not implemented yet. With
   the New Architecture disabled on iOS, `triggerCreative()` throws rather than emitting anything.
 - **`destroyCreative()` does not emit an event** on either platform, so a `closed` event only ever
   comes from user-driven dismissal. Note the platforms diverge on what it actually does: on Android

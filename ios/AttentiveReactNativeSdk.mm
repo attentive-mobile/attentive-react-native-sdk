@@ -6,7 +6,7 @@
 //
 //  NOTE: This file contains both new arch and old arch implementations. Only the new arch path
 //  (RCT_NEW_ARCH_ENABLED) is functional. The old arch #else branch does not compile and is
-//  retained as scaffolding for future old arch support work (MSDK-350).
+//  retained as scaffolding for future old arch support work.
 //
 
 #import "AttentiveReactNativeSdk.h"
@@ -234,7 +234,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 #else
 // Old Architecture implementation — currently does not compile (missing RCT_EXPORT_METHOD macros,
 // bridge module registration, etc.). Kept here as a starting point for restoring old arch support
-// in a future ticket (MSDK-350).
+// in a future ticket.
 - (void)initialize:(NSDictionary*)configuration {
     // pushEnabled defaults to YES when the key is absent, matching the TypeScript default.
     NSNumber *pushEnabled = configuration[@"pushEnabled"];

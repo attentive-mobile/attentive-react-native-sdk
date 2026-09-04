@@ -7,11 +7,10 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  * The native views own their own layout, refresh, and pagination, so the host just gives them a
  * box to fill — these props only theme what the SDKs actually expose.
  *
- * **Per-platform coverage.** Every prop here maps to a setter on the Android SDK's
- * `AttentiveInboxView`, so Android applies all five. iOS applies the three text colours through
- * `InboxStyle`; `unreadIndicatorColor` and `swipeBackgroundColor` have no `InboxStyle` equivalent
- * and are inert there until MSDK-480 lands — the iOS component logs once when they are set rather
- * than dropping them silently. Passing them is always safe.
+ * **Per-platform coverage.** Android applies all five. iOS applies `titleTextColor`,
+ * `bodyTextColor`, and `timestampTextColor`; `unreadIndicatorColor` and `swipeBackgroundColor` are
+ * Android-only and have no effect on iOS yet — the iOS component logs once when they are set
+ * rather than dropping them silently. Passing them is always safe.
  *
  * Omitting a prop (or setting it to `undefined`) restores the SDK's own default colour, so a
  * recycled view never inherits the previous screen's theme.
