@@ -690,10 +690,17 @@ function updateUser(params: UpdateUserParams): Promise<void> {
  * ```ts
  * useEffect(() => {
  *   const subscription = addInboxUnreadCountListener(setCount)
- *   getInboxUnreadCount().then(setCount).catch(() => {})
+ *   getInboxUnreadCount()
+ *     .then(setCount)
+ *     .catch((error) => console.warn('Inbox unread count unavailable:', error))
  *   return () => subscription.remove()
  * }, [])
  * ```
+ *
+ * Register the listener before the read, as above. If the read lands before `initialize()` it
+ * rejects, but the count is not lost: the native side waits for initialization and then delivers
+ * it to the listener, so the badge fills in without a remount. Log the rejection rather than
+ * discarding it — any *other* cause is a real failure, and an empty catch is how it goes unnoticed.
  *
  * `0` is both the initial value and the "nothing unread" value, so it cannot tell you whether
  * the first fetch has landed.

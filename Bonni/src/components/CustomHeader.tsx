@@ -70,9 +70,16 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
     const subscription = addInboxUnreadCountListener(setInboxUnreadCount)
     getInboxUnreadCount()
       .then(setInboxUnreadCount)
-      .catch(() => {
-        // Most likely the SDK is not initialized yet. Leaving the badge hidden is the right
-        // failure mode for a header — nothing to surface to the user.
+      .catch((error: unknown) => {
+        // Keep the badge hidden — that is the right failure mode for a header, since 0 and
+        // "unknown" look the same to a user and there is nothing actionable to show.
+        //
+        // But log it rather than swallow it. The common cause is a read that beat initialize(),
+        // and the SDK now recovers from that on its own: it waits for initialization, then
+        // delivers the count through the listener registered above, so the badge fills in without
+        // a remount. Anything else reaching here is a real failure, and an empty catch is how it
+        // would go unnoticed.
+        console.warn('[Bonni] Could not read the inbox unread count:', error)
       })
 
     return () => subscription.remove()
