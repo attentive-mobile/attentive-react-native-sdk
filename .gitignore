@@ -79,3 +79,9 @@ coverage/
 
 # AI agent local config
 .claude/
+
+# yarn.lock — this project uses npm (package-lock.json is the lockfile of record).
+# npm keeps a yarn.lock in sync whenever one is present, so `npm ci` rewrites it and
+# dirties the tree; release-it then refuses to run ("Working dir must be clean").
+# See MSDK-521.
+yarn.lock
