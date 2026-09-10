@@ -8,6 +8,7 @@
 
 import Foundation
 import ATTNSDKFramework
+import SwiftUI
 import UIKit
 import UserNotifications
 
@@ -561,6 +562,108 @@ struct DebugEvent {
           "note": "No cached response — either already consumed by a prior call or AppDelegate setup missing."
         ])
       }
+    }
+  }
+
+  // MARK: - Inbox (default renderer)
+
+  /// Builds the SDK's drop-in inbox UI ("default renderer") as a `UIViewController`.
+  ///
+  /// `ATTNSDK.inboxViewController(style:onMessageTap:)` can't be called from Objective-C — it is
+  /// `@MainActor`, takes defaulted Swift arguments, and its tap callback carries a `Message`
+  /// struct — so the RN view component goes through this shim. The returned controller is a
+  /// `UIHostingController` wrapping the SwiftUI inbox, which fetches its first page, refreshes on
+  /// foreground, and paginates on its own; there is nothing to drive from JS.
+  ///
+  /// Tap handling is intentionally left at the SDK default for now: click tracking fires and the
+  /// message's `actionURL` opens. Routing taps into JS needs an `onMessageTap` prop, which is
+  /// blocked on Android's side of the parity work — adding it on iOS alone would give
+  /// consumers a prop that silently does nothing on half their users' devices.
+  ///
+  /// The colours are the subset of the React Native theming props that `InboxStyle` can express.
+  /// Android additionally themes the unread indicator and the swipe background; `InboxStyle` has no
+  /// equivalent for either. A nil colour keeps the SDK's own default, so the
+  /// defaults below must stay in step with `InboxStyle.init`'s (.headline/.primary,
+  /// .subheadline/.secondary, .caption/.secondary) — passing a style always replaces all three.
+  ///
+  /// Fonts stay at the SDK defaults: React Native has no font props yet, because Android's font
+  /// setters take an Android resource id that an RN app has no way to produce.
+  @MainActor
+  @objc(makeInboxViewControllerWithTitleColor:bodyColor:timestampColor:)
+  public func makeInboxViewController(
+    titleColor: UIColor?,
+    bodyColor: UIColor?,
+    timestampColor: UIColor?
+  ) -> UIViewController {
+    let style = InboxStyle(
+      title: InboxStyle.Text(
+        font: .headline,
+        color: titleColor.map { Color(uiColor: $0) } ?? .primary
+      ),
+      body: InboxStyle.Text(
+        font: .subheadline,
+        color: bodyColor.map { Color(uiColor: $0) } ?? .secondary
+      ),
+      timestamp: InboxStyle.Text(
+        font: .caption,
+        color: timestampColor.map { Color(uiColor: $0) } ?? .secondary
+      )
+    )
+    return sdk.inboxViewController(style: style)
+  }
+
+  /// Refreshes the unread inbox count from the server, then reports it.
+  ///
+  /// `ATTNSDK.refreshInboxUnreadCount()` is `async`, and `inboxUnreadCount` is a plain
+  /// synchronous mirror that does *not* itself fetch — so a caller that only reads the mirror
+  /// gets whatever the last fetch left behind. This wrapper does both, in that order, because
+  /// Attentive's iOS guidance is to refresh when the app comes to the foreground and after a
+  /// push open, and the React Native bridge has no other way to honour that.
+  ///
+  /// The completion runs on the main actor, which is where React Native resolves promises, and it
+  /// is guaranteed to run exactly once — `nil` meaning the refresh could not be performed.
+  ///
+  /// The count is optional rather than a plain `Int` because there are three outcomes, not two:
+  /// a real count, and two flavours of failure. Reporting `0` on failure would be wrong (`0` is a
+  /// legitimate count, so a caller would overwrite a correct badge with "nothing unread"), and
+  /// skipping the completion would be worse still — the bridge turns this into a JS promise, and a
+  /// promise that never settles hangs every `await` on it for the life of the runtime.
+  ///
+  /// Android has no equivalent: its refresh entry points are still `internal`, so the
+  /// TypeScript API documents this call as refreshing on iOS and reading a cache on Android.
+  @objc(refreshInboxUnreadCountWithCompletion:)
+  public func refreshInboxUnreadCount(completion: @escaping (NSNumber?) -> Void) {
+    Task { @MainActor [weak self] in
+      // The shim is gone: the module was torn down, or a JS reload landed mid-refresh. The
+      // completion is captured strongly by this task, so it can still be called even though
+      // `self` cannot.
+      guard let self else {
+        completion(nil)
+        return
+      }
+
+      await self.sdk.refreshInboxUnreadCount()
+      completion(NSNumber(value: self.sdk.inboxUnreadCount))
+    }
+  }
+
+  /// Observes unread-count changes and forwards each one to `handler` on the main queue.
+  ///
+  /// Uses the SDK's `.ATTNSDKInboxUnreadCountChanged` notification rather than
+  /// `inboxStateStream`, because the notification is already deduped on same-value writes and
+  /// needs no task to keep alive — the bridge only wants the count, not the message list.
+  /// Filtered to this SDK instance via `object:`.
+  ///
+  /// - Returns: the observer token; hand it back to `NotificationCenter.removeObserver` to stop.
+  @objc(observeInboxUnreadCountWithHandler:)
+  public func observeInboxUnreadCount(handler: @escaping (Int) -> Void) -> NSObjectProtocol {
+    NotificationCenter.default.addObserver(
+      forName: .ATTNSDKInboxUnreadCountChanged,
+      object: sdk,
+      queue: .main
+    ) { note in
+      let count = note.userInfo?["attentiveInboxUnreadCount"] as? Int ?? 0
+      handler(count)
     }
   }
 

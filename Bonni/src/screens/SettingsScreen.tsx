@@ -48,7 +48,7 @@ import PushNotificationIOS from '@react-native-community/push-notification-ios'
 import { CONFIG_STORAGE_KEYS } from '../constants/storage'
 import { getStoredBoolean, setStoredBoolean } from '../services/storage'
 
-const SettingsScreen: React.FC<SettingsScreenProps> = () => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [deviceToken, setDeviceToken] = useState<string>('Not saved')
@@ -247,6 +247,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     // TODO: Implement address management
     Alert.alert('Manage Addresses', 'Address management feature coming soon')
   }, [])
+
+  const handleShowInbox = useCallback(() => {
+    navigation.navigate('Inbox')
+  }, [navigation])
 
   const handleShowCreative = useCallback(() => {
     // Prompting for the id keeps both paths on one button: confirm targets a specific
@@ -597,6 +601,20 @@ The SDK will handle the API request internally.`
             {({ pressed }) => (
               <Text style={getPrimaryButtonTextStyle(pressed)}>
                 Show Creative
+              </Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
+            onPress={handleShowInbox}
+          >
+            {({ pressed }) => (
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Show Inbox
               </Text>
             )}
           </Pressable>

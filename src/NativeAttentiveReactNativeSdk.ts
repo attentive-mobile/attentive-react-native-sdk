@@ -222,6 +222,28 @@ export interface Spec extends TurboModule {
     email: string | undefined,
     phone: string | undefined
   ) => Promise<void>
+
+  // Inbox
+  /**
+   * Reads the unread inbox message count, and is also how you start the inbox.
+   *
+   * Call it once when your badge mounts, then subscribe with
+   * `addInboxUnreadCountListener` for subsequent changes. It returns `0` until the first
+   * fetch lands, so "loading" and "no unread messages" look identical — track that yourself
+   * if you need to tell them apart.
+   *
+   * Fetch behaviour differs per platform, and the difference is not cosmetic:
+   * - **iOS** forces a server refresh on every call, because the native SDK exposes one
+   *   publicly. Calling this on app foreground and after a push open — Attentive's own iOS
+   *   guidance — therefore keeps a badge accurate.
+   * - **Android** fetches only on the *first* call. `refreshInbox()` and
+   *   `refreshInboxUnreadCount()` are still `internal` in the native SDK, so later
+   *   calls return the cached value. An Android badge updates on that first call, on push
+   *   received while the app is foregrounded, and whenever the inbox view is on screen.
+   *
+   * @returns Promise resolving to the unread count
+   */
+  getInboxUnreadCount: () => Promise<number>
 }
 
 // Try to load via TurboModule first (new architecture)

@@ -17,10 +17,28 @@
         android:label="@string/app_name"
         android:configChanges="keyboard|keyboardHidden|orientation|screenLayout|screenSize|smallestScreenSize|uiMode"
         android:windowSoftInputMode="adjustResize"
+        android:launchMode="singleTask"
         android:exported="true">
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
+        </intent-filter>
+        <!--
+          Deep links for testing inbox / push action URLs. The Android SDK opens a message's
+          actionUrl with a bare Intent.ACTION_VIEW (AttentiveInbox.kt) and offers no tap
+          callback, so claiming a scheme is the only way an inbox tap can reach JS on this
+          platform until MSDK-478 lands. `bonni-rn` rather than the native examples' `bonni`,
+          so both apps can be installed side by side without competing for the same URLs.
+
+          launchMode=singleTask above is required with this: under the default `standard` mode a
+          VIEW intent starts a second MainActivity instead of delivering onNewIntent, so
+          Linking.addEventListener in the already-running app would never fire.
+        -->
+        <intent-filter>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="bonni-rn" />
         </intent-filter>
       </activity>
 

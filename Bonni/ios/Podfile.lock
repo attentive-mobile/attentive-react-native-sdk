@@ -1,6 +1,6 @@
 PODS:
   - attentive-react-native-sdk (2.1.0):
-    - ATTNSDKFramework (= 2.0.15)
+    - ATTNSDKFramework (= 2.0.18-beta.1)
     - DoubleConversion
     - glog
     - hermes-engine
@@ -21,7 +21,7 @@ PODS:
     - ReactCommon/turbomodule/bridging
     - ReactCommon/turbomodule/core
     - Yoga
-  - ATTNSDKFramework (2.0.15)
+  - ATTNSDKFramework (2.0.18-beta.1)
   - boost (1.84.0)
   - DoubleConversion (1.1.6)
   - fast_float (6.1.4)
@@ -1955,8 +1955,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  attentive-react-native-sdk: 74ee6162b12853b67ed7cd97c9ab057bd27859ec
-  ATTNSDKFramework: f80910eec46aff99b0a4381a7a5a605fa5d727b4
+  attentive-react-native-sdk: ba25be87cb21b4a5470f86d0f98176b0defbe84c
+  ATTNSDKFramework: 6900c0e415c08dd17b2831fb9a8182d05be784cd
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
   fast_float: 06eeec4fe712a76acc9376682e4808b05ce978b6

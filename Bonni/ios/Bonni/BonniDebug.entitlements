@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!--
+	  Debug-only entitlements. aps-environment must be `development` here: a locally signed Debug
+	  build uses a development provisioning profile, which cannot carry the production APNs
+	  entitlement, so the device either fails to sign or registers a token the sandbox will not
+	  accept. Release keeps Bonni.entitlements with `production` for TestFlight.
+
+	  Consequence for testing: a Debug device build gets a SANDBOX APNs token, so sends have to go
+	  through the APNs sandbox.
+	-->
+	<key>aps-environment</key>
+	<string>development</string>
+</dict>
+</plist>
