@@ -2,6 +2,7 @@ package com.attentivereactnativesdk
 
 import com.facebook.react.uimanager.SimpleViewManager
 import com.facebook.react.uimanager.ThemedReactContext
+import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.ViewManagerDelegate
 import com.facebook.react.viewmanagers.AttentiveInboxViewManagerDelegate
 import com.facebook.react.viewmanagers.AttentiveInboxViewManagerInterface
@@ -63,6 +64,25 @@ class AttentiveInboxViewManager :
     ): AttentiveInboxHostView {
         view.resetTheme()
         return super.recycleView(reactContext, view)
+    }
+
+    override fun addEventEmitters(
+        reactContext: ThemedReactContext,
+        view: AttentiveInboxHostView,
+    ) {
+        super.addEventEmitters(reactContext, view)
+        view.onMessageTap = { messageId, actionUrl ->
+            UIManagerHelper
+                .getEventDispatcherForReactTag(reactContext, view.id)
+                ?.dispatchEvent(
+                    AttentiveInboxMessageTapEvent(
+                        UIManagerHelper.getSurfaceId(view),
+                        view.id,
+                        messageId,
+                        actionUrl,
+                    ),
+                )
+        }
     }
 
     override fun setUnreadIndicatorColor(view: AttentiveInboxHostView, value: Int?) {
