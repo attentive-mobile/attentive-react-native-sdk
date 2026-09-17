@@ -1,4 +1,5 @@
 import type { ColorValue, ViewProps } from 'react-native'
+import type { DirectEventHandler } from 'react-native/Libraries/Types/CodegenTypes'
 import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent'
 
 /**
@@ -39,6 +40,18 @@ export interface NativeProps extends ViewProps {
    * is hardcoded red in the SDK and is not themeable.
    */
   swipeBackgroundColor?: ColorValue
+  /**
+   * Fired when the user taps a message row.
+   *
+   * `actionUrl` is absent — not null — when the tapped message carries no deep link, which is the
+   * same shape the native payload uses.
+   */
+  onMessageTap?: DirectEventHandler<
+    Readonly<{
+      messageId: string
+      actionUrl?: string
+    }>
+  >
 }
 
 export default codegenNativeComponent<NativeProps>('AttentiveInboxView')

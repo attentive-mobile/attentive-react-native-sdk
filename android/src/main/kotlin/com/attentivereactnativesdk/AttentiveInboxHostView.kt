@@ -5,6 +5,7 @@ import android.widget.FrameLayout
 import androidx.annotation.ColorInt
 import androidx.annotation.ColorRes
 import androidx.core.content.ContextCompat
+import com.attentive.androidsdk.AttentiveSdk
 import com.attentive.androidsdk.R as SdkR
 import com.attentive.androidsdk.inbox.AttentiveInboxView
 
@@ -66,8 +67,25 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
     private val inbox = AttentiveInboxView(context)
 
+    /**
+     * Invoked when a message row is tapped. Installed by [AttentiveInboxViewManager] in
+     * `addEventEmitters`, which runs after the host is given its react tag — `init` is too early.
+     */
+    var onMessageTap: ((messageId: String, actionUrl: String?) -> Unit)? = null
+
     init {
         addView(inbox, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+
+        // Registering a listener stops the SDK marking tapped messages read, so that call is
+        // ours now. It is unconditional — Fabric does not tell a view manager whether JS attached
+        // an `onMessageTap` handler — so a consumer who never uses the event still needs it.
+        inbox.setOnMessageClickListener { message ->
+            onMessageTap?.invoke(message.id, message.actionUrl)
+
+            if (!message.isRead) {
+                AttentiveSdk.markRead(message.id)
+            }
+        }
     }
 
     override fun onAttachedToWindow() {
