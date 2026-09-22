@@ -275,6 +275,7 @@ function App(): React.JSX.Element {
         mode: 'debug',
         enableDebugger: true,
         pushEnabled,
+        automaticallyOpensInboxDeepLinks: false,
       }
 
       console.log('📦 [Attentive] Initializing SDK with config:', config)

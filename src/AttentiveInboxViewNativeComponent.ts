@@ -1,4 +1,5 @@
 import type { ColorValue, ViewProps } from 'react-native'
+import type { DirectEventHandler } from 'react-native/Libraries/Types/CodegenTypes'
 import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent'
 
 /**
@@ -22,8 +23,6 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  *  - **fonts** — `setTitleFontFamily(fontResId: Int)` and friends only accept an Android font
  *    *resource id*, and React Native ships fonts in `assets/fonts/`, not `res/font/`. Needs an SDK
  *    overload taking a `FontFamily`/`Typeface` before it can be driven from JS.
- *
- * `onMessageTap` is still not observable from the Android `View` wrapper at all.
  */
 export interface NativeProps extends ViewProps {
   /** Dot marking an unread message. */
@@ -39,6 +38,15 @@ export interface NativeProps extends ViewProps {
    * is hardcoded red in the SDK and is not themeable.
    */
   swipeBackgroundColor?: ColorValue
+  /**
+   * Fired when the user taps a message row.
+   */
+  onMessageTap?: DirectEventHandler<
+    Readonly<{
+      messageId: string
+      actionUrl: string
+    }>
+  >
 }
 
 export default codegenNativeComponent<NativeProps>('AttentiveInboxView')

@@ -81,7 +81,8 @@ function initialize(configuration: AttentiveSdkConfiguration) {
     configuration.mode,
     configuration.skipFatigueOnCreatives ?? false,
     configuration.enableDebugger ?? false,
-    configuration.pushEnabled ?? true
+    configuration.pushEnabled ?? true,
+    configuration.automaticallyOpensInboxDeepLinks ?? true
   )
 }
 

@@ -13,6 +13,7 @@ export type AttentiveSdkConfiguration = {
   skipFatigueOnCreatives?: boolean
   enableDebugger?: boolean
   pushEnabled?: boolean
+  automaticallyOpensInboxDeepLinks?: boolean
 }
 
 // Codegen does not support nested objects inside of arrays. We must flatten the Item type.
