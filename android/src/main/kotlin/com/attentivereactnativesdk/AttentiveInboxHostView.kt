@@ -49,6 +49,14 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  * matters precisely because of the recycling note above: a recycled host must not inherit the
  * previous screen's theme. Reading the defaults from the SDK's resources (rather than hardcoding
  * them here) keeps us honest if the SDK restyles.
+ *
+ * ## Taps
+ *
+ * The SDK listener is registered unconditionally, because Fabric never reports whether JS actually
+ * attached `onMessageTap`. That is safe only because the SDK treats the listener as observation:
+ * click tracking and deep-link opening happen either way, the latter governed by
+ * `AttentiveConfig.Builder.automaticallyOpensInboxDeepLinks`. Read state is the one exception —
+ * see [onMessageTap].
  */
 class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
@@ -77,8 +85,7 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
         addView(inbox, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
 
         // Registering a listener stops the SDK marking tapped messages read, so that call is
-        // ours now. It is unconditional — Fabric does not tell a view manager whether JS attached
-        // an `onMessageTap` handler — so a consumer who never uses the event still needs it.
+        // ours now.
         inbox.setOnMessageClickListener { message ->
             onMessageTap?.invoke(message.id, message.actionUrl)
 

@@ -507,7 +507,8 @@ Handled for you, with no props to set:
 - unread indicator dot on unread rows
 - pull-to-refresh and infinite-scroll pagination
 - swipe left to mark unread, swipe right to delete
-- tap to mark read and follow the message's deep link
+- tap to mark read and follow the message's deep link — both overridable, see
+  [Message taps](#message-taps)
 - empty state when there are no messages
 
 #### Theming
@@ -547,6 +548,57 @@ Two knobs are deliberately **not** exposed:
 - **Fonts** — not themeable from React Native yet; the inbox uses the SDK's own type styles.
 
 The swipe-right delete action is a fixed red and is not themeable.
+
+#### Message taps
+
+`onMessageTap` fires when the user taps a message row:
+
+```tsx
+<AttentiveInboxView
+  style={{ flex: 1 }}
+  onMessageTap={({ nativeEvent: { messageId, actionUrl } }) => {
+    analytics.track('inbox_message_opened', { messageId })
+    if (actionUrl) console.log('links to', actionUrl)
+  }}
+/>
+```
+
+`actionUrl` is `''` when the tapped message has no deep link.
+
+Attaching a handler still records the click, still marks the message read, and still opens the message's `actionUrl` itself.
+
+**If you navigate from `onMessageTap`, the SDK navigates
+too, and the user sees it twice.** To own routing, turn the SDK's own navigation off with
+`automaticallyOpensInboxDeepLinks` (below) and handle `actionUrl` yourself.
+
+#### SDK-opened deep links (`automaticallyOpensInboxDeepLinks`)
+
+Defaults to `true`: a tapped message opens its `actionUrl` with no wiring from you. Set it to
+`false` when you route taps yourself. Click tracking and `onMessageTap` are unaffected either way
+— only the SDK-initiated navigation stops.
+
+Like `pushEnabled`, the flag follows each platform's initialization path:
+
+**iOS** — set the optional field on the TypeScript configuration:
+
+```typescript
+const config: AttentiveSdkConfiguration = {
+  attentiveDomain: 'YOUR_ATTENTIVE_DOMAIN',
+  mode: 'production',
+  automaticallyOpensInboxDeepLinks: false, // optional; defaults to true
+}
+```
+
+**Android** — because initialization is native, the TypeScript field has no effect. Set it on the
+config builder in `MainApplication.kt` instead:
+
+```kotlin
+.automaticallyOpensInboxDeepLinks(false)
+```
+
+Setting only the TypeScript field gives you a working opt-out on iOS and double navigation on
+Android — so set both. Passing `false` from TypeScript logs a warning on Android naming the
+builder call, rather than failing quietly.
 
 #### Unread badge
 
@@ -589,7 +641,8 @@ The native SDKs expose more than the drop-in view and the unread count. The foll
 **native-only** today — they are not bridged to React Native:
 
 - programmatic `markRead` / `markUnread` / `deleteMessage` / load-next-page
-- a custom tap handler that replaces the default mark-read-and-open-deep-link behavior
+- a tap handler that *replaces* the SDK's own handling, rather than observing it alongside — see
+  [Message taps](#message-taps) for what `onMessageTap` does and does not take over
 - subscribing to the full message stream to build your own inbox UI
 
 If you need any of these, talk to your Attentive contact before designing around the drop-in view.

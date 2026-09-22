@@ -16,13 +16,14 @@ internal class AttentiveInboxMessageTapEvent(
     public override fun getEventData(): WritableMap =
         Arguments.createMap().apply {
             putString("messageId", messageId)
-            if (actionUrl != null) {
-                putString("actionUrl", actionUrl)
-            }
+            putString("actionUrl", actionUrl ?: "")
         }
 
     internal companion object {
-        /** Native event name. See the class doc for why it is `top`-prefixed. */
+        /**
+         * Native event name. The `top` prefix is what RN's Android event plumbing strips to reach
+         * the `onMessageTap` prop;
+         */
         const val EVENT_NAME = "topMessageTap"
     }
 }

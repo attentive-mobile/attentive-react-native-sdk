@@ -23,8 +23,6 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  *  - **fonts** — `setTitleFontFamily(fontResId: Int)` and friends only accept an Android font
  *    *resource id*, and React Native ships fonts in `assets/fonts/`, not `res/font/`. Needs an SDK
  *    overload taking a `FontFamily`/`Typeface` before it can be driven from JS.
- *
- * `onMessageTap` is still not observable from the Android `View` wrapper at all.
  */
 export interface NativeProps extends ViewProps {
   /** Dot marking an unread message. */
@@ -42,14 +40,11 @@ export interface NativeProps extends ViewProps {
   swipeBackgroundColor?: ColorValue
   /**
    * Fired when the user taps a message row.
-   *
-   * `actionUrl` is absent — not null — when the tapped message carries no deep link, which is the
-   * same shape the native payload uses.
    */
   onMessageTap?: DirectEventHandler<
     Readonly<{
       messageId: string
-      actionUrl?: string
+      actionUrl: string
     }>
   >
 }
