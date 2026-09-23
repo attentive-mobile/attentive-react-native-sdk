@@ -192,16 +192,20 @@ export interface Spec extends TurboModule {
    * validation that at least one contact identifier is provided, and push-token
    * queueing when the token is not yet available.
    *
-   * On Android, calls the Attentive opt-in endpoint directly via OkHttp with
-   * equivalent normalisation and validation logic.
+   * On Android, delegates to AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback,
+   * which applies equivalent normalisation and validation.
    *
    * @param email - Optional email address
    * @param phone - Optional E.164 phone number
+   * @param trackingConsent - Optional `'ACCEPTED'` / `'DECLINED'` / `'UNSPECIFIED'`.
+   *   Typed as a plain string because codegen cannot express a literal union here;
+   *   each bridge maps it to the native enum and treats nil/unknown as unspecified.
    * @returns Promise that resolves on success or rejects with an error
    */
   optInMarketingSubscription: (
     email: string | undefined,
-    phone: string | undefined
+    phone: string | undefined,
+    trackingConsent: string | undefined
   ) => Promise<void>
 
   /**
@@ -211,8 +215,8 @@ export interface Spec extends TurboModule {
    * validation that at least one contact identifier is provided, and push-token
    * queueing when the token is not yet available.
    *
-   * On Android, calls the Attentive opt-out endpoint directly via OkHttp with
-   * equivalent normalisation and validation logic.
+   * On Android, delegates to AttentiveSdk.optUserOutOfMarketingSubscriptionWithCallback,
+   * which applies equivalent normalisation and validation.
    *
    * @param email - Optional email address
    * @param phone - Optional E.164 phone number

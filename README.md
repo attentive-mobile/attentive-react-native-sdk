@@ -314,6 +314,47 @@ try {
 
 > Use `updateUser` only when switching to a different user. To add or enrich identifiers for the **current** user, prefer `identify` (shown above).
 
+### Marketing subscriptions
+
+Use `optInMarketingSubscription` and `optOutMarketingSubscription` to record a shopper's email/SMS marketing subscription — most commonly from a "yes, opt me into marketing" checkbox during native account creation. At least one of `email` or `phone` must be provided; the native SDK rejects the call if neither is. Both return a `Promise` that resolves on success and rejects with an error on failure.
+
+```typescript
+import {
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+try {
+  await optInMarketingSubscription({
+    email: 'user@example.com',
+    phone: '+15551234567',
+  })
+} catch (error) {
+  // Handle the failure (e.g. surface an error to the user)
+}
+
+await optOutMarketingSubscription({ email: 'user@example.com' })
+```
+
+#### Pixel-tracking consent (EU only)
+
+Under new EU regulations (France July 2026, Italy October 2026), brands must let shoppers opt in or out of **email pixel tracking** — the open-tracking pixels embedded in marketing emails. If your app captures that choice, pass it as `trackingConsent` so it reaches Attentive alongside the opt-in. See the [help article](https://help.attentive.com/hc/en-us/articles/51464632390804-France-Email-Privacy-Compliance-Update) for background.
+
+```typescript
+await optInMarketingSubscription({
+  email: 'user@example.com',
+  trackingConsent: 'ACCEPTED',
+})
+```
+
+Values are `'ACCEPTED'`, `'DECLINED'`, or `'UNSPECIFIED'`. Omitting the field is equivalent to `'UNSPECIFIED'`: the SDK sends no consent value and Attentive applies its own locale-based defaulting. Never infer or default the choice yourself — if the shopper has not been asked, leave it out.
+
+The SDK does not prompt for consent. Your app owns the consent-capture UX (a checkbox in an account-creation form, a preferences toggle) and passes the result through.
+
+`optOutMarketingSubscription` does not accept `trackingConsent`. Consent is captured at opt-in; the opt-out path neither receives nor processes a consent value, so accepting it there would be a silent no-op.
+
+> This is **not** App Tracking Transparency. Email pixel consent is governed by EU ePrivacy rules on the recipient's mail client, separate from Apple's cross-app tracking regime — no ATT prompt is required, and the SDK still declares `NSPrivacyTracking = false`.
+
 ### Load the Creative
 
 ```typescript

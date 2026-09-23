@@ -550,7 +550,7 @@ describe('Attentive SDK', () => {
 
         expect(
           mockNativeModule.optInMarketingSubscription
-        ).toHaveBeenCalledWith('user@example.com', '+15551234567')
+        ).toHaveBeenCalledWith('user@example.com', '+15551234567', undefined)
       })
 
       it('should call native module with email only', async () => {
@@ -562,7 +562,7 @@ describe('Attentive SDK', () => {
 
         expect(
           mockNativeModule.optInMarketingSubscription
-        ).toHaveBeenCalledWith('user@example.com', undefined)
+        ).toHaveBeenCalledWith('user@example.com', undefined, undefined)
       })
 
       it('should call native module with phone only', async () => {
@@ -572,7 +572,7 @@ describe('Attentive SDK', () => {
 
         expect(
           mockNativeModule.optInMarketingSubscription
-        ).toHaveBeenCalledWith(undefined, '+15551234567')
+        ).toHaveBeenCalledWith(undefined, '+15551234567', undefined)
       })
 
       it('should resolve when native module resolves', async () => {
@@ -603,6 +603,28 @@ describe('Attentive SDK', () => {
         await expect(
           optInMarketingSubscription({ email: 'bad@' })
         ).rejects.toThrow('HTTP_ERROR: 400')
+      })
+
+      it.each(['ACCEPTED', 'DECLINED', 'UNSPECIFIED'] as const)(
+        'should forward trackingConsent %s to the native module',
+        async (trackingConsent) => {
+          await optInMarketingSubscription({
+            email: 'user@example.com',
+            trackingConsent,
+          })
+
+          expect(
+            mockNativeModule.optInMarketingSubscription
+          ).toHaveBeenCalledWith('user@example.com', undefined, trackingConsent)
+        }
+      )
+
+      it('should forward undefined when trackingConsent is omitted', async () => {
+        await optInMarketingSubscription({ email: 'user@example.com' })
+
+        expect(
+          mockNativeModule.optInMarketingSubscription
+        ).toHaveBeenCalledWith('user@example.com', undefined, undefined)
       })
     })
 
