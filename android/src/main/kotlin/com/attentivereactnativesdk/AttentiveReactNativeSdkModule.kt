@@ -10,6 +10,7 @@ import com.attentive.androidsdk.BuildConfig as NativeSdkBuildConfig
 import com.attentive.androidsdk.AttentiveConfig
 import com.attentive.androidsdk.AttentiveEventTracker
 import com.attentive.androidsdk.AttentiveSdk
+import com.attentive.androidsdk.TrackingConsent
 import com.attentive.androidsdk.UserIdentifiers
 import com.attentive.androidsdk.creatives.Creative
 import com.attentive.androidsdk.creatives.CreativeTriggerCallback
@@ -1090,6 +1091,18 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     // ==========================================================================
 
     /**
+     * Maps the RN string to the native enum. Nil and unrecognised values become
+     * [TrackingConsent.UNSPECIFIED], which sends no field so the backend applies
+     * its own locale defaulting.
+     */
+    private fun mapTrackingConsent(raw: String?): TrackingConsent =
+        when (raw?.uppercase()) {
+            "ACCEPTED" -> TrackingConsent.ACCEPTED
+            "DECLINED" -> TrackingConsent.DECLINED
+            else -> TrackingConsent.UNSPECIFIED
+        }
+
+    /**
      * Opts a user into marketing subscriptions via the callback variant of
      * [AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback].
      *
@@ -1099,14 +1112,24 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      *
      * @param email Optional email address; the JS layer trims and rejects blanks before this call.
      * @param phone Optional E.164 phone number; same trimming guarantee.
+     * @param trackingConsent Optional "ACCEPTED" / "DECLINED" / "UNSPECIFIED"; nil and
+     *   unrecognised values map to [TrackingConsent.UNSPECIFIED], which omits the field.
      * @param promise Resolved with null on success; rejected with an error on failure.
      */
-    override fun optInMarketingSubscription(email: String?, phone: String?, promise: Promise) {
+    override fun optInMarketingSubscription(
+        email: String?,
+        phone: String?,
+        trackingConsent: String?,
+        promise: Promise,
+    ) {
         Log.i(TAG, "📬 [AttentiveSDK] optInMarketingSubscription called (Android)")
+
+        val consent = mapTrackingConsent(trackingConsent)
 
         AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback(
             email = email.orEmpty(),
             phoneNumber = phone.orEmpty(),
+            trackingConsent = consent,
             callback = object : AttentiveSdk.AttentiveCallback {
                 override fun onSuccess() {
                     Log.i(TAG, "✅ [AttentiveSDK] optInMarketingSubscription succeeded")
@@ -1116,6 +1139,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                         val debugData = mutableMapOf<String, Any>(
                             "email" to (email ?: "nil"),
                             "phone" to (phone ?: "nil"),
+                            "trackingConsent" to consent.name,
                             "status" to "success",
                         )
                         UiThreadUtil.runOnUiThread {
