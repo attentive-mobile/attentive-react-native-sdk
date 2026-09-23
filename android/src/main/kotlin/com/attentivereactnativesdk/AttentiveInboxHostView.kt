@@ -5,6 +5,11 @@ import android.widget.FrameLayout
 import androidx.annotation.ColorInt
 import androidx.annotation.ColorRes
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
+import com.facebook.react.bridge.ReactContext
 import com.attentive.androidsdk.R as SdkR
 import com.attentive.androidsdk.inbox.AttentiveInboxView
 
@@ -21,7 +26,7 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  * times and killed the surface.
  *
  * Hence this wrapper, the Android counterpart of the iOS component's lazy attach in
- * `didMoveToWindow`. Three details, each established by A/B-ing them on a device:
+ * `didMoveToWindow`. Four details, each established by A/B-ing them on a device:
  *
  *  1. [onMeasure] skips children while detached. This is the actual fix: it is what lets Fabric
  *     measure a not-yet-attached host safely.
@@ -33,6 +38,10 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  *  3. [requestLayout] posts an explicit measure/layout pass, because RN's own parents no-op
  *     `onLayout` ("layout is handled by UIManager") and would otherwise never lay out a non-RN
  *     child. `onAttachedToWindow` triggers one too, to replace the measure skipped by (1).
+ *  4. [onAttachedToWindow] pins the view-tree owners to the Activity, before `super`.
+ *     react-native-screens re-parents the same host into a new fragment view each time its screen
+ *     returns to the top, so Compose would otherwise rebuild the composition against the previous,
+ *     DESTROYED fragment view lifecycle and stay blank (inbox tap -> deep-linked screen -> back).
  *
  * Nothing needs disposing: `AbstractComposeView` drops its composition when it leaves the window,
  * and the child's lifetime is the host's. Deliberately no `onDropViewInstance` cleanup — under
@@ -71,9 +80,16 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
     }
 
     override fun onAttachedToWindow() {
+        pinViewTreeOwnersToActivity()
         super.onAttachedToWindow()
         // The measure that arrived while detached was skipped, so ask for a real one.
         requestLayout()
+    }
+
+    private fun pinViewTreeOwnersToActivity() {
+        val activity = (context as? ReactContext)?.currentActivity ?: return
+        (activity as? LifecycleOwner)?.let { setViewTreeLifecycleOwner(it) }
+        (activity as? SavedStateRegistryOwner)?.let { setViewTreeSavedStateRegistryOwner(it) }
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
