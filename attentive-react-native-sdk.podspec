@@ -10,7 +10,7 @@ Pod::Spec.new do |s|
   s.license      = package["license"]
   s.authors      = package["author"]
 
-  s.platforms    = { :ios => "14.0" }
+  s.platforms    = { :ios => "15.0" }
   s.source       = { :git => "https://github.com/attentive-mobile/attentive-react-native-sdk.git", :tag => "#{s.version}" }
 
   s.source_files = "ios/**/*.{h,m,mm,swift}"
@@ -23,7 +23,7 @@ Pod::Spec.new do |s|
   s.exclude_files = "ios/build/**/*"
   s.public_header_files = "ios/AttentiveReactNativeSdk.h"
 
-  s.dependency 'ATTNSDKFramework', '2.0.18-beta.1'
+  s.dependency 'ATTNSDKFramework', '2.1.0'
   s.swift_versions = ['5']
 
   install_modules_dependencies(s)

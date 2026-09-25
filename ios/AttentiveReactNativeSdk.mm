@@ -668,12 +668,14 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
   __weak __typeof(self) weakSelf = self;
   [sdk refreshInboxUnreadCountWithCompletion:^(NSNumber *unreadCount) {
-    // nil means the refresh could not be performed — the shim was released mid-flight by a module
-    // teardown or a JS reload. Reject rather than resolve: the promise has to settle either way,
-    // and resolving with a placeholder count would overwrite a correct badge.
+    // nil means the refresh could not be performed: either the shim was released mid-flight by a
+    // module teardown or a JS reload, or this build has no inbox support compiled in (see
+    // ATTENTIVE_INBOX in ATTNNativeSDK.swift). Reject rather than resolve — the promise has to
+    // settle either way, and resolving with a placeholder count would overwrite a correct badge.
     if (unreadCount == nil) {
       reject(@"inbox_unread_count_error",
-             @"The Attentive SDK was torn down before the inbox unread count came back.",
+             @"The inbox unread count is unavailable: either the Attentive SDK was torn down "
+              "before it came back, or this build does not include inbox support.",
              nil);
       return;
     }
