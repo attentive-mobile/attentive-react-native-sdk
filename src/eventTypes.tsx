@@ -88,7 +88,11 @@ export type AttentiveEventSubscription = {
 /** Handle returned by `addCreativeEventListener`. Call `remove()` to stop receiving events. */
 export type CreativeEventSubscription = AttentiveEventSubscription
 
-/** Handle returned by `addInboxUnreadCountListener`; call `remove()` to unsubscribe. */
+/**
+ * Handle returned by `addInboxUnreadCountListener`; call `remove()` to unsubscribe.
+ *
+ * @deprecated Inbox is not yet available for public use.
+ */
 export type InboxUnreadCountSubscription = AttentiveEventSubscription
 
 // Codegen does not support nested objects. We must flatten the Purchase type.
