@@ -24,6 +24,8 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  *    overload taking a `FontFamily`/`Typeface` before it can be driven from JS.
  *
  * `onMessageTap` is still not observable from the Android `View` wrapper at all.
+ *
+ * @deprecated Inbox is not yet available for public use.
  */
 export interface NativeProps extends ViewProps {
   /** Dot marking an unread message. */
@@ -41,4 +43,5 @@ export interface NativeProps extends ViewProps {
   swipeBackgroundColor?: ColorValue
 }
 
+/** @deprecated Inbox is not yet available for public use. */
 export default codegenNativeComponent<NativeProps>('AttentiveInboxView')

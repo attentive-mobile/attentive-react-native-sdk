@@ -710,6 +710,7 @@ function updateUser(params: UpdateUserParams): Promise<void> {
  * means for badge accuracy.
  *
  * @returns Promise resolving to the unread count
+ * @deprecated Inbox is not yet available for public use.
  */
 function getInboxUnreadCount(): Promise<number> {
   return AttentiveReactNativeSdk.getInboxUnreadCount()
@@ -728,6 +729,7 @@ function getInboxUnreadCount(): Promise<number> {
  *
  * @param listener - Invoked with the new unread count
  * @returns A subscription; call `remove()` to stop receiving updates
+ * @deprecated Inbox is not yet available for public use.
  */
 function addInboxUnreadCountListener(
   listener: (unreadCount: number) => void
@@ -779,7 +781,11 @@ export {
   optInMarketingSubscription,
   optOutMarketingSubscription,
   updateUser,
-  // Inbox
+  // Inbox — still exported, but tagged `@deprecated` on each declaration because the
+  // feature is not generally available. This mirrors the native SDKs' own gating:
+  // Android's `AttentiveInboxView` carries `@Deprecated` + `@RestrictTo(LIBRARY_GROUP)`
+  // on `main`, and iOS ships no inbox in a stable release at all. Drop the tags (and
+  // restore the README section) when inbox ships.
   AttentiveInboxView,
   getInboxUnreadCount,
   addInboxUnreadCountListener,
@@ -805,7 +811,7 @@ export type {
   // Marketing Subscription Types
   MarketingSubscriptionParams,
   UpdateUserParams,
-  // Inbox Types
+  // Inbox Types — see the `@deprecated` note on the Inbox exports above.
   AttentiveInboxViewProps,
   InboxUnreadCountSubscription,
 }

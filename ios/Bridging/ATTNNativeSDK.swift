@@ -566,6 +566,12 @@ struct DebugEvent {
   }
 
   // MARK: - Inbox (default renderer)
+  //
+  // `ATTENTIVE_INBOX` is never defined: the podspec pins a stable ATTNSDKFramework, and no stable
+  // release ships `Sources/Inbox`, so these bodies cannot compile. The real implementations are
+  // kept beside the inert ones so restoring inbox is defining the condition and bumping the pin
+  // — the ObjC++ layer and the shared TurboModule spec (which Android implements and *does* work)
+  // both require them.
 
   /// Builds the SDK's drop-in inbox UI ("default renderer") as a `UIViewController`.
   ///
@@ -595,6 +601,7 @@ struct DebugEvent {
     bodyColor: UIColor?,
     timestampColor: UIColor?
   ) -> UIViewController {
+    #if ATTENTIVE_INBOX
     let style = InboxStyle(
       title: InboxStyle.Text(
         font: .headline,
@@ -610,6 +617,13 @@ struct DebugEvent {
       )
     )
     return sdk.inboxViewController(style: style)
+    #else
+    // An empty controller rather than a nil return: the Fabric component parents whatever comes
+    // back and would otherwise need its own unavailable branch. Logged because the alternative is
+    // a blank view that reads as a layout bug — see MSDK-402 for what silent no-ops cost us.
+    print("[AttentiveSDK] AttentiveInboxView is unavailable: this build has no inbox support.")
+    return UIViewController()
+    #endif
   }
 
   /// Refreshes the unread inbox count from the server, then reports it.
@@ -633,6 +647,7 @@ struct DebugEvent {
   /// TypeScript API documents this call as refreshing on iOS and reading a cache on Android.
   @objc(refreshInboxUnreadCountWithCompletion:)
   public func refreshInboxUnreadCount(completion: @escaping (NSNumber?) -> Void) {
+    #if ATTENTIVE_INBOX
     Task { @MainActor [weak self] in
       // The shim is gone: the module was torn down, or a JS reload landed mid-refresh. The
       // completion is captured strongly by this task, so it can still be called even though
@@ -645,6 +660,11 @@ struct DebugEvent {
       await self.sdk.refreshInboxUnreadCount()
       completion(NSNumber(value: self.sdk.inboxUnreadCount))
     }
+    #else
+    // `nil` already means "the refresh could not be performed" (see the doc above), so this needs
+    // no new contract — the count is simply never obtainable in this build.
+    completion(nil)
+    #endif
   }
 
   /// Observes unread-count changes and forwards each one to `handler` on the main queue.
@@ -657,7 +677,8 @@ struct DebugEvent {
   /// - Returns: the observer token; hand it back to `NotificationCenter.removeObserver` to stop.
   @objc(observeInboxUnreadCountWithHandler:)
   public func observeInboxUnreadCount(handler: @escaping (Int) -> Void) -> NSObjectProtocol {
-    NotificationCenter.default.addObserver(
+    #if ATTENTIVE_INBOX
+    return NotificationCenter.default.addObserver(
       forName: .ATTNSDKInboxUnreadCountChanged,
       object: sdk,
       queue: .main
@@ -665,6 +686,17 @@ struct DebugEvent {
       let count = note.userInfo?["attentiveInboxUnreadCount"] as? Int ?? 0
       handler(count)
     }
+    #else
+    // A real token for a name nothing ever posts, so the caller's `removeObserver` stays
+    // symmetric. Returning a bare NSObject would work but leaves an unbalanced pair. The handler
+    // is therefore never invoked, which is why this says so rather than going quiet.
+    print("[AttentiveSDK] Inbox unread-count updates are unavailable: this build has no inbox support.")
+    return NotificationCenter.default.addObserver(
+      forName: Notification.Name("AttentiveInboxUnavailable"),
+      object: nil,
+      queue: .main
+    ) { _ in }
+    #endif
   }
 
   // MARK: - Marketing Subscriptions (React Native Bridge)
