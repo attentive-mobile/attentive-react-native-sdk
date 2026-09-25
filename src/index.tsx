@@ -18,6 +18,8 @@ import type {
   PushNotificationUserInfo,
   PushRegistrationResult,
   MarketingSubscriptionParams,
+  OptInMarketingSubscriptionParams,
+  TrackingConsent,
   UpdateUserParams,
 } from './eventTypes'
 import { CREATIVE_STATUSES } from './eventTypes'
@@ -639,22 +641,28 @@ async function getInitialPushNotification(): Promise<Record<
  * `email` or `phone` must be a valid value; the underlying native SDK
  * rejects the call if neither is provided.
  *
- * @param params - Object containing optional `email` and/or `phone`
+ * Pass `trackingConsent` to attach the shopper's email open-tracking choice —
+ * see the README's pixel-tracking consent section. Omitting it sends no
+ * consent field, leaving the backend's locale defaulting in charge.
+ *
+ * @param params - Object containing optional `email`, `phone`, and `trackingConsent`
  * @returns Promise that resolves on success or rejects with an error
  */
 function optInMarketingSubscription(
-  params: MarketingSubscriptionParams
+  params: OptInMarketingSubscriptionParams
 ): Promise<void> {
   return AttentiveReactNativeSdk.optInMarketingSubscription(
     params?.email,
-    params?.phone
+    params?.phone,
+    params?.trackingConsent
   )
 }
 
 /**
  * Opts a user out of marketing subscriptions (email and/or SMS).
  *
- * Same contract as [optInMarketingSubscription].
+ * Same contract as [optInMarketingSubscription], except that opt-out takes no
+ * `trackingConsent` — the backend does not process a consent value on this path.
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error
@@ -804,6 +812,8 @@ export type {
   PushRegistrationResult,
   // Marketing Subscription Types
   MarketingSubscriptionParams,
+  OptInMarketingSubscriptionParams,
+  TrackingConsent,
   UpdateUserParams,
   // Inbox Types
   AttentiveInboxViewProps,

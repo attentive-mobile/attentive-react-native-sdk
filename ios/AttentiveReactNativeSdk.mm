@@ -453,10 +453,13 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
 - (void)optInMarketingSubscription:(NSString *)email
                               phone:(NSString *)phone
+                    trackingConsent:(NSString *)trackingConsent
                             resolve:(RCTPromiseResolveBlock)resolve
                              reject:(RCTPromiseRejectBlock)reject {
     NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
     NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+    // nil reaches the Swift bridge as .unspecified, which omits the field on the wire.
+    NSString *normalizedConsent = (trackingConsent && ![trackingConsent isEqual:[NSNull null]] && trackingConsent.length > 0) ? trackingConsent : nil;
 
     if (!_sdk) {
         reject(@"OPT_IN_ERROR", @"SDK not initialized", nil);
@@ -465,6 +468,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
     [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
                                         phone:normalizedPhone
+                              trackingConsent:normalizedConsent
                                    completion:^(NSError * _Nullable error) {
         if (error) {
             reject(@"OPT_IN_ERROR", error.localizedDescription, error);
