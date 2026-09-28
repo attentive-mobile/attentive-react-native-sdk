@@ -22,7 +22,7 @@ import type {
   TrackingConsent,
   UpdateUserParams,
 } from './eventTypes'
-import { CREATIVE_STATUSES } from './eventTypes'
+import { CREATIVE_STATUSES, TRACKING_CONSENTS } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
@@ -108,6 +108,10 @@ function destroyCreative() {
  */
 const isCreativeStatus = (value?: string): value is CreativeStatus =>
   CREATIVE_STATUSES.includes(value as CreativeStatus)
+
+// Plain-JS callers get no type check, so the union is enforced at runtime too.
+const isTrackingConsent = (value: unknown): value is TrackingConsent =>
+  TRACKING_CONSENTS.includes(value as TrackingConsent)
 
 /**
  * Wraps a device-event listener with the two rules every bridged event here follows: drop a
@@ -643,7 +647,8 @@ async function getInitialPushNotification(): Promise<Record<
  *
  * Pass `trackingConsent` to attach the shopper's email open-tracking choice —
  * see the README's pixel-tracking consent section. Omitting it sends no
- * consent field, leaving the backend's locale defaulting in charge.
+ * consent field, leaving the backend's locale defaulting in charge. Any other
+ * value rejects without calling native, so a typo can't downgrade a decline.
  *
  * @param params - Object containing optional `email`, `phone`, and `trackingConsent`
  * @returns Promise that resolves on success or rejects with an error
@@ -651,6 +656,17 @@ async function getInitialPushNotification(): Promise<Record<
 function optInMarketingSubscription(
   params: OptInMarketingSubscriptionParams
 ): Promise<void> {
+  const trackingConsent = params?.trackingConsent
+  if (trackingConsent != null && !isTrackingConsent(trackingConsent)) {
+    return Promise.reject(
+      new Error(
+        `[AttentiveSDK] Unrecognized trackingConsent "${String(
+          trackingConsent
+        )}". Expected one of ${TRACKING_CONSENTS.join(', ')}, or omit it.`
+      )
+    )
+  }
+
   return AttentiveReactNativeSdk.optInMarketingSubscription(
     params?.email,
     params?.phone,

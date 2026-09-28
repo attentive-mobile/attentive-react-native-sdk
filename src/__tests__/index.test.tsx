@@ -84,6 +84,7 @@ import {
 import type {
   AttentiveSdkConfiguration,
   MarketingSubscriptionParams,
+  OptInMarketingSubscriptionParams,
 } from '../index'
 
 describe('Attentive SDK', () => {
@@ -626,6 +627,23 @@ describe('Attentive SDK', () => {
           mockNativeModule.optInMarketingSubscription
         ).toHaveBeenCalledWith('user@example.com', undefined, undefined)
       })
+
+      // Plain-JS callers bypass the union type, so these reach the runtime check.
+      it.each(['DECLINE', 'accepted', '', 1])(
+        'should reject unrecognized trackingConsent %p without calling native',
+        async (trackingConsent) => {
+          await expect(
+            optInMarketingSubscription({
+              email: 'user@example.com',
+              trackingConsent,
+            } as unknown as OptInMarketingSubscriptionParams)
+          ).rejects.toThrow('Unrecognized trackingConsent')
+
+          expect(
+            mockNativeModule.optInMarketingSubscription
+          ).not.toHaveBeenCalled()
+        }
+      )
     })
 
     describe('optOutMarketingSubscription', () => {

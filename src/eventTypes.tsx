@@ -158,7 +158,13 @@ export interface MarketingSubscriptionParams {
  * enum. `'UNSPECIFIED'` — and omitting the value entirely — sends no field, so
  * the backend applies its own locale defaulting.
  */
-export type TrackingConsent = 'ACCEPTED' | 'DECLINED' | 'UNSPECIFIED'
+export const TRACKING_CONSENTS = [
+  'ACCEPTED',
+  'DECLINED',
+  'UNSPECIFIED',
+] as const
+
+export type TrackingConsent = (typeof TRACKING_CONSENTS)[number]
 
 /**
  * Parameters for marketing subscription opt-in. Same contact-info rules as

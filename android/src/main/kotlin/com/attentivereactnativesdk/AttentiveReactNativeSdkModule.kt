@@ -1091,18 +1091,6 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     // ==========================================================================
 
     /**
-     * Maps the RN string to the native enum. Nil and unrecognised values become
-     * [TrackingConsent.UNSPECIFIED], which sends no field so the backend applies
-     * its own locale defaulting.
-     */
-    private fun mapTrackingConsent(raw: String?): TrackingConsent =
-        when (raw?.uppercase()) {
-            "ACCEPTED" -> TrackingConsent.ACCEPTED
-            "DECLINED" -> TrackingConsent.DECLINED
-            else -> TrackingConsent.UNSPECIFIED
-        }
-
-    /**
      * Opts a user into marketing subscriptions via the callback variant of
      * [AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback].
      *
@@ -1124,7 +1112,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     ) {
         Log.i(TAG, "📬 [AttentiveSDK] optInMarketingSubscription called (Android)")
 
-        val consent = mapTrackingConsent(trackingConsent)
+        val consent = parseTrackingConsent(trackingConsent) ?: TrackingConsent.UNSPECIFIED.also {
+            Log.w(TAG, "[AttentiveSDK] Unrecognized trackingConsent \"$trackingConsent\"; sending no consent value")
+        }
 
         AttentiveSdk.optUserIntoMarketingSubscriptionWithCallback(
             email = email.orEmpty(),

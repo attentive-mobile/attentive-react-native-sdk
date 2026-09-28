@@ -669,14 +669,17 @@ struct DebugEvent {
 
   // MARK: - Marketing Subscriptions (React Native Bridge)
 
-  /// Maps the RN string to the native enum. A nil or unrecognised value becomes
-  /// `.unspecified`, which omits the field on the wire so the backend applies its
-  /// own locale defaulting.
+  /// Maps the RN string to the native enum, matching exactly like the TS union.
+  /// nil and unrecognised values become `.unspecified`, which omits the field so the
+  /// backend applies its own locale defaulting; unrecognised ones are logged.
   private static func mapTrackingConsent(_ raw: String?) -> ATTNTrackingConsent {
-    switch raw?.uppercased() {
+    switch raw {
     case "ACCEPTED": return .accepted
     case "DECLINED": return .declined
-    default: return .unspecified
+    case nil, "UNSPECIFIED": return .unspecified
+    case let unrecognized?:
+      print("[AttentiveSDK] Unrecognized trackingConsent \"\(unrecognized)\"; sending no consent value")
+      return .unspecified
     }
   }
 
