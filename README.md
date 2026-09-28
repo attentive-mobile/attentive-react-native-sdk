@@ -338,7 +338,7 @@ await optOutMarketingSubscription({ email: 'user@example.com' })
 
 #### Pixel-tracking consent (EU only)
 
-Under new EU regulations (France July 2026, Italy October 2026), brands must let shoppers opt in or out of **email pixel tracking** — the open-tracking pixels embedded in marketing emails. If your app captures that choice, pass it as `trackingConsent` so it reaches Attentive alongside the opt-in. See the [help article](https://help.attentive.com/hc/en-us/articles/51464632390804-France-Email-Privacy-Compliance-Update) for background.
+EU customers subject to email pixel-tracking consent requirements can pass the shopper's choice via `trackingConsent` on `optInMarketingSubscription`. See the [help article](https://help.attentive.com/hc/en-us/articles/51464632390804-France-Email-Privacy-Compliance-Update) for background.
 
 ```typescript
 await optInMarketingSubscription({
@@ -347,13 +347,9 @@ await optInMarketingSubscription({
 })
 ```
 
-Values are `'ACCEPTED'`, `'DECLINED'`, or `'UNSPECIFIED'`. Omitting the field is equivalent to `'UNSPECIFIED'`: the SDK sends no consent value and Attentive applies its own locale-based defaulting. Never infer or default the choice yourself — if the shopper has not been asked, leave it out.
+Values: `'ACCEPTED'`, `'DECLINED'`, or `'UNSPECIFIED'` (default, backend decides). Any other value rejects the call. `optOutMarketingSubscription` does not accept a consent parameter — consent is captured at opt-in.
 
-The SDK does not prompt for consent. Your app owns the consent-capture UX (a checkbox in an account-creation form, a preferences toggle) and passes the result through.
-
-`optOutMarketingSubscription` does not accept `trackingConsent`. Consent is captured at opt-in; the opt-out path neither receives nor processes a consent value, so accepting it there would be a silent no-op.
-
-> This is **not** App Tracking Transparency. Email pixel consent is governed by EU ePrivacy rules on the recipient's mail client, separate from Apple's cross-app tracking regime — no ATT prompt is required, and the SDK still declares `NSPrivacyTracking = false`.
+Existing call sites that don't pass `trackingConsent` continue to work unchanged — they default to `'UNSPECIFIED'`.
 
 ### Load the Creative
 
