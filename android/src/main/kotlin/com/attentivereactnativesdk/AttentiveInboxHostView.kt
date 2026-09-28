@@ -1,6 +1,8 @@
 package com.attentivereactnativesdk
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.widget.FrameLayout
 import androidx.annotation.ColorInt
 import androidx.annotation.ColorRes
@@ -42,11 +44,7 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  *     react-native-screens re-parents the same host into a new fragment view each time its screen
  *     returns to the top, so Compose would otherwise rebuild the composition against the previous,
  *     DESTROYED fragment view lifecycle and stay blank (inbox tap -> deep-linked screen -> back).
- *
- * Nothing needs disposing: `AbstractComposeView` drops its composition when it leaves the window,
- * and the child's lifetime is the host's. Deliberately no `onDropViewInstance` cleanup — under
- * `ReactNativeFeatureFlags.enableViewRecycling()` a host can be handed back out of RN's recycle
- * pool, and a host that had its child removed would come back empty per (2).
+ *     [onDetachedFromWindow] clears the pin, so a detached or pooled host holds no Activity.
  *
  * ## Theming
  *
@@ -54,8 +52,8 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  * `mutableStateOf`, so a change recomposes without touching the view tree. Each one takes a
  * nullable colour and substitutes the SDK's own `R.color.attentive_inbox_*` default when null —
  * that is what makes unsetting a prop restore the default instead of keeping the last value, which
- * matters precisely because of the recycling note above: a recycled host must not inherit the
- * previous screen's theme. Reading the defaults from the SDK's resources (rather than hardcoding
+ * matters because RN can recycle this view: a recycled host must not inherit the previous
+ * screen's theme. Reading the defaults from the SDK's resources (rather than hardcoding
  * them here) keeps us honest if the SDK restyles.
  */
 class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
@@ -87,9 +85,17 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
     }
 
     private fun pinViewTreeOwnersToActivity() {
-        val activity = (context as? ReactContext)?.currentActivity ?: return
-        (activity as? LifecycleOwner)?.let { setViewTreeLifecycleOwner(it) }
-        (activity as? SavedStateRegistryOwner)?.let { setViewTreeSavedStateRegistryOwner(it) }
+        val activity = context.findActivity() ?: (context as? ReactContext)?.currentActivity
+        setViewTreeLifecycleOwner(activity as? LifecycleOwner)
+        // Activity-wide registry: a second inbox attached at the same time shares its key, so
+        // Compose skips registering it and that inbox gets no saved state (e.g. scroll position).
+        setViewTreeSavedStateRegistryOwner(activity as? SavedStateRegistryOwner)
+    }
+
+    private tailrec fun Context.findActivity(): Activity? = when (this) {
+        is Activity -> this
+        is ContextWrapper -> baseContext.findActivity()
+        else -> null
     }
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
@@ -119,6 +125,8 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
         // skips the children and layout() replays stale bounds.
         removeCallbacks(measureAndLayout)
         super.onDetachedFromWindow()
+        setViewTreeLifecycleOwner(null)
+        setViewTreeSavedStateRegistryOwner(null)
     }
 
     /**
