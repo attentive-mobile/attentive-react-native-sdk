@@ -368,7 +368,7 @@ promise.
 | `opened` | The creative rendered and is visible. |
 | `closed` | The creative was dismissed by the user tapping the creative's own close control. The Android hardware back button does **not** produce this event — see the caveats below. |
 | `notOpened` | The creative could not be shown: no creative is configured for the app, the creative was fatigued, the load timed out, or an unknown error occurred. This is the single catch-all failure status on both platforms — it does not distinguish between those causes. See the Android caveat below. |
-| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `attentive-ios-sdk` 2.0.18-beta.1 declares this status but never reports it, so an iOS-only integration will never see it. |
+| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — the iOS SDK (`ATTNSDKFramework`, as of 2.1.0) declares this status but never reports it, so an iOS-only integration will never see it. |
 
 `creativeId` echoes the id you passed to `triggerCreative(creativeId)`, and is absent when you
 triggered the default creative.

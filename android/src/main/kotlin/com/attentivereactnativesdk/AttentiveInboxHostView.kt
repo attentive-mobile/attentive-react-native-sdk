@@ -1,5 +1,6 @@
 package com.attentivereactnativesdk
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -56,6 +57,8 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  * screen's theme. Reading the defaults from the SDK's resources (rather than hardcoding
  * them here) keeps us honest if the SDK restyles.
  */
+// Native stable marks AttentiveInboxView @RestrictTo until GA (MSDK-453); lint-only, the view works.
+@SuppressLint("RestrictedApi")
 class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
     // Declared before `inbox` and the init block on purpose. `ViewGroup.addView` calls

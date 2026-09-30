@@ -1,5 +1,6 @@
 package com.attentivereactnativesdk
 
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.Application
 import android.util.Log
@@ -330,6 +331,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * NOTE: `getUnreadCount()` is deleted in favour of `startInbox()` + collecting `inboxState`
      * in a later native SDK release. This is the only call site to swap when that lands.
      */
+    // Native stable marks the inbox API @RestrictTo until GA (MSDK-453); lint-only, the calls work.
+    @SuppressLint("RestrictedApi")
     override fun getInboxUnreadCount(promise: Promise) {
         try {
             // Started before the read, not after: this method is documented as the call that starts
@@ -362,6 +365,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * value [getInboxUnreadCount] just resolved; that is deliberate, since dropping it would lose a
      * fetch that completed in between.
      */
+    @SuppressLint("RestrictedApi")
     private fun startObservingInboxUnreadCount() {
         if (inboxUnreadCountJob?.isActive == true) return
         inboxUnreadCountJob = inboxScope.launch {
