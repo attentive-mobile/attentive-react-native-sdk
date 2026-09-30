@@ -11,6 +11,7 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.defaults.DefaultNewArchitectureEntryPoint.fabricEnabled
 import com.facebook.react.defaults.DefaultReactActivityDelegate
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.swmansion.rnscreens.fragment.restoration.RNScreensFragmentFactory
 
 /**
  * Main React Native activity for Bonni.
@@ -66,6 +67,7 @@ class MainActivity : ReactActivity() {
      * once the React Native bridge is fully initialised.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
+        supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
         super.onCreate(savedInstanceState)
         Log.d(TAG, "onCreate: checking for initial push notification intent")
         // TODO(MSDK-352): handle killed-state push tap intent here

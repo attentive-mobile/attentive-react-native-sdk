@@ -1,5 +1,3 @@
-# attentive-react-native-sdk
-
 # Attentive React Native SDK
 
 The Attentive React Native SDK provides the functionality to render Attentive creative units and collect Attentive events in React Native mobile applications.
