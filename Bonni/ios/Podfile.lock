@@ -1955,7 +1955,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  attentive-react-native-sdk: ba25be87cb21b4a5470f86d0f98176b0defbe84c
+  attentive-react-native-sdk: 2889f7e86e0e8734587999722b35d0853d55e7fe
   ATTNSDKFramework: 6900c0e415c08dd17b2831fb9a8182d05be784cd
   boost: 7e761d76ca2ce687f7cc98e698152abd03a18f90
   DoubleConversion: cb417026b2400c8f53ae97020b2be961b59470cb
