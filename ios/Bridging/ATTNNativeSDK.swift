@@ -669,17 +669,17 @@ struct DebugEvent {
 
   // MARK: - Marketing Subscriptions (React Native Bridge)
 
-  /// Maps the RN string to the native enum, matching exactly like the TS union.
-  /// nil and unrecognised values become `.unspecified`, which omits the field so the
-  /// backend applies its own locale defaulting; unrecognised ones are logged.
-  private static func mapTrackingConsent(_ raw: String?) -> ATTNTrackingConsent {
+  /// Maps the RN string to the native enum, matching exactly like the TS union, plus the
+  /// label the debug overlay shows. nil and unrecognised values become `.unspecified`, which
+  /// omits the field so the backend applies its own locale defaulting; unrecognised ones are logged.
+  private static func mapTrackingConsent(_ raw: String?) -> (consent: ATTNTrackingConsent, label: String) {
     switch raw {
-    case "ACCEPTED": return .accepted
-    case "DECLINED": return .declined
-    case nil, "UNSPECIFIED": return .unspecified
+    case "ACCEPTED": return (.accepted, "ACCEPTED")
+    case "DECLINED": return (.declined, "DECLINED")
+    case nil, "UNSPECIFIED": return (.unspecified, "UNSPECIFIED")
     case let unrecognized?:
       print("[AttentiveSDK] Unrecognized trackingConsent \"\(unrecognized)\"; sending no consent value")
-      return .unspecified
+      return (.unspecified, "UNSPECIFIED")
     }
   }
 
@@ -690,15 +690,7 @@ struct DebugEvent {
     trackingConsent: String?,
     completion: @escaping (NSError?) -> Void
   ) {
-    let consent = Self.mapTrackingConsent(trackingConsent)
-    // Debug overlay shows the resolved value rather than the raw input, so an
-    // unrecognised string surfaces as UNSPECIFIED exactly as it goes out.
-    let consentLabel: String
-    switch consent {
-    case .accepted: consentLabel = "ACCEPTED"
-    case .declined: consentLabel = "DECLINED"
-    default: consentLabel = "UNSPECIFIED"
-    }
+    let (consent, consentLabel) = Self.mapTrackingConsent(trackingConsent)
     sdk.optInMarketingSubscription(
       email: email,
       phone: phone,

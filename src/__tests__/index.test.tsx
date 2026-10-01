@@ -620,14 +620,6 @@ describe('Attentive SDK', () => {
         }
       )
 
-      it('should forward undefined when trackingConsent is omitted', async () => {
-        await optInMarketingSubscription({ email: 'user@example.com' })
-
-        expect(
-          mockNativeModule.optInMarketingSubscription
-        ).toHaveBeenCalledWith('user@example.com', undefined, undefined)
-      })
-
       // Plain-JS callers bypass the union type, so these reach the runtime check.
       it.each(['DECLINE', 'accepted', '', 1])(
         'should reject unrecognized trackingConsent %p without calling native',

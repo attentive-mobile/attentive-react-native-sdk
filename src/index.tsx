@@ -670,7 +670,7 @@ function optInMarketingSubscription(
   return AttentiveReactNativeSdk.optInMarketingSubscription(
     params?.email,
     params?.phone,
-    params?.trackingConsent
+    trackingConsent
   )
 }
 
