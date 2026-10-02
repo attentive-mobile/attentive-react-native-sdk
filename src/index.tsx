@@ -12,6 +12,7 @@ import type {
   CreativeEvent,
   AttentiveEventSubscription,
   CreativeEventSubscription,
+  InboxUnreadCountSubscription,
   PushAuthorizationStatus,
   ApplicationState,
   PushNotificationUserInfo,
@@ -23,6 +24,8 @@ import { CREATIVE_STATUSES } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
+import AttentiveInboxView from './AttentiveInboxViewNativeComponent'
+import type { NativeProps as AttentiveInboxViewProps } from './AttentiveInboxViewNativeComponent'
 
 /** Any name in [DEVICE_EVENT_NAMES] — the only names either native bridge emits. */
 type DeviceEventName =
@@ -677,6 +680,76 @@ function updateUser(params: UpdateUserParams): Promise<void> {
   return AttentiveReactNativeSdk.updateUser(params?.email, params?.phone)
 }
 
+/**
+ * Reads the unread inbox message count, and starts the inbox.
+ *
+ * This is the call that gets an inbox badge going: it kicks off the first server fetch and,
+ * on Android, starts the observer behind `addInboxUnreadCountListener`. Render the count it
+ * resolves with, then let the listener keep it current.
+ *
+ * ```ts
+ * useEffect(() => {
+ *   const subscription = addInboxUnreadCountListener(setCount)
+ *   getInboxUnreadCount()
+ *     .then(setCount)
+ *     .catch((error) => console.warn('Inbox unread count unavailable:', error))
+ *   return () => subscription.remove()
+ * }, [])
+ * ```
+ *
+ * Register the listener before the read, as above. If the read lands before `initialize()` it
+ * rejects, but the count is not lost: the native side waits for initialization and then delivers
+ * it to the listener, so the badge fills in without a remount. Log the rejection rather than
+ * discarding it — any *other* cause is a real failure, and an empty catch is how it goes unnoticed.
+ *
+ * `0` is both the initial value and the "nothing unread" value, so it cannot tell you whether
+ * the first fetch has landed.
+ *
+ * Refresh behaviour is platform-specific — on iOS every call refreshes from the server, on
+ * Android only the first one does. See the JSDoc on the native spec for why, and what that
+ * means for badge accuracy.
+ *
+ * @returns Promise resolving to the unread count
+ */
+function getInboxUnreadCount(): Promise<number> {
+  return AttentiveReactNativeSdk.getInboxUnreadCount()
+}
+
+/**
+ * Subscribe to inbox unread-count changes.
+ *
+ * Fires whenever the count the native SDK holds changes — after a fetch, after a message is
+ * read or deleted in the inbox UI, and when the user's identity changes. Repeats of the same
+ * value are filtered out natively, so a re-fetch returning an unchanged count will not churn
+ * your badge.
+ *
+ * Pair it with [getInboxUnreadCount] for the initial value; a listener on its own receives
+ * nothing until something starts the inbox.
+ *
+ * @param listener - Invoked with the new unread count
+ * @returns A subscription; call `remove()` to stop receiving updates
+ */
+function addInboxUnreadCountListener(
+  listener: (unreadCount: number) => void
+): InboxUnreadCountSubscription {
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.inboxUnreadCount,
+    (event: { unreadCount?: number }) => {
+      const unreadCount = event?.unreadCount
+      if (typeof unreadCount !== 'number' || !Number.isFinite(unreadCount)) {
+        console.warn(
+          `[AttentiveSDK] Ignoring inbox unread-count event with a non-numeric count: ${String(
+            unreadCount
+          )}.`
+        )
+        return undefined
+      }
+      return unreadCount
+    },
+    listener
+  )
+}
+
 export {
   initialize,
   triggerCreative,
@@ -706,6 +779,10 @@ export {
   optInMarketingSubscription,
   optOutMarketingSubscription,
   updateUser,
+  // Inbox
+  AttentiveInboxView,
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
 }
 
 export type {
@@ -728,4 +805,7 @@ export type {
   // Marketing Subscription Types
   MarketingSubscriptionParams,
   UpdateUserParams,
+  // Inbox Types
+  AttentiveInboxViewProps,
+  InboxUnreadCountSubscription,
 }

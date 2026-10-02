@@ -24,9 +24,10 @@
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
         <!--
-          Deep links for testing push and creative action URLs. The Android SDK opens them with a
-          bare Intent.ACTION_VIEW (AttentivePush.kt, Creative.kt), so claiming a scheme is the only
-          way such a link can reach JS. `bonni-rn` rather than the native examples' `bonni`,
+          Deep links for testing inbox / push action URLs. The Android SDK opens a message's
+          actionUrl with a bare Intent.ACTION_VIEW (AttentiveInbox.kt) and offers no tap
+          callback, so claiming a scheme is the only way an inbox tap can reach JS on this
+          platform until MSDK-478 lands. `bonni-rn` rather than the native examples' `bonni`,
           so both apps can be installed side by side without competing for the same URLs.
 
           launchMode=singleTask above is required with this: under the default `standard` mode a
