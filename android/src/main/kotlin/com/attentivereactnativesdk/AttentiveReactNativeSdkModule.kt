@@ -329,7 +329,10 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             AttentiveSdk.startInbox()
             promise.resolve(AttentiveSdk.inboxState.value.unreadCount)
         } catch (e: Exception) {
-            Log.w(TAG, "[AttentiveSDK] Could not read the inbox unread count: ${e.message}")
+            Log.w(
+                TAG,
+                "[AttentiveSDK] getInboxUnreadCount failed (${e.javaClass.simpleName}): ${e.message}"
+            )
             promise.reject("inbox_unread_count_error", e)
         }
     }
