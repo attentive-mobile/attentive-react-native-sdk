@@ -195,15 +195,10 @@
   },
   "codegenConfig": {
     "name": "AttentiveReactNativeSdkSpec",
-    "type": "all",
+    "type": "modules",
     "jsSrcsDir": "src",
     "android": {
       "javaPackageName": "com.attentivereactnativesdk"
-    },
-    "ios": {
-      "componentProvider": {
-        "AttentiveInboxView": "AttentiveInboxView"
-      }
     }
   },
   "dependencies": {

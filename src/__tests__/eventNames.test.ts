@@ -9,8 +9,8 @@ import { DEVICE_EVENT_NAMES } from '../eventNames'
  * A device-event name is shared verbatim between `src/eventNames.ts` and both native bridges.
  * Nothing checks that at build time: if a name drifts on one side, the native side emits onto a
  * name nobody listens to and JS waits for a name nobody emits. There is no error, no warning, and
- * no crash — the feature is simply dead (no creative events at all, or an inbox badge stuck at its
- * initial value). That is expensive to debug precisely because everything looks fine.
+ * no crash — the feature is simply dead (no creative events at all). That is expensive to debug
+ * precisely because everything looks fine.
  *
  * Reading the native sources from disk is the same approach `plugin/src/__tests__` already uses.
  * It is a substring check rather than a parse: enough to catch a typo or a rename, without this
