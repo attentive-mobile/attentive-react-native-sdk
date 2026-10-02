@@ -48,7 +48,7 @@ export type ProductView = {
  *   load timed out, or an unknown exception occurred. Android does not report it for a failed
  *   page load or render timeout (see the README caveats).
  * - `notClosed` — the creative failed to close cleanly (rare; e.g. the web view was already
- *   gone at close time). Android only in practice: `attentive-ios-sdk` 2.0.18-beta.1 declares this
+ *   gone at close time). Android only in practice: `attentive-ios-sdk` 2.1.0 declares this
  *   status but has no call site for it.
  */
 export const CREATIVE_STATUSES = [
@@ -87,9 +87,6 @@ export type AttentiveEventSubscription = {
 
 /** Handle returned by `addCreativeEventListener`. Call `remove()` to stop receiving events. */
 export type CreativeEventSubscription = AttentiveEventSubscription
-
-/** Handle returned by `addInboxUnreadCountListener`; call `remove()` to unsubscribe. */
-export type InboxUnreadCountSubscription = AttentiveEventSubscription
 
 // Codegen does not support nested objects. We must flatten the Purchase type.
 export type Purchase = {

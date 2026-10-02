@@ -5,7 +5,6 @@ import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.module.model.ReactModuleInfo
 import com.facebook.react.module.model.ReactModuleInfoProvider
-import com.facebook.react.uimanager.ViewManager
 
 class AttentiveReactNativeSdkPackage : TurboReactPackage() {
 
@@ -16,10 +15,6 @@ class AttentiveReactNativeSdkPackage : TurboReactPackage() {
             null
         }
     }
-
-    override fun createViewManagers(
-        reactContext: ReactApplicationContext
-    ): List<ViewManager<in Nothing, in Nothing>> = listOf(AttentiveInboxViewManager())
 
     override fun getReactModuleInfoProvider(): ReactModuleInfoProvider {
         return ReactModuleInfoProvider {

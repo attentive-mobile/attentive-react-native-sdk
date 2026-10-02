@@ -46,7 +46,6 @@ import CartScreen from './src/screens/CartScreen'
 import CheckoutScreen from './src/screens/CheckoutScreen'
 import OrderConfirmationScreen from './src/screens/OrderConfirmationScreen'
 import SettingsScreen from './src/screens/SettingsScreen'
-import InboxScreen from './src/screens/InboxScreen'
 import { RootStackParamList } from './src/types/navigation'
 import { Colors } from './src/constants/theme'
 import { CONFIG_STORAGE_KEYS } from './src/constants/storage'
@@ -59,18 +58,17 @@ const Stack = createNativeStackNavigator<RootStackParamList>()
  *
  * Mirrors the native Android example, which claims `bonni://cart` in its manifest and navigates
  * `MainActivity` -> `Routes.CartScreen` for exactly that URL, logging anything else as an unknown
- * deep link. The extra entries here exist because this app is also the harness for testing inbox
- * message links, whose target is chosen by whoever composes the message.
+ * deep link. The extra entries here exist because this app is also the harness for testing push
+ * and creative links, whose target is chosen by whoever composes the message.
  *
  * Only param-less screens can appear: a URL carries no `Product` object and no order id, so
  * ProductDetail and OrderConfirmation are unreachable this way. `navigate()` is typed against
  * `RootStackParamList`, so renaming a screen breaks this table at compile time.
  */
-type DeepLinkTarget = 'Cart' | 'Inbox' | 'ProductList'
+type DeepLinkTarget = 'Cart' | 'ProductList'
 
 const DEEP_LINK_ROUTES: Record<string, DeepLinkTarget> = {
   cart: 'Cart',
-  inbox: 'Inbox',
   products: 'ProductList',
   home: 'ProductList',
 }
@@ -779,9 +777,9 @@ function App(): React.JSX.Element {
   /**
    * Logs and routes every deep link that reaches the app.
    *
-   * Inbox and push action URLs are opened by the native SDKs themselves — Android fires a bare
-   * `Intent.ACTION_VIEW` (AttentiveInbox.kt) and iOS opens the message's `actionURL` — so JS only
-   * sees them when the OS routes the URL back into this app. That is what the `bonni-rn` scheme in
+   * Push and creative action URLs are opened by the native SDKs themselves — Android fires a bare
+   * `Intent.ACTION_VIEW` (AttentivePush.kt, Creative.kt) and iOS opens creative links itself — so
+   * JS only sees them when the OS routes the URL back into this app. That is what the `bonni-rn` scheme in
    * AndroidManifest.xml and Info.plist is for: an `https://` action URL would open a browser
    * instead and nothing would arrive here.
    *
@@ -828,7 +826,7 @@ function App(): React.JSX.Element {
       console.log(`   target: ${target}`)
       console.log(`   params: ${JSON.stringify(params)}`)
 
-      // `bonni-rn://cart` puts "cart" in the host position while `bonni-rn://inbox/test` puts it in
+      // `bonni-rn://cart` puts "cart" in the host position while `bonni-rn://cart/test` puts it in
       // the first path segment; dropping the scheme and taking the first non-empty segment treats
       // both the same, which is what a marketer writing either URL would expect.
       const [, rest = ''] = target.split('://')
@@ -1021,14 +1019,6 @@ function App(): React.JSX.Element {
             <Stack.Screen
               name="Settings"
               component={SettingsScreen}
-              options={{
-                header: renderCustomHeader,
-              }}
-            />
-
-            <Stack.Screen
-              name="Inbox"
-              component={InboxScreen}
               options={{
                 header: renderCustomHeader,
               }}
