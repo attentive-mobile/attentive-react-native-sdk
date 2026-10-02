@@ -23,7 +23,7 @@ Pod::Spec.new do |s|
   s.exclude_files = "ios/build/**/*"
   s.public_header_files = "ios/AttentiveReactNativeSdk.h"
 
-  s.dependency 'ATTNSDKFramework', '2.1.0'
+  s.dependency 'ATTNSDKFramework', '2.1.1'
   s.swift_versions = ['5']
 
   install_modules_dependencies(s)
