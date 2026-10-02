@@ -151,6 +151,35 @@ export interface MarketingSubscriptionParams {
 }
 
 /**
+ * A shopper's email open-tracking (pixel-tracking) choice, mirroring the wire
+ * enum. `'UNSPECIFIED'` — and omitting the value entirely — sends no field, so
+ * the backend applies its own locale defaulting.
+ */
+export const TRACKING_CONSENTS = [
+  'ACCEPTED',
+  'DECLINED',
+  'UNSPECIFIED',
+] as const
+
+export type TrackingConsent = (typeof TRACKING_CONSENTS)[number]
+
+/**
+ * Parameters for marketing subscription opt-in. Same contact-info rules as
+ * [MarketingSubscriptionParams], plus the shopper's pixel-tracking consent.
+ *
+ * Opt-out takes no consent value: the backend neither receives nor processes
+ * one on that path, so accepting it there would be a silent no-op.
+ */
+export interface OptInMarketingSubscriptionParams
+  extends MarketingSubscriptionParams {
+  /**
+   * The shopper's email open-tracking choice. Omit it when they have not been
+   * asked — never infer or default to `'ACCEPTED'` / `'DECLINED'`.
+   */
+  trackingConsent?: TrackingConsent
+}
+
+/**
  * Parameters for the updateUser operation. Provide the email and/or
  * E.164 phone number identifying the user to update.
  */

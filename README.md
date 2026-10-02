@@ -314,6 +314,43 @@ try {
 
 > Use `updateUser` only when switching to a different user. To add or enrich identifiers for the **current** user, prefer `identify` (shown above).
 
+### Marketing subscriptions
+
+Use `optInMarketingSubscription` and `optOutMarketingSubscription` to record a shopper's email/SMS marketing subscription — most commonly from a "yes, opt me into marketing" checkbox during native account creation. At least one of `email` or `phone` must be provided; the native SDK rejects the call if neither is. Both return a `Promise` that resolves on success and rejects with an error on failure.
+
+```typescript
+import {
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+try {
+  await optInMarketingSubscription({
+    email: 'user@example.com',
+    phone: '+15551234567',
+  })
+} catch (error) {
+  // Handle the failure (e.g. surface an error to the user)
+}
+
+await optOutMarketingSubscription({ email: 'user@example.com' })
+```
+
+#### Pixel-tracking consent (EU only)
+
+EU customers subject to email pixel-tracking consent requirements can pass the shopper's choice via `trackingConsent` on `optInMarketingSubscription`. See the [help article](https://help.attentive.com/hc/en-us/articles/51464632390804-France-Email-Privacy-Compliance-Update) for background.
+
+```typescript
+await optInMarketingSubscription({
+  email: 'user@example.com',
+  trackingConsent: 'ACCEPTED',
+})
+```
+
+Values: `'ACCEPTED'`, `'DECLINED'`, or `'UNSPECIFIED'` (default, backend decides). Any other value rejects the call. `optOutMarketingSubscription` does not accept a consent parameter — consent is captured at opt-in.
+
+Existing call sites that don't pass `trackingConsent` continue to work unchanged — they default to `'UNSPECIFIED'`.
+
 ### Load the Creative
 
 ```typescript

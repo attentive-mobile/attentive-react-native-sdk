@@ -17,9 +17,11 @@ import type {
   PushNotificationUserInfo,
   PushRegistrationResult,
   MarketingSubscriptionParams,
+  OptInMarketingSubscriptionParams,
+  TrackingConsent,
   UpdateUserParams,
 } from './eventTypes'
-import { CREATIVE_STATUSES } from './eventTypes'
+import { CREATIVE_STATUSES, TRACKING_CONSENTS } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
@@ -103,6 +105,10 @@ function destroyCreative() {
  */
 const isCreativeStatus = (value?: string): value is CreativeStatus =>
   CREATIVE_STATUSES.includes(value as CreativeStatus)
+
+// Plain-JS callers get no type check, so the union is enforced at runtime too.
+const isTrackingConsent = (value: unknown): value is TrackingConsent =>
+  TRACKING_CONSENTS.includes(value as TrackingConsent)
 
 /**
  * Wraps a device-event listener with the two rules every bridged event here follows: drop a
@@ -636,22 +642,40 @@ async function getInitialPushNotification(): Promise<Record<
  * `email` or `phone` must be a valid value; the underlying native SDK
  * rejects the call if neither is provided.
  *
- * @param params - Object containing optional `email` and/or `phone`
+ * Pass `trackingConsent` to attach the shopper's email open-tracking choice —
+ * see the README's pixel-tracking consent section. Omitting it sends no
+ * consent field, leaving the backend's locale defaulting in charge. Any other
+ * value rejects without calling native, so a typo can't downgrade a decline.
+ *
+ * @param params - Object containing optional `email`, `phone`, and `trackingConsent`
  * @returns Promise that resolves on success or rejects with an error
  */
 function optInMarketingSubscription(
-  params: MarketingSubscriptionParams
+  params: OptInMarketingSubscriptionParams
 ): Promise<void> {
+  const trackingConsent = params?.trackingConsent
+  if (trackingConsent != null && !isTrackingConsent(trackingConsent)) {
+    return Promise.reject(
+      new Error(
+        `[AttentiveSDK] Unrecognized trackingConsent "${String(
+          trackingConsent
+        )}". Expected one of ${TRACKING_CONSENTS.join(', ')}, or omit it.`
+      )
+    )
+  }
+
   return AttentiveReactNativeSdk.optInMarketingSubscription(
     params?.email,
-    params?.phone
+    params?.phone,
+    trackingConsent
   )
 }
 
 /**
  * Opts a user out of marketing subscriptions (email and/or SMS).
  *
- * Same contract as [optInMarketingSubscription].
+ * Same contract as [optInMarketingSubscription], except that opt-out takes no
+ * `trackingConsent` — the backend does not process a consent value on this path.
  *
  * @param params - Object containing optional `email` and/or `phone`
  * @returns Promise that resolves on success or rejects with an error
@@ -727,5 +751,7 @@ export type {
   PushRegistrationResult,
   // Marketing Subscription Types
   MarketingSubscriptionParams,
+  OptInMarketingSubscriptionParams,
+  TrackingConsent,
   UpdateUserParams,
 }
