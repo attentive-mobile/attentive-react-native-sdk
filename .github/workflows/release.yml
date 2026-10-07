@@ -21,6 +21,9 @@ on:
         required: false
         type: string
 
+# No step uses GITHUB_TOKEN, so grant it no scopes.
+permissions: {}
+
 jobs:
   trigger-release:
     # Only allow releases to be dispatched from main. This prevents an operator
@@ -28,6 +31,9 @@ jobs:
     # code to npm, bypassing the main-branch review path.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
+      CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
     steps:
       - name: Validate version format
         env:
@@ -60,8 +66,8 @@ jobs:
             }')
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://circleci.com/api/v2/project/${{ vars.CIRCLECI_PROJECT_SLUG }}/pipeline" \
-            -H "Circle-Token: ${{ secrets.CIRCLECI_TOKEN }}" \
+            "https://circleci.com/api/v2/project/${CIRCLECI_PROJECT_SLUG}/pipeline" \
+            -H "Circle-Token: ${CIRCLECI_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$payload")
 
@@ -87,20 +93,23 @@ jobs:
           echo "CircleCI pipeline triggered for version $VERSION (pipeline: $pipeline_number)"
 
       - name: Wait for CircleCI pipeline to complete
+        env:
+          PIPELINE_ID: ${{ steps.trigger.outputs.pipeline_id }}
+          PIPELINE_NUMBER: ${{ steps.trigger.outputs.pipeline_number }}
         run: |
-          pipeline_id="${{ steps.trigger.outputs.pipeline_id }}"
-          pipeline_number="${{ steps.trigger.outputs.pipeline_number }}"
+          pipeline_id="$PIPELINE_ID"
+          pipeline_number="$PIPELINE_NUMBER"
           poll_interval=30
           timeout=2700  # 45 minutes
           elapsed=0
 
           echo "Waiting for CircleCI pipeline $pipeline_number to complete..."
-          echo "Pipeline URL: https://app.circleci.com/pipelines/${{ vars.CIRCLECI_PROJECT_SLUG }}/${pipeline_number}"
+          echo "Pipeline URL: https://app.circleci.com/pipelines/${CIRCLECI_PROJECT_SLUG}/${pipeline_number}"
 
           while [ "$elapsed" -lt "$timeout" ]; do
             api_response=$(curl -s -w "\n%{http_code}" -X GET \
               "https://circleci.com/api/v2/pipeline/${pipeline_id}/workflow" \
-              -H "Circle-Token: ${{ secrets.CIRCLECI_TOKEN }}" \
+              -H "Circle-Token: ${CIRCLECI_TOKEN}" \
               -H "Content-Type: application/json")
 
             http_code=$(echo "$api_response" | tail -1)
@@ -129,7 +138,7 @@ jobs:
               name=$(echo "$response" | jq -r ".items[$i].name")
               status=$(echo "$response" | jq -r ".items[$i].status")
               wf_id=$(echo "$response" | jq -r ".items[$i].id")
-              summary="${summary}  - ${name}: ${status} (https://app.circleci.com/pipelines/${{ vars.CIRCLECI_PROJECT_SLUG }}/${pipeline_number}/workflows/${wf_id})\n"
+              summary="${summary}  - ${name}: ${status} (https://app.circleci.com/pipelines/${CIRCLECI_PROJECT_SLUG}/${pipeline_number}/workflows/${wf_id})\n"
 
               case "$status" in
                 success) ;;
