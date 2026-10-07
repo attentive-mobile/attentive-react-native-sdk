@@ -17,6 +17,7 @@ This project uses **npm** as the preferred package manager for consistency and a
 | Ruby         | >= 3.3    |
 | CocoaPods    | ~> 1.16   |
 | Xcode        | >= 15     |
+| iOS deployment target | >= 15.0 |
 | Android SDK  | API 24+   |
 | Android `compileSdk` | 35 |
 | JDK          | 17        |
@@ -25,7 +26,7 @@ This project uses **npm** as the preferred package manager for consistency and a
 > your app. The native Attentive Android SDK and its dependencies declare `minCompileSdk=35` in
 > their AAR metadata, so a lower value fails the build with
 > `Dependency '…' requires libraries and applications that depend on it to compile against version
-> 35 or later of the Android APIs`. Releases up to 2.1.0 built against 34.
+> 35 or later of the Android APIs`.
 
 ## Installation
 
