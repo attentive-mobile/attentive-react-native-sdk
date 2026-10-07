@@ -26,6 +26,9 @@ permissions: {}
 jobs:
   trigger-bonni-deploy:
     runs-on: ubuntu-latest
+    env:
+      CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
+      CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
     steps:
       - name: Trigger CircleCI deploy-bonni pipeline
         id: trigger
@@ -34,8 +37,6 @@ jobs:
           # GHA substitutes ${{ }} as literal text before bash runs, so a crafted branch
           # name would inject shell (jq --arg does NOT protect against that).
           BRANCH: ${{ inputs.branch }}
-          CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
-          CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
         run: |
           payload=$(jq -n \
             --arg branch "$BRANCH" \
@@ -77,8 +78,6 @@ jobs:
         env:
           PIPELINE_ID: ${{ steps.trigger.outputs.pipeline_id }}
           PIPELINE_NUMBER: ${{ steps.trigger.outputs.pipeline_number }}
-          CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
-          CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
         run: |
           pipeline_id="$PIPELINE_ID"
           pipeline_number="$PIPELINE_NUMBER"

@@ -31,6 +31,9 @@ jobs:
     # code to npm, bypassing the main-branch review path.
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    env:
+      CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
+      CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
     steps:
       - name: Validate version format
         env:
@@ -47,8 +50,6 @@ jobs:
           VERSION: ${{ inputs.version }}
           IS_PRERELEASE: ${{ inputs.is_prerelease }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
-          CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
-          CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
         run: |
           payload=$(jq -n \
             --arg version "$VERSION" \
@@ -95,8 +96,6 @@ jobs:
         env:
           PIPELINE_ID: ${{ steps.trigger.outputs.pipeline_id }}
           PIPELINE_NUMBER: ${{ steps.trigger.outputs.pipeline_number }}
-          CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
-          CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
         run: |
           pipeline_id="$PIPELINE_ID"
           pipeline_number="$PIPELINE_NUMBER"
