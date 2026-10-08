@@ -62,8 +62,8 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  * The SDK listener is registered unconditionally, because Fabric never reports whether JS actually
  * attached `onMessageTap`. That is safe only because the SDK treats the listener as observation:
  * click tracking and deep-link opening happen either way, the latter governed by
- * `AttentiveConfig.Builder.automaticallyOpensInboxDeepLinks`. Read state is the one exception —
- * see [onMessageTap].
+ * `AttentiveConfig.Builder.automaticallyOpensInboxDeepLinks`. Read state is the one exception,
+ * handled in `init`.
  */
 class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 

@@ -46,7 +46,7 @@ class AttentiveInboxViewManager :
         AttentiveInboxHostView(reactContext)
 
     /**
-     * Clears the previous mount's theme before a pooled host is reused.
+     * Clears the previous mount's theme and tap callback before a pooled host is reused.
      *
      * Under `ReactNativeFeatureFlags.enableViewRecycling()` a dropped host goes into a per-surface
      * pool and is handed back here instead of through [createViewInstance]. Fabric then applies
@@ -63,6 +63,7 @@ class AttentiveInboxViewManager :
         view: AttentiveInboxHostView,
     ): AttentiveInboxHostView {
         view.resetTheme()
+        view.onMessageTap = null
         return super.recycleView(reactContext, view)
     }
 
