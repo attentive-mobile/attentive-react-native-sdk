@@ -328,31 +328,22 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /**
      * Resolves the unread inbox count and starts the inbox.
      *
-     * `AttentiveSdk.getUnreadCount()` does double duty: it returns the current snapshot and, on
-     * its first call across the app's lifetime, triggers the SDK's inbox initialization, which
-     * kicks off the first server fetch. Later calls are pure reads — the native refresh entry
-     * points (`refreshInbox`, `refreshInboxUnreadCount`) are `internal`, so this bridge cannot
-     * force a refetch. iOS can, and does so on every call, which is why the
-     * TypeScript API documents the two platforms as behaving differently here.
+     * `startInbox` is explicit here even though `startObservingInboxUnreadCount` also starts the
+     * inbox, so that a throw (SDK not initialized) rejects the promise instead of only being logged.
      *
      * Starting the observer here too means one JS call yields both the initial value and every
      * subsequent [INBOX_UNREAD_COUNT_EVENT_NAME] event.
-     *
-     * NOTE: `getUnreadCount()` is deleted in favour of `startInbox()` + collecting `inboxState`
-     * in a later native SDK release. This is the only call site to swap when that lands.
      */
     override fun getInboxUnreadCount(promise: Promise) {
         try {
-            // Started before the read, not after: this method is documented as the call that starts
-            // the inbox, so a throw from getUnreadCount() (inbox not enabled for the company,
-            // identity not resolved yet) used to leave the observer unstarted and the badge dead
-            // for the rest of the process — and the documented consumer pattern swallows the
-            // rejection, so nothing surfaced.
             startObservingInboxUnreadCount()
-            val unreadCount = AttentiveSdk.getUnreadCount()
-            promise.resolve(unreadCount)
+            AttentiveSdk.startInbox()
+            promise.resolve(AttentiveSdk.inboxState.value.unreadCount)
         } catch (e: Exception) {
-            Log.w(TAG, "[AttentiveSDK] Could not read the inbox unread count: ${e.message}")
+            Log.w(
+                TAG,
+                "[AttentiveSDK] getInboxUnreadCount failed (${e.javaClass.simpleName}): ${e.message}"
+            )
             promise.reject("inbox_unread_count_error", e)
         }
     }
