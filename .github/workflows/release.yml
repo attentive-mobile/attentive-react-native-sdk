@@ -8,14 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g., 2.1.1 or 2.1.1-beta.1)"
+        description: "Release version, e.g. 2.1.1 (stable, main only) or 2.1.1-beta.1 / 2.1.1-yinzcam.1 (prerelease from any branch, published under the npm dist-tag its suffix names)"
         required: true
         type: string
-      is_prerelease:
-        description: "Mark as prerelease (beta). Publishes under the npm 'beta' dist-tag and skips the PR to main. Required when the version has a suffix (e.g., -beta.1) and when dispatching from develop."
-        required: false
-        type: boolean
-        default: false
       release_notes:
         description: "Release notes (optional). If blank, generated from conventional commits."
         required: false
@@ -26,10 +21,8 @@ permissions: {}
 
 jobs:
   trigger-release:
-    # Stables come from main; prereleases from main or develop (native-dependent work
-    # that isn't on main yet). Any other branch is skipped, so an operator can't
-    # publish unmerged feature-branch code to npm.
-    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    # Stables come from main only. Prereleases can come from any branch (develop, or a
+    # client build off a feature branch) and never move the npm `latest` tag.
     runs-on: ubuntu-latest
     env:
       CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
@@ -38,20 +31,21 @@ jobs:
       - name: Validate inputs
         env:
           VERSION: ${{ inputs.version }}
-          IS_PRERELEASE: ${{ inputs.is_prerelease }}
           BRANCH: ${{ github.ref_name }}
         run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
-            echo "::error::Version must be in semver format (e.g., 2.1.1 or 2.1.1-beta.1)"
+          # The suffix's first identifier becomes the npm dist-tag, so it must start with a letter.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "::error::Version must be X.Y.Z or X.Y.Z-<tag>[.N], where <tag> starts with a letter (e.g., 2.1.1, 2.1.1-beta.1)"
             exit 1
           fi
-          if [[ "$VERSION" == *-* ]]; then has_suffix=true; else has_suffix=false; fi
-          if [ "$IS_PRERELEASE" != "$has_suffix" ]; then
-            echo "::error::is_prerelease must be checked exactly when the version has a prerelease suffix (got version=$VERSION, is_prerelease=$IS_PRERELEASE)"
-            exit 1
-          fi
-          if [ "$BRANCH" = "develop" ] && [ "$IS_PRERELEASE" != "true" ]; then
-            echo "::error::Only prereleases can be cut from develop. Stable releases come from main."
+          if [[ "$VERSION" == *-* ]]; then
+            dist_tag="${VERSION#*-}"
+            if [ "${dist_tag%%.*}" = "latest" ]; then
+              echo "::error::A prerelease can't be published under the 'latest' dist-tag"
+              exit 1
+            fi
+          elif [ "$BRANCH" != "main" ]; then
+            echo "::error::Stable releases can only be cut from main. Add a prerelease suffix (e.g., -beta.1) to release from $BRANCH."
             exit 1
           fi
 
@@ -59,7 +53,6 @@ jobs:
         id: trigger
         env:
           VERSION: ${{ inputs.version }}
-          IS_PRERELEASE: ${{ inputs.is_prerelease }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
           BRANCH: ${{ github.ref_name }}
         run: |
@@ -67,14 +60,12 @@ jobs:
             --arg branch "$BRANCH" \
             --arg version "$VERSION" \
             --arg notes "$RELEASE_NOTES" \
-            --arg is_prerelease "$IS_PRERELEASE" \
             '{
               branch: $branch,
               parameters: {
                 run_release: true,
                 release_version: $version,
-                release_notes: $notes,
-                is_prerelease: $is_prerelease
+                release_notes: $notes
               }
             }')
 
