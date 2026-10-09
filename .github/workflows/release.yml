@@ -3,7 +3,7 @@ name: Release SDK
 # Manual trigger that dispatches the CircleCI release-sdk pipeline (run_release=true)
 # and waits for it to finish. CircleCI does the actual work: validate -> bump version
 # -> CHANGELOG -> tag -> GitHub Release -> npm publish (Trusted Publishing) -> PR to
-# main. Mirrors the iOS/Android SDK release workflows.
+# main (stables only). Mirrors the iOS/Android SDK release workflows.
 on:
   workflow_dispatch:
     inputs:
@@ -12,7 +12,7 @@ on:
         required: true
         type: string
       is_prerelease:
-        description: "Mark as prerelease (beta). Publishes under the npm 'beta' dist-tag and skips the PR to main."
+        description: "Mark as prerelease (beta). Publishes under the npm 'beta' dist-tag and skips the PR to main. Required when the version has a suffix (e.g., -beta.1) and when dispatching from develop."
         required: false
         type: boolean
         default: false
@@ -26,21 +26,32 @@ permissions: {}
 
 jobs:
   trigger-release:
-    # Only allow releases to be dispatched from main. This prevents an operator
-    # from running "Release SDK" against a feature branch and publishing unmerged
-    # code to npm, bypassing the main-branch review path.
-    if: github.ref == 'refs/heads/main'
+    # Stables come from main; prereleases from main or develop (native-dependent work
+    # that isn't on main yet). Any other branch is skipped, so an operator can't
+    # publish unmerged feature-branch code to npm.
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
     env:
       CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
       CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
     steps:
-      - name: Validate version format
+      - name: Validate inputs
         env:
           VERSION: ${{ inputs.version }}
+          IS_PRERELEASE: ${{ inputs.is_prerelease }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
             echo "::error::Version must be in semver format (e.g., 2.1.1 or 2.1.1-beta.1)"
+            exit 1
+          fi
+          if [[ "$VERSION" == *-* ]]; then has_suffix=true; else has_suffix=false; fi
+          if [ "$IS_PRERELEASE" != "$has_suffix" ]; then
+            echo "::error::is_prerelease must be checked exactly when the version has a prerelease suffix (got version=$VERSION, is_prerelease=$IS_PRERELEASE)"
+            exit 1
+          fi
+          if [ "$BRANCH" = "develop" ] && [ "$IS_PRERELEASE" != "true" ]; then
+            echo "::error::Only prereleases can be cut from develop. Stable releases come from main."
             exit 1
           fi
 
@@ -50,13 +61,15 @@ jobs:
           VERSION: ${{ inputs.version }}
           IS_PRERELEASE: ${{ inputs.is_prerelease }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           payload=$(jq -n \
+            --arg branch "$BRANCH" \
             --arg version "$VERSION" \
             --arg notes "$RELEASE_NOTES" \
             --arg is_prerelease "$IS_PRERELEASE" \
             '{
-              branch: "main",
+              branch: $branch,
               parameters: {
                 run_release: true,
                 release_version: $version,

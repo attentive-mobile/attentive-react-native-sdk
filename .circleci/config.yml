@@ -284,7 +284,7 @@ jobs:
   # Runs only in the release-sdk workflow (run_release=true), after all
   # validation jobs pass. Drives the existing release-it config: bump version,
   # regenerate CHANGELOG.md, tag, GitHub Release, and publish to npm via Trusted
-  # Publishing (OIDC -- no NPM_TOKEN). Then opens a version-bump PR to main.
+  # Publishing (OIDC -- no NPM_TOKEN). Stables then open a version-bump PR to main.
   release:
     executor: node-release-executor
     steps:
@@ -294,6 +294,7 @@ jobs:
             RELEASE_VERSION: << pipeline.parameters.release_version >>
             IS_PRERELEASE: << pipeline.parameters.is_prerelease >>
             RELEASE_NOTES: << pipeline.parameters.release_notes >>
+            RELEASE_BRANCH: << pipeline.git.branch >>
           command: |
             set -euo pipefail
 
@@ -314,6 +315,27 @@ jobs:
                 ;;
             esac
 
+            if [[ "$RELEASE_VERSION" == *-* ]]; then HAS_SUFFIX=true; else HAS_SUFFIX=false; fi
+            if [ "$IS_PRERELEASE" != "$HAS_SUFFIX" ]; then
+              echo "is_prerelease must be true exactly when release_version has a prerelease suffix" >&2
+              exit 1
+            fi
+
+            # Backstop for the Release SDK workflow's branch rule: npm publish is irreversible.
+            case "${RELEASE_BRANCH:-}" in
+              main) ;;
+              develop)
+                if [ "$IS_PRERELEASE" != "true" ]; then
+                  echo "Only prereleases can be cut from develop" >&2
+                  exit 1
+                fi
+                ;;
+              *)
+                echo "Releases are only cut from main or develop (got '${RELEASE_BRANCH:-}')" >&2
+                exit 1
+                ;;
+            esac
+
             {
               printf 'export RELEASE_VERSION=%q\n' "$RELEASE_VERSION"
               printf 'export IS_PRERELEASE=%q\n' "$IS_PRERELEASE"
@@ -329,7 +351,7 @@ jobs:
           github_app_installation_id: ${GITHUB_APP_INSTALLATION_ID}
       - github-cli/setup
       - run:
-          name: Checkout main via GitHub App token
+          name: Checkout the release commit via GitHub App token
           command: |
             AUTH_HEADER="http.https://github.com/.extraheader=Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
             git -c "${AUTH_HEADER}" clone --filter=blob:none \
