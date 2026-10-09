@@ -138,6 +138,7 @@
     },
     "github": {
       "release": true,
+      "releaseName": "${version}",
       "skipChecks": true
     },
     "plugins": {
