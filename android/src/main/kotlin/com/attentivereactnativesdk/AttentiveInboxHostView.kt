@@ -12,6 +12,7 @@ import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.savedstate.SavedStateRegistryOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.facebook.react.bridge.ReactContext
+import com.attentive.androidsdk.AttentiveSdk
 import com.attentive.androidsdk.R as SdkR
 import com.attentive.androidsdk.inbox.AttentiveInboxView
 
@@ -55,6 +56,14 @@ import com.attentive.androidsdk.inbox.AttentiveInboxView
  * matters because RN can recycle this view: a recycled host must not inherit the previous
  * screen's theme. Reading the defaults from the SDK's resources (rather than hardcoding
  * them here) keeps us honest if the SDK restyles.
+ *
+ * ## Taps
+ *
+ * The SDK listener is registered unconditionally, because Fabric never reports whether JS actually
+ * attached `onMessageTap`. That is safe only because the SDK treats the listener as observation:
+ * click tracking and deep-link opening happen either way, the latter governed by
+ * `AttentiveConfig.Builder.automaticallyOpensInboxDeepLinks`. Read state is the one exception,
+ * handled in `init`.
  */
 class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
@@ -73,8 +82,24 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
 
     private val inbox = AttentiveInboxView(context)
 
+    /**
+     * Invoked when a message row is tapped. Installed by [AttentiveInboxViewManager] in
+     * `addEventEmitters`, which runs after the host is given its react tag — `init` is too early.
+     */
+    var onMessageTap: ((messageId: String, actionUrl: String?) -> Unit)? = null
+
     init {
         addView(inbox, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+
+        // Registering a listener stops the SDK marking tapped messages read, so that call is
+        // ours now.
+        inbox.setOnMessageClickListener { message ->
+            onMessageTap?.invoke(message.id, message.actionUrl)
+
+            if (!message.isRead) {
+                AttentiveSdk.markRead(message.id)
+            }
+        }
     }
 
     override fun onAttachedToWindow() {

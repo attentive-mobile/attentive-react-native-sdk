@@ -80,6 +80,7 @@ class MainApplication : Application(), ReactApplication {
       .skipFatigueOnCreatives(false)
       .logLevel(AttentiveLogLevel.VERBOSE)
       .pushEnabled(true)
+      .automaticallyOpensInboxDeepLinks(false)
       .build()
 
     // Application.onCreate() is guaranteed by Android to run on the main thread.

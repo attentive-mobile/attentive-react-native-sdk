@@ -87,12 +87,14 @@ RCT_EXPORT_MODULE()
               mode:(NSString *)mode
 skipFatigueOnCreatives:(BOOL)skipFatigueOnCreatives
     enableDebugger:(BOOL)enableDebugger
-       pushEnabled:(BOOL)pushEnabled {
+       pushEnabled:(BOOL)pushEnabled
+automaticallyOpensInboxDeepLinks:(BOOL)automaticallyOpensInboxDeepLinks {
     _sdk = [[ATTNNativeSDK alloc] initWithDomain:attentiveDomain
                                             mode:mode
                           skipFatigueOnCreatives:skipFatigueOnCreatives
                                   enableDebugger:enableDebugger
-                                     pushEnabled:pushEnabled];
+                                     pushEnabled:pushEnabled
+                automaticallyOpensInboxDeepLinks:automaticallyOpensInboxDeepLinks];
 
     // Make SDK instance accessible from native code (e.g., AppDelegate)
     [AttentiveSDKManager shared].sdk = _sdk;

@@ -1,4 +1,5 @@
 import type { ColorValue, ViewProps } from 'react-native'
+import type { DirectEventHandler } from 'react-native/Libraries/Types/CodegenTypes'
 import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNativeComponent'
 
 /**
@@ -7,10 +8,11 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  * The native views own their own layout, refresh, and pagination, so the host just gives them a
  * box to fill — these props only theme what the SDKs actually expose.
  *
- * **Per-platform coverage.** Android applies all five. iOS applies `titleTextColor`,
- * `bodyTextColor`, and `timestampTextColor`; `unreadIndicatorColor` and `swipeBackgroundColor` are
- * Android-only and have no effect on iOS yet — the iOS component logs once when they are set
- * rather than dropping them silently. Passing them is always safe.
+ * **Per-platform coverage.** `onMessageTap` fires on both platforms. Android applies all five
+ * colours. iOS applies `titleTextColor`, `bodyTextColor`, and `timestampTextColor`;
+ * `unreadIndicatorColor` and `swipeBackgroundColor` are Android-only and have no effect on iOS
+ * yet — the iOS component logs once when they are set rather than dropping them silently. Passing
+ * them is always safe.
  *
  * Omitting a prop (or setting it to `undefined`) restores the SDK's own default colour, so a
  * recycled view never inherits the previous screen's theme.
@@ -22,8 +24,6 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  *  - **fonts** — `setTitleFontFamily(fontResId: Int)` and friends only accept an Android font
  *    *resource id*, and React Native ships fonts in `assets/fonts/`, not `res/font/`. Needs an SDK
  *    overload taking a `FontFamily`/`Typeface` before it can be driven from JS.
- *
- * `onMessageTap` is still not observable from the Android `View` wrapper at all.
  */
 export interface NativeProps extends ViewProps {
   /** Dot marking an unread message. */
@@ -39,6 +39,13 @@ export interface NativeProps extends ViewProps {
    * is hardcoded red in the SDK and is not themeable.
    */
   swipeBackgroundColor?: ColorValue
+  /** Fired when the user taps a message row. `actionUrl` is `''` when the message has no deep link. */
+  onMessageTap?: DirectEventHandler<
+    Readonly<{
+      messageId: string
+      actionUrl: string
+    }>
+  >
 }
 
 export default codegenNativeComponent<NativeProps>('AttentiveInboxView')

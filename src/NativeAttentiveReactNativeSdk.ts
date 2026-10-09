@@ -7,7 +7,8 @@ export interface Spec extends TurboModule {
     mode: string,
     skipFatigueOnCreatives: boolean,
     enableDebugger: boolean,
-    pushEnabled: boolean
+    pushEnabled: boolean,
+    automaticallyOpensInboxDeepLinks: boolean
   ) => void
   triggerCreative: (creativeId?: string) => void
   destroyCreative: () => void

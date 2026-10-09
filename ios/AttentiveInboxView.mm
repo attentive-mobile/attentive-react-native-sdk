@@ -12,6 +12,7 @@
 #ifdef RCT_NEW_ARCH_ENABLED
 
 #import <react/renderer/components/AttentiveReactNativeSdkSpec/ComponentDescriptors.h>
+#import <react/renderer/components/AttentiveReactNativeSdkSpec/EventEmitters.h>
 #import <react/renderer/components/AttentiveReactNativeSdkSpec/Props.h>
 #import <react/renderer/components/AttentiveReactNativeSdkSpec/RCTComponentViewHelpers.h>
 #import <React/RCTConversions.h>
@@ -53,6 +54,10 @@ using namespace facebook::react;
   if (self = [super initWithFrame:frame]) {
     static const auto defaultProps = std::make_shared<const AttentiveInboxViewProps>();
     _props = defaultProps;
+    [NSNotificationCenter.defaultCenter addObserver:self
+                                           selector:@selector(inboxMessageTapped:)
+                                               name:AttentiveSDKManager.inboxMessageTappedName
+                                             object:nil];
   }
   return self;
 }
@@ -225,6 +230,55 @@ using namespace facebook::react;
                                              object:nil];
 }
 
+/**
+ * Turns the SDK's inbox tap broadcast into the component's `onMessageTap` event.
+ *
+ * The broadcast is used rather than `inboxViewController`'s `onMessageTap:` closure because the
+ * closure *replaces* the SDK's own routing — it returns before the deep-link open — whereas this
+ * is pure observation. Since Fabric never tells a native view whether JS actually attached a
+ * handler, the RN SDK has to register unconditionally; with the closure that would silently cost
+ * every consumer their deep links, so navigation stays governed by
+ * `automaticallyOpensInboxDeepLinks` alone. That is the same split the Android SDK makes.
+ *
+ * Known limitation: the broadcast carries no view identity, so two `AttentiveInboxView`s mounted
+ * at once both emit for a tap on either. Android's listener is per-view and does not have this.
+ */
+- (void)inboxMessageTapped:(NSNotification *)notification
+{
+  // Null before the view is mounted and after it is unmounted; Fabric owns the lifetime.
+  if (_eventEmitter == nullptr) {
+    return;
+  }
+
+  NSDictionary *userInfo = notification.userInfo;
+  id rawMessageId = userInfo[AttentiveSDKManager.inboxMessageTappedMessageIdKey];
+  NSString *messageId = [rawMessageId isKindOfClass:NSString.class] ? (NSString *)rawMessageId : nil;
+  if (messageId.length == 0) {
+    // The id is the only part of the payload a JS handler cannot work without, so a broadcast
+    // missing it is dropped rather than delivered half-formed.
+    RCTLogWarn(@"[AttentiveSDK] Ignoring an inbox tap broadcast with no message id.");
+    return;
+  }
+
+  // The SDK posts an NSURL here, but accept a string too: this key is re-spelled on our side
+  // (the SDK exposes no constant for it), and a type change should degrade rather than crash.
+  id rawActionUrl = userInfo[AttentiveSDKManager.inboxMessageTappedActionUrlKey];
+  NSString *actionUrl = nil;
+  if ([rawActionUrl isKindOfClass:NSURL.class]) {
+    actionUrl = ((NSURL *)rawActionUrl).absoluteString;
+  } else if ([rawActionUrl isKindOfClass:NSString.class]) {
+    actionUrl = (NSString *)rawActionUrl;
+  }
+
+  AttentiveInboxViewEventEmitter::OnMessageTap event;
+  event.messageId = messageId.UTF8String;
+  // Absent deep link travels as "", not as a missing key: the generated payload writes this field
+  // unconditionally, so an optional type here would be a promise iOS cannot keep.
+  event.actionUrl = actionUrl != nil ? actionUrl.UTF8String : "";
+  std::static_pointer_cast<const AttentiveInboxViewEventEmitter>(_eventEmitter)
+      ->onMessageTap(std::move(event));
+}
+
 - (void)sdkDidBecomeAvailable
 {
   // The manager posts from whatever thread set `sdk`, and UIKit work has to be on main.
@@ -245,6 +299,9 @@ using namespace facebook::react;
 - (void)dealloc
 {
   [self stopObservingSDKAvailability];
+  [NSNotificationCenter.defaultCenter removeObserver:self
+                                                name:AttentiveSDKManager.inboxMessageTappedName
+                                              object:nil];
   // Also tear down the child controller. prepareForRecycle covers the pooling path, but a
   // component view can be deallocated outright (pool eviction, surface stop, recycling disabled),
   // and releasing self takes the controller's *view* out of the hierarchy while the screen's
