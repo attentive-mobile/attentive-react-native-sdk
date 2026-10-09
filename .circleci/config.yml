@@ -23,9 +23,6 @@ parameters:
   release_version:
     type: string
     default: ""
-  is_prerelease:
-    type: string
-    default: "false"
   release_notes:
     type: string
     default: ""
@@ -284,7 +281,7 @@ jobs:
   # Runs only in the release-sdk workflow (run_release=true), after all
   # validation jobs pass. Drives the existing release-it config: bump version,
   # regenerate CHANGELOG.md, tag, GitHub Release, and publish to npm via Trusted
-  # Publishing (OIDC -- no NPM_TOKEN). Then opens a version-bump PR to main.
+  # Publishing (OIDC -- no NPM_TOKEN). Stables then open a version-bump PR to main.
   release:
     executor: node-release-executor
     steps:
@@ -292,31 +289,43 @@ jobs:
           name: Export release params to env (for git + Slack steps)
           environment:
             RELEASE_VERSION: << pipeline.parameters.release_version >>
-            IS_PRERELEASE: << pipeline.parameters.is_prerelease >>
             RELEASE_NOTES: << pipeline.parameters.release_notes >>
+            RELEASE_BRANCH: << pipeline.git.branch >>
           command: |
             set -euo pipefail
 
             [ "${RELEASE_VERSION:-}" = "<nil>" ] && RELEASE_VERSION=""
-            [ "${IS_PRERELEASE:-}" = "<nil>" ] && IS_PRERELEASE="false"
             [ "${RELEASE_NOTES:-}" = "<nil>" ] && RELEASE_NOTES=""
 
-            if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
-              echo "release_version must be semver (e.g., 2.1.1 or 2.1.1-beta.1)" >&2
+            if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)*)?$ ]]; then
+              echo "release_version must be X.Y.Z or X.Y.Z-<tag>[.N], where <tag> starts with a letter" >&2
               exit 1
             fi
 
-            case "${IS_PRERELEASE}" in
-              true|false) ;;
-              *)
-                echo "is_prerelease must be true or false" >&2
+            # A -suffix makes it a prerelease under the npm dist-tag its first identifier names.
+            # Stables are main-only; this backstops the Release SDK workflow, since npm publish
+            # is irreversible.
+            if [[ "$RELEASE_VERSION" == *-* ]]; then
+              IS_PRERELEASE=true
+              NPM_TAG="${RELEASE_VERSION#*-}"
+              NPM_TAG="${NPM_TAG%%.*}"
+              if [ "$NPM_TAG" = "latest" ]; then
+                echo "A prerelease can't be published under the 'latest' dist-tag" >&2
                 exit 1
-                ;;
-            esac
+              fi
+            else
+              IS_PRERELEASE=false
+              NPM_TAG=latest
+              if [ "${RELEASE_BRANCH:-}" != "main" ]; then
+                echo "Stable releases are only cut from main (got '${RELEASE_BRANCH:-}')" >&2
+                exit 1
+              fi
+            fi
 
             {
               printf 'export RELEASE_VERSION=%q\n' "$RELEASE_VERSION"
               printf 'export IS_PRERELEASE=%q\n' "$IS_PRERELEASE"
+              printf 'export NPM_TAG=%q\n' "$NPM_TAG"
               printf 'export RELEASE_NOTES=%q\n' "$RELEASE_NOTES"
             } >> "$BASH_ENV"
       # Mint a short-lived GitHub App token (attentive-mobile-sdk[bot]) so we can
@@ -329,7 +338,7 @@ jobs:
           github_app_installation_id: ${GITHUB_APP_INSTALLATION_ID}
       - github-cli/setup
       - run:
-          name: Checkout main via GitHub App token
+          name: Checkout the release commit via GitHub App token
           command: |
             AUTH_HEADER="http.https://github.com/.extraheader=Authorization: basic $(printf 'x-access-token:%s' "${GITHUB_TOKEN}" | base64 -w 0)"
             git -c "${AUTH_HEADER}" clone --filter=blob:none \
@@ -373,7 +382,7 @@ jobs:
 
             RELEASE_ARGS=("${VERSION}" "--ci")
             if [ "${IS_PRERELEASE}" = "true" ]; then
-              RELEASE_ARGS+=("--github.preRelease" "--npm.tag=beta")
+              RELEASE_ARGS+=("--github.preRelease" "--npm.tag=${NPM_TAG}")
             fi
 
             # Use the operator-supplied notes for the GitHub Release when provided;
@@ -432,9 +441,7 @@ jobs:
   # Runs only in the deploy-bonni workflow (run_bonni_deploy=true), after the
   # validation jobs pass. Self-contained (build + upload in one job) to avoid passing the
   # IPA + gems + repo across macOS jobs. Mirrors the iOS SDK's build_bonni_release +
-  # deploy_testflight lanes. (No is_prerelease guard: this workflow is only ever triggered
-  # by the Deploy Bonni GitHub Action, which never sets is_prerelease -- a guard here
-  # would be dead code that could silently no-op the whole job while reporting success.)
+  # deploy_testflight lanes.
   deploy-bonni-testflight:
     executor: macos-xcode
     steps:

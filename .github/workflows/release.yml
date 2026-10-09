@@ -3,19 +3,14 @@ name: Release SDK
 # Manual trigger that dispatches the CircleCI release-sdk pipeline (run_release=true)
 # and waits for it to finish. CircleCI does the actual work: validate -> bump version
 # -> CHANGELOG -> tag -> GitHub Release -> npm publish (Trusted Publishing) -> PR to
-# main. Mirrors the iOS/Android SDK release workflows.
+# main (stables only). Mirrors the iOS/Android SDK release workflows.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g., 2.1.1 or 2.1.1-beta.1)"
+        description: "Release version, e.g. 2.1.1 (stable, main only) or 2.1.1-beta.1 / 2.1.1-yinzcam.1 (prerelease from any branch, published under the npm dist-tag its suffix names)"
         required: true
         type: string
-      is_prerelease:
-        description: "Mark as prerelease (beta). Publishes under the npm 'beta' dist-tag and skips the PR to main."
-        required: false
-        type: boolean
-        default: false
       release_notes:
         description: "Release notes (optional). If blank, generated from conventional commits."
         required: false
@@ -26,21 +21,31 @@ permissions: {}
 
 jobs:
   trigger-release:
-    # Only allow releases to be dispatched from main. This prevents an operator
-    # from running "Release SDK" against a feature branch and publishing unmerged
-    # code to npm, bypassing the main-branch review path.
-    if: github.ref == 'refs/heads/main'
+    # Stables come from main only. Prereleases can come from any branch (develop, or a
+    # client build off a feature branch) and never move the npm `latest` tag.
     runs-on: ubuntu-latest
     env:
       CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
       CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
     steps:
-      - name: Validate version format
+      - name: Validate inputs
         env:
           VERSION: ${{ inputs.version }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
-            echo "::error::Version must be in semver format (e.g., 2.1.1 or 2.1.1-beta.1)"
+          # The suffix's first identifier becomes the npm dist-tag, so it must start with a letter.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "::error::Version must be X.Y.Z or X.Y.Z-<tag>[.N], where <tag> starts with a letter (e.g., 2.1.1, 2.1.1-beta.1)"
+            exit 1
+          fi
+          if [[ "$VERSION" == *-* ]]; then
+            dist_tag="${VERSION#*-}"
+            if [ "${dist_tag%%.*}" = "latest" ]; then
+              echo "::error::A prerelease can't be published under the 'latest' dist-tag"
+              exit 1
+            fi
+          elif [ "$BRANCH" != "main" ]; then
+            echo "::error::Stable releases can only be cut from main. Add a prerelease suffix (e.g., -beta.1) to release from $BRANCH."
             exit 1
           fi
 
@@ -48,20 +53,19 @@ jobs:
         id: trigger
         env:
           VERSION: ${{ inputs.version }}
-          IS_PRERELEASE: ${{ inputs.is_prerelease }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
+          BRANCH: ${{ github.ref_name }}
         run: |
           payload=$(jq -n \
+            --arg branch "$BRANCH" \
             --arg version "$VERSION" \
             --arg notes "$RELEASE_NOTES" \
-            --arg is_prerelease "$IS_PRERELEASE" \
             '{
-              branch: "main",
+              branch: $branch,
               parameters: {
                 run_release: true,
                 release_version: $version,
-                release_notes: $notes,
-                is_prerelease: $is_prerelease
+                release_notes: $notes
               }
             }')
 
