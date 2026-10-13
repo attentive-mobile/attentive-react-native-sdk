@@ -5,7 +5,7 @@ set -euo pipefail
 # it as SLACK_RELEASE_PAYLOAD to BASH_ENV for the slack orb (mirrors the iOS/Android
 # "release published" notifications to #eng-mobile-sdk-releases).
 #
-# Required env vars (exported by the release job): RELEASE_VERSION, IS_PRERELEASE
+# Required env vars (exported by the release job): RELEASE_VERSION, IS_PRERELEASE, NPM_TAG
 # Optional env vars: CIRCLE_PROJECT_USERNAME, CIRCLE_PROJECT_REPONAME
 
 VERSION="${RELEASE_VERSION:-}"
@@ -17,7 +17,7 @@ NPM_URL="https://www.npmjs.com/package/@attentive-mobile/attentive-react-native-
 
 if [ "${IS_PRERELEASE}" = "true" ]; then
   HEADER="🧪 RN SDK prerelease published"
-  TAG_NOTE=" (npm dist-tag: beta)"
+  TAG_NOTE=" (npm dist-tag: ${NPM_TAG:-beta})"
 else
   HEADER="🚀 RN SDK released"
   TAG_NOTE=""
