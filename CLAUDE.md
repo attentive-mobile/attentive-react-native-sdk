@@ -39,7 +39,7 @@ The skill detects this repo from the git remote, confirms the base branch, reads
 | Path | What's there |
 |---|---|
 | `src/index.tsx` | Public TypeScript API — the thin layer consumers import. Each function forwards to the native module. |
-| `src/NativeAttentiveReactNativeSdk.ts` | The TurboModule **codegen spec** (`interface Spec extends TurboModule`). Adding/changing a native method starts here. Includes the old-architecture `NativeModules` fallback. |
+| `src/NativeAttentiveReactNativeSdk.ts` | The TurboModule **codegen spec** (`interface Spec extends TurboModule`). Adding/changing a native method starts here. Its `NativeModules` fallback is old-architecture scaffolding that has never worked (see Architecture). |
 | `src/eventTypes.tsx` | Public types (`AttentiveSdkConfiguration`, `UserIdentifiers`, `Item`, `Purchase`, etc.). |
 | `ios/` | Swift bridging layer (e.g. `AttentiveSDKManager`, `ATTNNativeSDK`) over `attentive-ios-sdk`. |
 | `android/src/main/kotlin/com/attentivereactnativesdk/` | Kotlin TurboModule (`AttentiveReactNativeSdkModule.kt`, `AttentiveReactNativeSdkPackage.kt`, push + debug helpers) over `attentive-android-sdk`. |
@@ -52,7 +52,7 @@ The skill detects this repo from the git remote, confirms the base branch, reads
 
 ## Architecture
 
-- The native module is a **TurboModule** generated via codegen (`codegenConfig` in `package.json`: spec name `AttentiveReactNativeSdkSpec`, Android package `com.attentivereactnativesdk`). It also works on the old architecture through the `NativeModules` fallback in `NativeAttentiveReactNativeSdk.ts`.
+- The native module is a **TurboModule** generated via codegen (`codegenConfig` in `package.json`: spec name `AttentiveReactNativeSdkSpec`, Android package `com.attentivereactnativesdk`). The SDK requires the New Architecture on both platforms. The old-architecture paths (the `NativeModules` fallback, iOS's `#else` branches of `RCT_NEW_ARCH_ENABLED`, `isNewArchitectureEnabled()` in `android/build.gradle`) are scaffolding only: Android doesn't compile with `newArchEnabled=false`, and iOS exports no methods there. See MSDK-350.
 - Bridge data crosses as flat scalars (codegen limitation): e.g. on event payloads `price`/`currency` are flat fields on each item and `orderId` is a flat arg, not nested objects. Keep new native method signatures flat-friendly.
 
 ## Critical invariant — initialization is asymmetric
