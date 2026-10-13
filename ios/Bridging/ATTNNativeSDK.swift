@@ -93,14 +93,22 @@ struct DebugEvent {
   private var debugOverlayWindow: UIWindow?
   private var debugHistory: [DebugEvent] = []
 
-  @objc(initWithDomain:mode:skipFatigueOnCreatives:enableDebugger:pushEnabled:)
-  public init(domain: String, mode: String, skipFatigueOnCreatives: Bool, enableDebugger: Bool, pushEnabled: Bool) {
+  @objc(initWithDomain:mode:skipFatigueOnCreatives:enableDebugger:pushEnabled:automaticallyOpensInboxDeepLinks:)
+  public init(
+    domain: String,
+    mode: String,
+    skipFatigueOnCreatives: Bool,
+    enableDebugger: Bool,
+    pushEnabled: Bool,
+    automaticallyOpensInboxDeepLinks: Bool
+  ) {
     self.sdk = ATTNSDK(
       domain: domain,
       mode: ATTNSDKMode(rawValue: mode) ?? .production,
       pushEnabled: pushEnabled
     )
     self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives
+    self.sdk.automaticallyOpensInboxDeepLinks = automaticallyOpensInboxDeepLinks
 
     // Only enable debugging if both enableDebugger is true AND the app is running in debug mode
     #if DEBUG
@@ -575,10 +583,11 @@ struct DebugEvent {
   /// `UIHostingController` wrapping the SwiftUI inbox, which fetches its first page, refreshes on
   /// foreground, and paginates on its own; there is nothing to drive from JS.
   ///
-  /// Tap handling is intentionally left at the SDK default for now: click tracking fires and the
-  /// message's `actionURL` opens. Routing taps into JS needs an `onMessageTap` prop, which is
-  /// blocked on Android's side of the parity work — adding it on iOS alone would give
-  /// consumers a prop that silently does nothing on half their users' devices.
+  /// No `onMessageTap` closure is passed, deliberately: handing one to the SDK makes it skip its
+  /// own routing, which would tie deep links to whether JS attached a handler — something Fabric
+  /// never reports. `AttentiveInboxView` observes the SDK's `ATTNSDKInboxMessageTapped` broadcast
+  /// instead, so navigation stays governed by `automaticallyOpensInboxDeepLinks` alone, matching
+  /// Android.
   ///
   /// The colours are the subset of the React Native theming props that `InboxStyle` can express.
   /// Android additionally themes the unread indicator and the swipe background; `InboxStyle` has no

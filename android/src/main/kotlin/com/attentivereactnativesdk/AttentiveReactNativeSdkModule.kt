@@ -141,7 +141,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         mode: String,
         skipFatigueOnCreatives: Boolean,
         enableDebugger: Boolean,
-        pushEnabled: Boolean
+        pushEnabled: Boolean,
+        automaticallyOpensInboxDeepLinks: Boolean
     ) {
         debugHelper.initialize(enableDebugger)
 
@@ -152,6 +153,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             "so that lifecycle observers are registered before the React Native bridge is ready. " +
             "See README.md § 'Android Native Initialization' for the required setup."
         )
+
+        if (!automaticallyOpensInboxDeepLinks) {
+            Log.w(
+                TAG,
+                "[AttentiveSDK] automaticallyOpensInboxDeepLinks=false was ignored. On Android " +
+                "it is an init-time setting owned by the host app — call " +
+                ".automaticallyOpensInboxDeepLinks(false) on the AttentiveConfig.Builder in your " +
+                "Application.onCreate(). Until then a tapped message opens its deep link here."
+            )
+        }
     }
 
     /**

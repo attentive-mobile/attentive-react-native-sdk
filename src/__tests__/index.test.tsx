@@ -99,6 +99,7 @@ describe('Attentive SDK', () => {
         enableDebugger: true,
         skipFatigueOnCreatives: true,
         pushEnabled: false,
+        automaticallyOpensInboxDeepLinks: false,
       }
 
       initialize(config)
@@ -108,6 +109,7 @@ describe('Attentive SDK', () => {
         'debug',
         true,
         true,
+        false,
         false
       )
     })
@@ -125,6 +127,20 @@ describe('Attentive SDK', () => {
         'production',
         false,
         false,
+        true,
+        true
+      )
+    })
+
+    it('should default automaticallyOpensInboxDeepLinks to true', () => {
+      initialize({ attentiveDomain: 'test-domain', mode: 'production' })
+
+      expect(mockNativeModule.initialize).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
         true
       )
     })
