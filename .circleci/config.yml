@@ -309,8 +309,9 @@ jobs:
               IS_PRERELEASE=true
               NPM_TAG="${RELEASE_VERSION#*-}"
               NPM_TAG="${NPM_TAG%%.*}"
-              if [ "$NPM_TAG" = "latest" ]; then
-                echo "A prerelease can't be published under the 'latest' dist-tag" >&2
+              # npm refuses dist-tags that parse as semver ranges (x, v1, vx, ...).
+              if [ "$NPM_TAG" = "latest" ] || [[ "$NPM_TAG" =~ ^v*([xX]|[0-9]+)$ ]]; then
+                echo "'$NPM_TAG' can't be the npm dist-tag: npm rejects range-like tags such as x or v1, and latest is for stables" >&2
                 exit 1
               fi
             else

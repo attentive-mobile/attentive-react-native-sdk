@@ -40,8 +40,10 @@ jobs:
           fi
           if [[ "$VERSION" == *-* ]]; then
             dist_tag="${VERSION#*-}"
-            if [ "${dist_tag%%.*}" = "latest" ]; then
-              echo "::error::A prerelease can't be published under the 'latest' dist-tag"
+            dist_tag="${dist_tag%%.*}"
+            # npm refuses dist-tags that parse as semver ranges (x, v1, vx, ...).
+            if [ "$dist_tag" = "latest" ] || [[ "$dist_tag" =~ ^v*([xX]|[0-9]+)$ ]]; then
+              echo "::error::'$dist_tag' can't be the npm dist-tag: npm rejects range-like tags such as x or v1, and latest is for stables"
               exit 1
             fi
           elif [ "$BRANCH" != "main" ]; then
