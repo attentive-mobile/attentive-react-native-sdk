@@ -245,6 +245,8 @@ export interface Spec extends TurboModule {
    * @returns Promise resolving to the unread count
    */
   getInboxUnreadCount: () => Promise<number>
+  markInboxMessageRead: (messageId: string) => void
+  markInboxMessageUnread: (messageId: string) => void
 }
 
 // Try to load via TurboModule first (new architecture)

@@ -621,6 +621,8 @@ struct DebugEvent {
     return sdk.inboxViewController(style: style)
   }
 
+  // MARK: - Inbox Methods
+
   /// Refreshes the unread inbox count from the server, then reports it.
   ///
   /// `ATTNSDK.refreshInboxUnreadCount()` is `async`, and `inboxUnreadCount` is a plain
@@ -674,6 +676,16 @@ struct DebugEvent {
       let count = note.userInfo?["attentiveInboxUnreadCount"] as? Int ?? 0
       handler(count)
     }
+  }
+
+  @objc(markInboxMessageRead:)
+  public func markInboxMessageRead(_ id: String) {
+    Task { [sdk] in await sdk.markRead(for: id) }
+  }
+
+  @objc(markInboxMessageUnread:)
+  public func markInboxMessageUnread(_ id: String) {
+    Task { [sdk] in await sdk.markUnread(for: id) }
   }
 
   // MARK: - Marketing Subscriptions (React Native Bridge)

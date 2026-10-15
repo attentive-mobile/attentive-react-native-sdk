@@ -720,9 +720,9 @@ function getInboxUnreadCount(): Promise<number> {
  * Subscribe to inbox unread-count changes.
  *
  * Fires whenever the count the native SDK holds changes — after a fetch, after a message is
- * read or deleted in the inbox UI, and when the user's identity changes. Repeats of the same
- * value are filtered out natively, so a re-fetch returning an unchanged count will not churn
- * your badge.
+ * read or deleted in the inbox UI or through `markInboxMessageRead` / `markInboxMessageUnread`,
+ * and when the user's identity changes. Repeats of the same value are filtered out natively, so
+ * a re-fetch returning an unchanged count will not churn your badge.
  *
  * Pair it with [getInboxUnreadCount] for the initial value; a listener on its own receives
  * nothing until something starts the inbox.
@@ -749,6 +749,30 @@ function addInboxUnreadCountListener(
     },
     listener
   )
+}
+
+/**
+ * Marks an inbox message as read.
+ *
+ * Fire-and-forget: the inbox view and unread badge update immediately, and the server sync runs
+ * in the background. Unknown IDs are ignored.
+ *
+ * @param messageId - The message's ID
+ */
+function markInboxMessageRead(messageId: string): void {
+  AttentiveReactNativeSdk.markInboxMessageRead(messageId)
+}
+
+/**
+ * Marks an inbox message as unread.
+ *
+ * Fire-and-forget: the inbox view and unread badge update immediately, and the server sync runs
+ * in the background. Unknown IDs are ignored.
+ *
+ * @param messageId - The message's ID
+ */
+function markInboxMessageUnread(messageId: string): void {
+  AttentiveReactNativeSdk.markInboxMessageUnread(messageId)
 }
 
 export {
@@ -784,6 +808,8 @@ export {
   AttentiveInboxView,
   getInboxUnreadCount,
   addInboxUnreadCountListener,
+  markInboxMessageRead,
+  markInboxMessageUnread,
 }
 
 export type {

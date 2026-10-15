@@ -378,6 +378,14 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         }
     }
 
+    override fun markInboxMessageRead(messageId: String) {
+        AttentiveSdk.markRead(messageId)
+    }
+
+    override fun markInboxMessageUnread(messageId: String) {
+        AttentiveSdk.markUnread(messageId)
+    }
+
     /**
      * Stops the inbox observer when React Native tears the module down, so a reload doesn't leave
      * a collector emitting into a dead JS runtime.

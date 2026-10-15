@@ -820,6 +820,14 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   _unreadCountDeliveries++;
 }
 
+- (void)markInboxMessageRead:(nonnull NSString *)messageId {
+  [_sdk markInboxMessageRead:messageId];
+}
+
+- (void)markInboxMessageUnread:(nonnull NSString *)messageId {
+  [_sdk markInboxMessageUnread:messageId];
+}
+
 // The observer is block-based, so it must be removed explicitly; a weak self in the handler stops
 // calls into a dead module but would still leak the registration itself.
 - (void)dealloc {
