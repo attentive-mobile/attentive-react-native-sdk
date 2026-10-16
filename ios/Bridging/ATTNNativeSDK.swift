@@ -107,7 +107,6 @@ struct DebugEvent {
       mode: ATTNSDKMode(rawValue: mode) ?? .production,
       pushEnabled: pushEnabled
     )
-    self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives
     self.sdk.automaticallyOpensInboxDeepLinks = automaticallyOpensInboxDeepLinks
 
     // Only enable debugging if both enableDebugger is true AND the app is running in debug mode

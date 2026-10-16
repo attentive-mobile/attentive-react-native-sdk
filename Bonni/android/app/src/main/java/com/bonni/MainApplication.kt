@@ -77,7 +77,6 @@ class MainApplication : Application(), ReactApplication {
       .domain("games")
       .mode(modeEnum)
       .notificationIconId(R.drawable.bonni_logo)
-      .skipFatigueOnCreatives(false)
       .logLevel(AttentiveLogLevel.VERBOSE)
       .pushEnabled(true)
       .automaticallyOpensInboxDeepLinks(false)
