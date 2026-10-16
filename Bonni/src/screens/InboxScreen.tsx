@@ -6,11 +6,6 @@
  * foreground, and handles pull-to-refresh and pagination internally. There is no SDK
  * call to make from JS — rendering the component is the integration.
  *
- * The theming props below map Bonni's design system onto the inbox: peach for the swipe
- * action so it matches the nav bar, muted grey for secondary text. Android applies all five;
- * iOS applies the three text colours and ignores the indicator and swipe colours, which its
- * InboxStyle cannot express yet.
- *
  * onMessageTap observes a tap, it does not take it over: the SDK tracks the click and marks the
  * message read either way. It would also open the message's actionUrl, except Bonni opts out of
  * that — automaticallyOpensInboxDeepLinks is false in App.tsx (iOS) and on MainApplication.kt's
@@ -45,6 +40,7 @@ const InboxScreen: React.FC<InboxScreenProps> = () => {
     <View style={styles.container}>
       <AttentiveInboxView
         style={styles.inbox}
+        inboxBackgroundColor={Colors.lightBackground}
         unreadIndicatorColor={Colors.black}
         titleTextColor={Colors.primaryText}
         bodyTextColor={Colors.secondaryText}

@@ -107,7 +107,6 @@ struct DebugEvent {
       mode: ATTNSDKMode(rawValue: mode) ?? .production,
       pushEnabled: pushEnabled
     )
-    self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives
     self.sdk.automaticallyOpensInboxDeepLinks = automaticallyOpensInboxDeepLinks
 
     // Only enable debugging if both enableDebugger is true AND the app is running in debug mode
@@ -589,20 +588,22 @@ struct DebugEvent {
   /// instead, so navigation stays governed by `automaticallyOpensInboxDeepLinks` alone, matching
   /// Android.
   ///
-  /// The colours are the subset of the React Native theming props that `InboxStyle` can express.
-  /// Android additionally themes the unread indicator and the swipe background; `InboxStyle` has no
-  /// equivalent for either. A nil colour keeps the SDK's own default, so the
-  /// defaults below must stay in step with `InboxStyle.init`'s (.headline/.primary,
-  /// .subheadline/.secondary, .caption/.secondary) — passing a style always replaces all three.
+  /// A nil colour keeps the SDK's own default. The background, indicator and swipe colours pass
+  /// straight through as `Color?`, but the text defaults below must stay in step with
+  /// `InboxStyle.init`'s (.headline/.primary, .subheadline/.secondary, .caption/.secondary), since
+  /// passing a style always replaces all three.
   ///
   /// Fonts stay at the SDK defaults: React Native has no font props yet, because Android's font
   /// setters take an Android resource id that an RN app has no way to produce.
   @MainActor
-  @objc(makeInboxViewControllerWithTitleColor:bodyColor:timestampColor:)
+  @objc(makeInboxViewControllerWithTitleColor:bodyColor:timestampColor:backgroundColor:unreadIndicatorColor:swipeBackgroundColor:)
   public func makeInboxViewController(
     titleColor: UIColor?,
     bodyColor: UIColor?,
-    timestampColor: UIColor?
+    timestampColor: UIColor?,
+    backgroundColor: UIColor?,
+    unreadIndicatorColor: UIColor?,
+    swipeBackgroundColor: UIColor?
   ) -> UIViewController {
     let style = InboxStyle(
       title: InboxStyle.Text(
@@ -616,7 +617,10 @@ struct DebugEvent {
       timestamp: InboxStyle.Text(
         font: .caption,
         color: timestampColor.map { Color(uiColor: $0) } ?? .secondary
-      )
+      ),
+      background: backgroundColor.map { Color(uiColor: $0) },
+      unreadIndicator: unreadIndicatorColor.map { Color(uiColor: $0) },
+      swipeBackground: swipeBackgroundColor.map { Color(uiColor: $0) }
     )
     return sdk.inboxViewController(style: style)
   }

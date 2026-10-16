@@ -10,6 +10,10 @@ export type UserIdentifiers = {
 export type AttentiveSdkConfiguration = {
   attentiveDomain: string
   mode: string // "production" or "debug"
+  /**
+   * @deprecated Has no effect: fatigue is evaluated on the backend. To force a creative while
+   * debugging, trigger it by ID instead. Will be removed in the next major version.
+   */
   skipFatigueOnCreatives?: boolean
   enableDebugger?: boolean
   pushEnabled?: boolean

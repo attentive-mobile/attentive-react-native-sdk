@@ -152,7 +152,6 @@ class MainApplication : Application(), ReactApplication {
             .domain("YOUR_ATTENTIVE_DOMAIN")
             .mode(AttentiveConfig.Mode.PRODUCTION) // or Mode.DEBUG for testing
             .notificationIconId(R.drawable.ic_stat_notification)
-            .skipFatigueOnCreatives(false)
             .logLevel(AttentiveLogLevel.VERBOSE)
             .build()
 
@@ -224,6 +223,7 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 | -------- | ------------------------- | ------------------------------------------------------------------------------------------ |
 | `domain` | `string`                  | Your Attentive domain (required).                                                          |
 | `mode`   | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. Optional — defaults to `production`. |
+| `automaticallyOpensInboxDeepLinks` | `boolean` | Set `false` if you route inbox taps yourself — see [SDK-opened deep links](#sdk-opened-deep-links-automaticallyopensinboxdeeplinks). Optional — defaults to `true`. Android only; on iOS set the TypeScript config field. |
 
 **Notes:**
 
@@ -231,7 +231,7 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 - **iOS is untouched by the plugin.** iOS still initializes from TypeScript — the [`initialize()` call](#ios--initialize-from-typescript) is required either way.
 - The debug overlay (`enableDebugger`, see [Debugging Features](#debugging-features)) is wired only by the TypeScript `initialize()` call. The plugin's `mode: 'debug'` sets the _native_ SDK mode (creative debug view, verbose native logging) — a different switch.
 - If your `MainApplication` already contains a manual Attentive integration, the plugin leaves the file alone and prints a warning during prebuild — remove the manual code to let the plugin manage initialization.
-- Builder options beyond `domain`/`mode` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
+- Builder options beyond `domain`/`mode`/`automaticallyOpensInboxDeepLinks` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
 - Bare React Native apps (no prebuild) should not use the plugin — follow the manual instructions above.
 
 #### Disabling push at initialization (`pushEnabled`)
@@ -549,16 +549,17 @@ Handled for you, with no props to set:
 
 #### Theming
 
-Five colors are overridable. Anything you leave unset falls back to the SDK's own default, and
-clearing a prop restores that default rather than keeping the last value.
+Six colors are overridable. Anything you leave unset falls back to the
+SDK's own default, and clearing a prop restores that default rather than keeping the last value.
 
 | Prop | Applies to |
 | --- | --- |
+| `inboxBackgroundColor` | background behind the list and its loading and empty states |
 | `unreadIndicatorColor` | the dot marking an unread message |
 | `titleTextColor` | message title |
 | `bodyTextColor` | message body / preview text |
 | `timestampTextColor` | message timestamp |
-| `swipeBackgroundColor` | background revealed by swipe-left ("mark as unread") |
+| `swipeBackgroundColor` | the read-state swipe action: swipe left to mark unread on Android, swipe right to toggle read/unread on iOS |
 
 Each accepts any React Native `ColorValue` — hex strings, named colors, `PlatformColor`,
 `DynamicColorIOS`:
@@ -566,6 +567,7 @@ Each accepts any React Native `ColorValue` — hex strings, named colors, `Platf
 ```tsx
 <AttentiveInboxView
   style={{ flex: 1 }}
+  inboxBackgroundColor="#F8F9FA"
   unreadIndicatorColor="#1E88E5"
   titleTextColor="#000000"
   bodyTextColor="#666666"
@@ -574,16 +576,11 @@ Each accepts any React Native `ColorValue` — hex strings, named colors, `Platf
 />
 ```
 
-> **Platform support:** Android applies all five. iOS applies `titleTextColor`, `bodyTextColor`, and
-> `timestampTextColor`. `unreadIndicatorColor` and `swipeBackgroundColor` are Android-only. Setting
-> them on iOS is safe and logs once, so they are never dropped silently.
+Use `inboxBackgroundColor` rather than `style={{ backgroundColor }}` to theme the inbox itself. On
+Android, unread rows use a slightly shifted shade of it.
 
-Two knobs are deliberately **not** exposed:
-
-- **Background color** — not themeable yet. Style the container behind the view instead.
-- **Fonts** — not themeable from React Native yet; the inbox uses the SDK's own type styles.
-
-The swipe-right delete action is a fixed red and is not themeable.
+Fonts are not themeable from React Native yet; the inbox uses the SDK's own type styles. The
+delete swipe action is a fixed red on both platforms and is not themeable.
 
 #### Message taps
 
@@ -631,6 +628,9 @@ config builder in `MainApplication.kt` instead:
 ```kotlin
 .automaticallyOpensInboxDeepLinks(false)
 ```
+
+In an Expo CNG app, set `"automaticallyOpensInboxDeepLinks": false` in the
+[config plugin](#expo-apps--config-plugin-android) options instead; the plugin adds that builder call.
 
 Setting only the TypeScript field gives you a working opt-out on iOS and double navigation on
 Android — so set both. Passing `false` from TypeScript logs a warning on Android naming the

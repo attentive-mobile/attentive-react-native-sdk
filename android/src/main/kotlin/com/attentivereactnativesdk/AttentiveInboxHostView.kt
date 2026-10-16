@@ -168,11 +168,16 @@ class AttentiveInboxHostView(context: Context) : FrameLayout(context) {
      * there is no second copy of the defaults to drift.
      */
     fun resetTheme() {
+        setInboxBackgroundColor(null)
         setUnreadIndicatorColor(null)
         setTitleTextColor(null)
         setBodyTextColor(null)
         setTimestampTextColor(null)
         setSwipeBackgroundColor(null)
+    }
+
+    fun setInboxBackgroundColor(@ColorInt color: Int?) {
+        inbox.setInboxBackgroundColor(color ?: default(SdkR.color.attentive_inbox_background))
     }
 
     fun setUnreadIndicatorColor(@ColorInt color: Int?) {

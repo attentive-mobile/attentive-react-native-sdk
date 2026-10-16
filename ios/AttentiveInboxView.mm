@@ -41,7 +41,6 @@ using namespace facebook::react;
 @implementation AttentiveInboxView {
   UIViewController *_inboxViewController;
   BOOL _observingSDKAvailability;
-  BOOL _loggedUnsupportedProps;
 }
 
 + (ComponentDescriptorProvider)componentDescriptorProvider
@@ -140,22 +139,11 @@ using namespace facebook::react;
 }
 
 /**
- * Builds the inbox controller with the theming props that iOS can express.
- *
- * `InboxStyle` covers title/body/timestamp colour, which is three of the five colour props the
- * component accepts. `unreadIndicatorColor` and `swipeBackgroundColor` have no iOS equivalent
- * yet; they are logged once rather than silently dropped, since a prop that works on Android
- * and does nothing here is exactly the kind of thing that costs someone an afternoon.
+ * Builds the inbox controller.
  */
 - (UIViewController *)makeInboxViewControllerWithSDK:(ATTNNativeSDK *)sdk
 {
   const auto &props = *std::static_pointer_cast<const AttentiveInboxViewProps>(_props);
-
-  if (!_loggedUnsupportedProps && (props.unreadIndicatorColor || props.swipeBackgroundColor)) {
-    _loggedUnsupportedProps = YES;
-    RCTLogInfo(@"[AttentiveSDK] unreadIndicatorColor and swipeBackgroundColor are Android-only for "
-                "now and have no effect on iOS. Other inbox colours apply.");
-  }
 
   // Convert only colours that were actually set. An unset SharedColor holds Color(nullptr), which
   // does convert to nil today, but the contract that matters here is "nil means keep the SDK's own
@@ -164,16 +152,25 @@ using namespace facebook::react;
   UIColor *bodyColor = props.bodyTextColor ? RCTUIColorFromSharedColor(props.bodyTextColor) : nil;
   UIColor *timestampColor =
       props.timestampTextColor ? RCTUIColorFromSharedColor(props.timestampTextColor) : nil;
+  UIColor *backgroundColor =
+      props.inboxBackgroundColor ? RCTUIColorFromSharedColor(props.inboxBackgroundColor) : nil;
+  UIColor *unreadIndicatorColor =
+      props.unreadIndicatorColor ? RCTUIColorFromSharedColor(props.unreadIndicatorColor) : nil;
+  UIColor *swipeBackgroundColor =
+      props.swipeBackgroundColor ? RCTUIColorFromSharedColor(props.swipeBackgroundColor) : nil;
 
   return [sdk makeInboxViewControllerWithTitleColor:titleColor
                                           bodyColor:bodyColor
-                                     timestampColor:timestampColor];
+                                     timestampColor:timestampColor
+                                    backgroundColor:backgroundColor
+                               unreadIndicatorColor:unreadIndicatorColor
+                               swipeBackgroundColor:swipeBackgroundColor];
 }
 
 /**
  * `InboxStyle` is passed once when the SwiftUI inbox is created, so a colour change has to rebuild
  * the controller. That resets scroll position, which is acceptable for theming — colours are
- * normally static — and is why the check is narrow: only the three colours iOS actually applies.
+ * normally static — and is why the check is narrow: only the colour props, not the tap handler.
  */
 - (void)updateProps:(const Props::Shared &)props oldProps:(const Props::Shared &)oldProps
 {
@@ -186,7 +183,10 @@ using namespace facebook::react;
 
   const BOOL styleChanged = oldViewProps.titleTextColor != newViewProps.titleTextColor ||
       oldViewProps.bodyTextColor != newViewProps.bodyTextColor ||
-      oldViewProps.timestampTextColor != newViewProps.timestampTextColor;
+      oldViewProps.timestampTextColor != newViewProps.timestampTextColor ||
+      oldViewProps.inboxBackgroundColor != newViewProps.inboxBackgroundColor ||
+      oldViewProps.unreadIndicatorColor != newViewProps.unreadIndicatorColor ||
+      oldViewProps.swipeBackgroundColor != newViewProps.swipeBackgroundColor;
 
   [super updateProps:props oldProps:oldProps];
 
@@ -317,7 +317,6 @@ using namespace facebook::react;
   // Fabric pools views. Tear the child controller down so a recycled instance doesn't keep a
   // controller parented to a screen that is already gone.
   [self teardownInboxViewController];
-  _loggedUnsupportedProps = NO;
   [super prepareForRecycle];
 }
 
