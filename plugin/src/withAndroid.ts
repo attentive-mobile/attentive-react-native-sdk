@@ -49,7 +49,6 @@ function generateInitCode(props: AttentivePluginProps): string {
     `  .applicationContext(this)`,
     `  .domain(${kotlinStringLiteral(props.domain)})`,
     `  .mode(${generateMode(props)})`,
-    // Only when false: true is the SDK default, and Android pins before 2.3.2-beta.1 lack the method.
     ...(props.automaticallyOpensInboxDeepLinks === false
       ? [`  .automaticallyOpensInboxDeepLinks(false)`]
       : []),
