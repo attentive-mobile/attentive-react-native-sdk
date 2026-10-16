@@ -332,7 +332,7 @@ import { initialize, type AttentiveSdkConfiguration } from '@attentive-mobile/at
 const config: AttentiveSdkConfiguration = {
   attentiveDomain: string;              // Required: Your Attentive domain
   mode: 'debug' | 'production';         // Required: SDK mode
-  skipFatigueOnCreatives?: boolean;     // Optional: Skip fatigue rules (default: false)
+  skipFatigueOnCreatives?: boolean;     // Deprecated: no effect, fatigue is evaluated on the backend
   enableDebugger?: boolean;             // Optional: Enable debug helpers (default: false)
 };
 

@@ -152,7 +152,6 @@ class MainApplication : Application(), ReactApplication {
             .domain("YOUR_ATTENTIVE_DOMAIN")
             .mode(AttentiveConfig.Mode.PRODUCTION) // or Mode.DEBUG for testing
             .notificationIconId(R.drawable.ic_stat_notification)
-            .skipFatigueOnCreatives(false)
             .logLevel(AttentiveLogLevel.VERBOSE)
             .build()
 
