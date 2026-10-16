@@ -223,6 +223,7 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 | -------- | ------------------------- | ------------------------------------------------------------------------------------------ |
 | `domain` | `string`                  | Your Attentive domain (required).                                                          |
 | `mode`   | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. Optional — defaults to `production`. |
+| `automaticallyOpensInboxDeepLinks` | `boolean` | Set `false` if you route inbox taps yourself — see [SDK-opened deep links](#sdk-opened-deep-links-automaticallyopensinboxdeeplinks). Optional — defaults to `true`. Android only; on iOS set the TypeScript config field. |
 
 **Notes:**
 
@@ -230,7 +231,7 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 - **iOS is untouched by the plugin.** iOS still initializes from TypeScript — the [`initialize()` call](#ios--initialize-from-typescript) is required either way.
 - The debug overlay (`enableDebugger`, see [Debugging Features](#debugging-features)) is wired only by the TypeScript `initialize()` call. The plugin's `mode: 'debug'` sets the _native_ SDK mode (creative debug view, verbose native logging) — a different switch.
 - If your `MainApplication` already contains a manual Attentive integration, the plugin leaves the file alone and prints a warning during prebuild — remove the manual code to let the plugin manage initialization.
-- Builder options beyond `domain`/`mode` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
+- Builder options beyond `domain`/`mode`/`automaticallyOpensInboxDeepLinks` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
 - Bare React Native apps (no prebuild) should not use the plugin — follow the manual instructions above.
 
 #### Disabling push at initialization (`pushEnabled`)
@@ -593,6 +594,9 @@ config builder in `MainApplication.kt` instead:
 ```kotlin
 .automaticallyOpensInboxDeepLinks(false)
 ```
+
+In an Expo CNG app, set `"automaticallyOpensInboxDeepLinks": false` in the
+[config plugin](#expo-apps--config-plugin-android) options instead; the plugin adds that builder call.
 
 Setting only the TypeScript field gives you a working opt-out on iOS and double navigation on
 Android — so set both. Passing `false` from TypeScript logs a warning on Android naming the

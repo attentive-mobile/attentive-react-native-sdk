@@ -49,6 +49,9 @@ function generateInitCode(props: AttentivePluginProps): string {
     `  .applicationContext(this)`,
     `  .domain(${kotlinStringLiteral(props.domain)})`,
     `  .mode(${generateMode(props)})`,
+    ...(props.automaticallyOpensInboxDeepLinks === false
+      ? [`  .automaticallyOpensInboxDeepLinks(false)`]
+      : []),
     `  .build()`,
     `AttentiveSdk.initialize(attentiveConfig)`,
   ]
