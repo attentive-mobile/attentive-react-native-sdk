@@ -754,8 +754,9 @@ function addInboxUnreadCountListener(
 /**
  * Marks an inbox message as read.
  *
- * Fire-and-forget: the inbox view and unread badge update immediately, and the server sync runs
- * in the background. Unknown IDs are ignored.
+ * Fire-and-forget: the inbox view updates immediately, and the unread count is provisional until
+ * the background server sync returns the server's count. Use an ID from `onMessageTap`; other IDs
+ * aren't supported and are handled differently on each platform.
  *
  * @param messageId - The message's ID
  */
@@ -766,8 +767,9 @@ function markInboxMessageRead(messageId: string): void {
 /**
  * Marks an inbox message as unread.
  *
- * Fire-and-forget: the inbox view and unread badge update immediately, and the server sync runs
- * in the background. Unknown IDs are ignored.
+ * Fire-and-forget: the inbox view updates immediately, and the unread count is provisional until
+ * the background server sync returns the server's count. Use an ID from `onMessageTap`; other IDs
+ * aren't supported and are handled differently on each platform.
  *
  * @param messageId - The message's ID
  */

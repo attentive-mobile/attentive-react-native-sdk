@@ -648,10 +648,14 @@ markInboxMessageRead(messageId)
 markInboxMessageUnread(messageId)
 ```
 
-Both are fire-and-forget and return nothing. The drop-in view and `addInboxUnreadCountListener`
-reflect the change immediately. The server sync runs in the background and is never confirmed: if
-it fails, iOS reverts the change, while Android keeps it until the next fetch. An ID the SDK hasn't
-loaded, or a call before `initialize()`, is ignored and doesn't throw.
+Both are fire-and-forget and return nothing. The drop-in view reflects the change immediately.
+`addInboxUnreadCountListener` receives a provisional count right away, which the server's count
+replaces once the sync completes. The sync is never confirmed: if it fails, iOS reverts the change,
+while Android keeps it until the next fetch. A call before `initialize()` is ignored and doesn't
+throw.
+
+Use IDs from `onMessageTap` only. Other IDs, such as one for a message the inbox hasn't loaded,
+aren't supported and are handled differently on each platform.
 
 Don't call them inside `onMessageTap` to undo the tap's own mark-read. Both requests are in flight
 at once, and the server may apply them in either order.
