@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, e.g. 2.1.1 (stable, main only) or 2.1.1-beta.1 / 2.1.1-example.1 (prerelease from any branch, published under the npm dist-tag its suffix names)"
+        description: "Release version, e.g. 2.1.1 (stable, main only), 2.1.1-beta.1 (shared alpha/beta/next/rc tags, main or develop only) or 2.1.1-example.1 (any branch). Prereleases publish under the npm dist-tag their suffix names."
         required: true
         type: string
       release_notes:
@@ -22,7 +22,8 @@ permissions: {}
 jobs:
   trigger-release:
     # Stables come from main only. Prereleases can come from any branch (develop, or a
-    # client build off a feature branch) and never move the npm `latest` tag.
+    # client build off a feature branch) and never move the npm `latest` tag. The shared
+    # tags (alpha, beta, next, rc) are main/develop-only, so a client build can't move them.
     runs-on: ubuntu-latest
     env:
       CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
@@ -46,8 +47,14 @@ jobs:
               echo "::error::'$dist_tag' can't be the npm dist-tag: npm rejects range-like tags such as x or v1, and latest is for stables"
               exit 1
             fi
+            # Case-insensitive, so -Beta.1 can't sidestep the check.
+            lower_tag=$(printf '%s' "$dist_tag" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lower_tag" =~ ^(alpha|beta|next|rc)$ ]] && [ "$BRANCH" != "main" ] && [ "$BRANCH" != "develop" ]; then
+              echo "::error::'$dist_tag' is a shared npm dist-tag, so only main and develop can publish under it. Use a tag of your own to release from $BRANCH (e.g., -example.1)."
+              exit 1
+            fi
           elif [ "$BRANCH" != "main" ]; then
-            echo "::error::Stable releases can only be cut from main. Add a prerelease suffix (e.g., -beta.1) to release from $BRANCH."
+            echo "::error::Stable releases can only be cut from main. Add a prerelease suffix to release from $BRANCH (e.g., -beta.1 from develop, -example.1 from other branches)."
             exit 1
           fi
 

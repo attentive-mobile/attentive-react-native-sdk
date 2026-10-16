@@ -303,8 +303,8 @@ jobs:
             fi
 
             # A -suffix makes it a prerelease under the npm dist-tag its first identifier names.
-            # Stables are main-only; this backstops the Release SDK workflow, since npm publish
-            # is irreversible.
+            # Stables are main-only and the shared tags main/develop-only; this backstops the
+            # Release SDK workflow, since npm publish is irreversible.
             if [[ "$RELEASE_VERSION" == *-* ]]; then
               IS_PRERELEASE=true
               NPM_TAG="${RELEASE_VERSION#*-}"
@@ -312,6 +312,12 @@ jobs:
               # npm refuses dist-tags that parse as semver ranges (x, v1, vx, ...).
               if [ "$NPM_TAG" = "latest" ] || [[ "$NPM_TAG" =~ ^v*([xX]|[0-9]+)$ ]]; then
                 echo "'$NPM_TAG' can't be the npm dist-tag: npm rejects range-like tags such as x or v1, and latest is for stables" >&2
+                exit 1
+              fi
+              # Case-insensitive, so -Beta.1 can't sidestep the check.
+              LOWER_TAG=$(printf '%s' "$NPM_TAG" | tr '[:upper:]' '[:lower:]')
+              if [[ "$LOWER_TAG" =~ ^(alpha|beta|next|rc)$ ]] && [ "${RELEASE_BRANCH:-}" != "main" ] && [ "${RELEASE_BRANCH:-}" != "develop" ]; then
+                echo "'$NPM_TAG' is a shared npm dist-tag, only published from main or develop (got '${RELEASE_BRANCH:-}')" >&2
                 exit 1
               fi
             else
