@@ -92,6 +92,32 @@ export type CreativeEventSubscription = AttentiveEventSubscription
 /** Handle returned by `addInboxUnreadCountListener`; call `remove()` to unsubscribe. */
 export type InboxUnreadCountSubscription = AttentiveEventSubscription
 
+/** Handle returned by `addInboxStateListener`; call `remove()` to unsubscribe. */
+export type InboxStateSubscription = AttentiveEventSubscription
+
+/** An inbox message, for apps that render their own inbox UI. */
+export type InboxMessage = {
+  id: string
+  title: string
+  body: string
+  /** When the message was sent, in milliseconds since the Unix epoch. */
+  timestamp: number
+  isRead: boolean
+  imageUrl?: string
+  actionUrl?: string
+  style: 'small' | 'large'
+}
+
+/** The inbox as the SDK currently holds it. */
+export type InboxState = {
+  /** The messages loaded so far. */
+  messages: InboxMessage[]
+  /** Whether another page can be loaded. `false` until the first page has loaded. */
+  hasMoreMessages: boolean
+  /** Whether a `loadMoreInboxMessages()` fetch is in flight. */
+  isLoadingMore: boolean
+}
+
 // Codegen does not support nested objects. We must flatten the Purchase type.
 export type Purchase = {
   items: Item[]

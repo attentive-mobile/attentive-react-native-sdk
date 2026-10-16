@@ -22,8 +22,11 @@ import com.attentive.androidsdk.events.Order
 import com.attentive.androidsdk.events.Price
 import com.attentive.androidsdk.events.ProductViewEvent
 import com.attentive.androidsdk.events.PurchaseEvent
+import com.attentive.androidsdk.inbox.InboxState
+import com.attentive.androidsdk.inbox.Message
 import com.attentive.androidsdk.push.TokenFetchResult
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -38,6 +41,7 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.UiThreadUtil
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.Callback
 import com.facebook.react.modules.core.DeviceEventManagerModule
@@ -71,6 +75,9 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
          * `INBOX_UNREAD_COUNT_EVENT_NAME` in `src/index.tsx` and the iOS bridge.
          */
         private const val INBOX_UNREAD_COUNT_EVENT_NAME = "AttentiveInboxUnreadCount"
+
+        /** Device-event name carrying inbox message-list and paging changes to JS. */
+        private const val INBOX_STATE_EVENT_NAME = "AttentiveInboxState"
     }
 
     private var creative: Creative? = null
@@ -100,6 +107,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         SupervisorJob() + Dispatchers.Main.immediate + inboxExceptionHandler,
     )
     private var inboxUnreadCountJob: Job? = null
+    private var inboxStateJob: Job? = null
     private val debugHelper: AttentiveDebugHelper
 
     init {
@@ -385,6 +393,104 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
 
     override fun markInboxMessageUnread(messageId: String) {
         AttentiveSdk.markUnread(messageId)
+    }
+
+    /**
+     * Resolves the current inbox state and starts the inbox, like [getInboxUnreadCount]. The first
+     * page usually lands afterwards, through [INBOX_STATE_EVENT_NAME].
+     */
+    override fun getInboxState(promise: Promise) {
+        try {
+            startObservingInboxState()
+            AttentiveSdk.startInbox()
+            promise.resolve(InboxSnapshot.of(AttentiveSdk.inboxState.value).toWritableMap())
+        } catch (e: Exception) {
+            Log.w(TAG, "[AttentiveSDK] getInboxState failed (${e.javaClass.simpleName}): ${e.message}")
+            promise.reject("inbox_state_error", e)
+        }
+    }
+
+    /** Idempotent, like [startObservingInboxUnreadCount]. */
+    private fun startObservingInboxState() {
+        if (inboxStateJob?.isActive == true) return
+        inboxStateJob = inboxScope.launch {
+            AttentiveSdk.inboxState
+                .map { InboxSnapshot.of(it) }
+                .distinctUntilChanged()
+                .collect { emitDeviceEvent(INBOX_STATE_EVENT_NAME, it.toWritableMap()) }
+        }
+    }
+
+    override fun loadMoreInboxMessages(promise: Promise) {
+        // Before the first page lands the SDK would fetch page one again and append a duplicate.
+        if (AttentiveSdk.inboxState.value.currentOffset == 0) {
+            promise.resolve(null)
+            return
+        }
+        inboxScope.launch {
+            try {
+                AttentiveSdk.loadMoreInboxMessages()
+                promise.resolve(null)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "[AttentiveSDK] loadMoreInboxMessages failed: ${e.message}")
+                promise.reject("inbox_load_more_error", e)
+            }
+        }
+    }
+
+    override fun deleteInboxMessage(messageId: String) {
+        AttentiveSdk.deleteMessage(messageId)
+    }
+
+    /**
+     * Matches iOS `markClicked`: ignores messages that aren't loaded, skips click tracking when
+     * there is no action URL (the server rejects those), and marks the message read.
+     */
+    override fun markInboxMessageClicked(messageId: String) {
+        val message = AttentiveSdk.inboxState.value.messages.firstOrNull { it.id == messageId } ?: return
+        message.actionUrl?.takeIf { it.isNotBlank() }?.let { AttentiveSdk.trackInboxClick(messageId, it) }
+        if (!message.isRead) {
+            AttentiveSdk.markRead(messageId)
+        }
+    }
+
+    /**
+     * The part of the SDK's [InboxState] that JS sees. Mapping to it before `distinctUntilChanged`
+     * keeps unread-count-only changes from re-sending the whole list.
+     */
+    private data class InboxSnapshot(
+        val messages: List<Message>,
+        val hasMoreMessages: Boolean,
+        val isLoadingMore: Boolean,
+    ) {
+        fun toWritableMap(): WritableMap = Arguments.createMap().apply {
+            putArray("messages", Arguments.createArray().apply { messages.forEach { pushMap(it.toWritableMap()) } })
+            putBoolean("hasMoreMessages", hasMoreMessages)
+            putBoolean("isLoadingMore", isLoadingMore)
+        }
+
+        companion object {
+            // The SDK starts hasMoreMessages at true; report false until the first page lands, as
+            // iOS does.
+            fun of(state: InboxState) = InboxSnapshot(
+                messages = state.messages,
+                hasMoreMessages = state.hasMoreMessages && state.currentOffset > 0,
+                isLoadingMore = state.isLoadingMore,
+            )
+
+            private fun Message.toWritableMap(): WritableMap = Arguments.createMap().apply {
+                putString("id", id)
+                putString("title", title)
+                putString("body", body)
+                putDouble("timestamp", timestamp.toDouble())
+                putBoolean("isRead", isRead)
+                imageUrl?.let { putString("imageUrl", it) }
+                actionUrl?.let { putString("actionUrl", it) }
+                putString("style", style.value)
+            }
+        }
     }
 
     /**

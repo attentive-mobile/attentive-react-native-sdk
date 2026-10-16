@@ -13,6 +13,9 @@ import type {
   AttentiveEventSubscription,
   CreativeEventSubscription,
   InboxUnreadCountSubscription,
+  InboxMessage,
+  InboxState,
+  InboxStateSubscription,
   PushAuthorizationStatus,
   ApplicationState,
   PushNotificationUserInfo,
@@ -779,8 +782,8 @@ function addInboxUnreadCountListener(
  * Marks an inbox message as read.
  *
  * Fire-and-forget: the inbox view updates immediately, and the unread count is provisional until
- * the background server sync returns the server's count. Use an ID from `onMessageTap`; other IDs
- * aren't supported and are handled differently on each platform.
+ * the background server sync returns the server's count. Use an ID from `onMessageTap` or
+ * [getInboxState]; other IDs aren't supported and are handled differently on each platform.
  *
  * @param messageId - The message's ID
  */
@@ -792,13 +795,94 @@ function markInboxMessageRead(messageId: string): void {
  * Marks an inbox message as unread.
  *
  * Fire-and-forget: the inbox view updates immediately, and the unread count is provisional until
- * the background server sync returns the server's count. Use an ID from `onMessageTap`; other IDs
- * aren't supported and are handled differently on each platform.
+ * the background server sync returns the server's count. Use an ID from `onMessageTap` or
+ * [getInboxState]; other IDs aren't supported and are handled differently on each platform.
  *
  * @param messageId - The message's ID
  */
 function markInboxMessageUnread(messageId: string): void {
   AttentiveReactNativeSdk.markInboxMessageUnread(messageId)
+}
+
+function decodeInboxState(raw: unknown): InboxState | undefined {
+  const state = raw as Partial<InboxState> | null | undefined
+  if (!state || !Array.isArray(state.messages)) {
+    console.warn(
+      '[AttentiveSDK] Ignoring an inbox state without a message list.'
+    )
+    return undefined
+  }
+  return {
+    messages: state.messages,
+    hasMoreMessages: state.hasMoreMessages === true,
+    isLoadingMore: state.isLoadingMore === true,
+  }
+}
+
+/**
+ * Reads the inbox for a custom inbox UI, and starts it if it isn't running yet.
+ *
+ * Resolves right away with what the SDK holds, which is empty until the first page lands; the
+ * first page and every later change arrive through [addInboxStateListener], so register that
+ * first. Call after `initialize()`: earlier calls reject.
+ */
+async function getInboxState(): Promise<InboxState> {
+  const state = decodeInboxState(await AttentiveReactNativeSdk.getInboxState())
+  if (!state) {
+    throw new Error(
+      '[AttentiveSDK] The native inbox state had no message list.'
+    )
+  }
+  return state
+}
+
+/**
+ * Subscribe to the inbox's message list and paging state.
+ *
+ * Fires when messages load, change read state, or are deleted, and when a page fetch starts or
+ * finishes. Each event carries the whole state, not a diff. Pair it with [getInboxState], which
+ * also starts the inbox.
+ *
+ * @returns A subscription; call `remove()` to stop receiving updates
+ */
+function addInboxStateListener(
+  listener: (state: InboxState) => void
+): InboxStateSubscription {
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.inboxState,
+    decodeInboxState,
+    listener
+  )
+}
+
+/**
+ * Loads the next page of messages, which arrives through [addInboxStateListener]. Call it when
+ * the user nears the end of the list. A no-op before the first page has loaded, when there are no
+ * more pages, or while a fetch is already in flight.
+ */
+function loadMoreInboxMessages(): Promise<void> {
+  return AttentiveReactNativeSdk.loadMoreInboxMessages()
+}
+
+/**
+ * Deletes an inbox message. Fire-and-forget: the list updates immediately and the server sync
+ * runs in the background. Only IDs of loaded messages are supported.
+ *
+ * @param messageId - The message's ID
+ */
+function deleteInboxMessage(messageId: string): void {
+  AttentiveReactNativeSdk.deleteInboxMessage(messageId)
+}
+
+/**
+ * Reports that the user opened a message in a custom inbox UI: tracks the click and marks the
+ * message read. Navigating to its `actionUrl` is up to you. Fire-and-forget, and only IDs of
+ * loaded messages are supported.
+ *
+ * @param messageId - The message's ID
+ */
+function markInboxMessageClicked(messageId: string): void {
+  AttentiveReactNativeSdk.markInboxMessageClicked(messageId)
 }
 
 export {
@@ -836,6 +920,11 @@ export {
   addInboxUnreadCountListener,
   markInboxMessageRead,
   markInboxMessageUnread,
+  getInboxState,
+  addInboxStateListener,
+  loadMoreInboxMessages,
+  deleteInboxMessage,
+  markInboxMessageClicked,
 }
 
 export type {
@@ -863,4 +952,7 @@ export type {
   // Inbox Types
   AttentiveInboxViewProps,
   InboxUnreadCountSubscription,
+  InboxMessage,
+  InboxState,
+  InboxStateSubscription,
 }

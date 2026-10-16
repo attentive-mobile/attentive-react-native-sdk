@@ -59,6 +59,8 @@
     // Bumped on every delivery that reached JS, so an explicit refresh can tell whether the change
     // observer already delivered its value. See deliverRefreshedInboxUnreadCount:ifNoDeliverySince:.
     uint64_t _unreadCountDeliveries;
+    // Inbox state observation for custom inbox UIs; cancelled in dealloc.
+    ATTNInboxStateObservation *_inboxStateObservation;
 }
 
 // Creative lifecycle events are delivered as RCTDeviceEventEmitter device events. This is the
@@ -77,6 +79,9 @@ static NSString *const kAttentiveCreativeEventName = @"AttentiveCreativeEvent";
 // name: must stay in sync with INBOX_UNREAD_COUNT_EVENT_NAME in `src/index.tsx` and in the
 // Android module.
 static NSString *const kAttentiveInboxUnreadCountEventName = @"AttentiveInboxUnreadCount";
+
+// Device-event name carrying inbox message-list and paging changes. Same contract as above.
+static NSString *const kAttentiveInboxStateEventName = @"AttentiveInboxState";
 
 RCT_EXPORT_MODULE()
 
@@ -832,6 +837,56 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   [_sdk markInboxMessageUnread:messageId];
 }
 
+// Resolves the current state and starts observing it, like getInboxUnreadCount. Unlike the unread
+// count there is no wait-for-initialize recovery: a custom inbox screen mounts after startup.
+- (void)getInboxState:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject {
+  ATTNNativeSDK *sdk = _sdk;
+  if (sdk == nil) {
+    reject(@"inbox_state_error",
+           @"The Attentive SDK is not initialized. Call initialize() before reading the inbox.",
+           nil);
+    return;
+  }
+  RCTExecuteOnMainQueue(^{
+    [self startObservingInboxStateWithSDK:sdk];
+    [sdk inboxStateWithCompletion:^(NSDictionary<NSString *, id> *state) {
+      resolve(state);
+    }];
+  });
+}
+
+// Idempotent. Main queue only.
+- (void)startObservingInboxStateWithSDK:(ATTNNativeSDK *)sdk {
+  if (_inboxStateObservation != nil) {
+    return;
+  }
+  __weak __typeof(self) weakSelf = self;
+  _inboxStateObservation = [sdk observeInboxStateWithHandler:^(NSDictionary<NSString *, id> *state) {
+    [weakSelf emitDeviceEvent:kAttentiveInboxStateEventName payload:state];
+  }];
+}
+
+- (void)loadMoreInboxMessages:(RCTPromiseResolveBlock)resolve
+                       reject:(RCTPromiseRejectBlock)reject {
+  ATTNNativeSDK *sdk = _sdk;
+  if (sdk == nil) {
+    reject(@"inbox_load_more_error", @"The Attentive SDK is not initialized.", nil);
+    return;
+  }
+  [sdk loadMoreInboxMessagesWithCompletion:^{
+    resolve(nil);
+  }];
+}
+
+- (void)deleteInboxMessage:(nonnull NSString *)messageId {
+  [_sdk deleteInboxMessage:messageId];
+}
+
+- (void)markInboxMessageClicked:(nonnull NSString *)messageId {
+  [_sdk markInboxMessageClicked:messageId];
+}
+
 // The observer is block-based, so it must be removed explicitly; a weak self in the handler stops
 // calls into a dead module but would still leak the registration itself.
 - (void)dealloc {
@@ -843,6 +898,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     [[NSNotificationCenter defaultCenter] removeObserver:_inboxSDKAvailabilityObserver];
     _inboxSDKAvailabilityObserver = nil;
   }
+  [_inboxStateObservation cancel];
+  _inboxStateObservation = nil;
 }
 
 - (void)destroyCreative {
