@@ -422,9 +422,14 @@ jobs:
           name: Open version-bump PR to main
           # NON-FATAL by design: release-it has already published to npm
           # (irreversible) before this step runs, so a PR hiccup must never fail
-          # an otherwise-successful release. No `set -e`; always exit 0.
+          # an otherwise-successful release. Always exits 0.
           command: |
+            # CircleCI runs steps with `bash -eo pipefail`, so -e has to be turned off explicitly.
+            set +e
             set -uo pipefail
+            # gh prefers GH_TOKEN, which the context sets to a read-only machine-user PAT
+            # ("must be a collaborator" on 2.2.0). Use the App token the release pushed with.
+            export GH_TOKEN="${GITHUB_TOKEN:-}"
             VERSION="${RELEASE_VERSION:-}"
             IS_PRERELEASE="${IS_PRERELEASE:-false}"
             if [ -z "${VERSION}" ]; then
