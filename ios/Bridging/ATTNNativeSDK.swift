@@ -690,19 +690,40 @@ struct DebugEvent {
 
   // MARK: - Marketing Subscriptions (React Native Bridge)
 
-  @objc(optInMarketingSubscriptionWithEmail:phone:completion:)
+  /// Maps the RN string to the native enum, matching exactly like the TS union, plus the
+  /// label the debug overlay shows. nil and unrecognised values become `.unspecified`, which
+  /// omits the field so the backend applies its own locale defaulting; unrecognised ones are logged.
+  private static func mapTrackingConsent(_ raw: String?) -> (consent: ATTNTrackingConsent, label: String) {
+    switch raw {
+    case "ACCEPTED": return (.accepted, "ACCEPTED")
+    case "DECLINED": return (.declined, "DECLINED")
+    case nil, "UNSPECIFIED": return (.unspecified, "UNSPECIFIED")
+    case let unrecognized?:
+      print("[AttentiveSDK] Unrecognized trackingConsent \"\(unrecognized)\"; sending no consent value")
+      return (.unspecified, "UNSPECIFIED")
+    }
+  }
+
+  @objc(optInMarketingSubscriptionWithEmail:phone:trackingConsent:completion:)
   public func optInMarketingSubscription(
     email: String?,
     phone: String?,
+    trackingConsent: String?,
     completion: @escaping (NSError?) -> Void
   ) {
-    sdk.optInMarketingSubscription(email: email, phone: phone) { [weak self] _, _, response, error in
+    let (consent, consentLabel) = Self.mapTrackingConsent(trackingConsent)
+    sdk.optInMarketingSubscription(
+      email: email,
+      phone: phone,
+      trackingConsent: consent
+    ) { [weak self] _, _, response, error in
       if let error = error {
         completion(error as NSError)
         if self?.debuggingEnabled == true {
           self?.showDebugInfo(event: "Marketing Subscription Opt-In Failed", data: [
             "email": email ?? "nil",
             "phone": phone ?? "nil",
+            "trackingConsent": consentLabel,
             "status": "error",
             "error": error.localizedDescription
           ])
@@ -719,6 +740,7 @@ struct DebugEvent {
           self?.showDebugInfo(event: "Marketing Subscription Opt-In Failed", data: [
             "email": email ?? "nil",
             "phone": phone ?? "nil",
+            "trackingConsent": consentLabel,
             "status": "http_error",
             "httpStatusCode": "\(httpResponse.statusCode)"
           ])
@@ -731,6 +753,7 @@ struct DebugEvent {
         self?.showDebugInfo(event: "Marketing Subscription Opt-In", data: [
           "email": email ?? "nil",
           "phone": phone ?? "nil",
+          "trackingConsent": consentLabel,
           "status": "success"
         ])
       }
@@ -739,7 +762,8 @@ struct DebugEvent {
     if debuggingEnabled {
       showDebugInfo(event: "Marketing Subscription Opt-In Requested", data: [
         "email": email ?? "nil",
-        "phone": phone ?? "nil"
+        "phone": phone ?? "nil",
+        "trackingConsent": consentLabel
       ])
     }
   }
@@ -1136,7 +1160,7 @@ private extension ATTNNativeSDK {
       }
 
       let price = NSDecimalNumber(string: priceString)
-      let attnPrice = ATTNPrice(price: price, currency: currency)
+      let attnPrice = ATTNPrice(amount: price, currency: currency)
 
       let item = ATTNItem(productId: productId, productVariantId: productVariantId, price: attnPrice)
 

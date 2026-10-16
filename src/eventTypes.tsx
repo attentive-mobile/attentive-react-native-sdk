@@ -49,7 +49,7 @@ export type ProductView = {
  *   load timed out, or an unknown exception occurred. Android does not report it for a failed
  *   page load or render timeout (see the README caveats).
  * - `notClosed` — the creative failed to close cleanly (rare; e.g. the web view was already
- *   gone at close time). Android only in practice: `attentive-ios-sdk` 2.0.18-beta.1 declares this
+ *   gone at close time). Android only in practice: `ATTNSDKFramework` 2.2.0 declares this
  *   status but has no call site for it.
  */
 export const CREATIVE_STATUSES = [
@@ -152,6 +152,35 @@ export interface MarketingSubscriptionParams {
   email?: string
   /** E.164 phone number to subscribe / unsubscribe */
   phone?: string
+}
+
+/**
+ * A shopper's email open-tracking (pixel-tracking) choice, mirroring the wire
+ * enum. `'UNSPECIFIED'` — and omitting the value entirely — sends no field, so
+ * the backend applies its own locale defaulting.
+ */
+export const TRACKING_CONSENTS = [
+  'ACCEPTED',
+  'DECLINED',
+  'UNSPECIFIED',
+] as const
+
+export type TrackingConsent = (typeof TRACKING_CONSENTS)[number]
+
+/**
+ * Parameters for marketing subscription opt-in. Same contact-info rules as
+ * [MarketingSubscriptionParams], plus the shopper's pixel-tracking consent.
+ *
+ * Opt-out takes no consent value: the backend neither receives nor processes
+ * one on that path, so accepting it there would be a silent no-op.
+ */
+export interface OptInMarketingSubscriptionParams
+  extends MarketingSubscriptionParams {
+  /**
+   * The shopper's email open-tracking choice. Omit it when they have not been
+   * asked — never infer or default to `'ACCEPTED'` / `'DECLINED'`.
+   */
+  trackingConsent?: TrackingConsent
 }
 
 /**

@@ -17,6 +17,7 @@ This project uses **npm** as the preferred package manager for consistency and a
 | Ruby         | >= 3.3    |
 | CocoaPods    | ~> 1.16   |
 | Xcode        | >= 15     |
+| iOS deployment target | >= 15.0 |
 | Android SDK  | API 24+   |
 | Android `compileSdk` | 35 |
 | JDK          | 17        |
@@ -25,7 +26,7 @@ This project uses **npm** as the preferred package manager for consistency and a
 > your app. The native Attentive Android SDK and its dependencies declare `minCompileSdk=35` in
 > their AAR metadata, so a lower value fails the build with
 > `Dependency '…' requires libraries and applications that depend on it to compile against version
-> 35 or later of the Android APIs`. Releases before the inbox built against 34.
+> 35 or later of the Android APIs`.
 
 ## Installation
 
@@ -315,6 +316,43 @@ try {
 
 > Use `updateUser` only when switching to a different user. To add or enrich identifiers for the **current** user, prefer `identify` (shown above).
 
+### Marketing subscriptions
+
+Use `optInMarketingSubscription` and `optOutMarketingSubscription` to record a shopper's email/SMS marketing subscription — most commonly from a "yes, opt me into marketing" checkbox during native account creation. At least one of `email` or `phone` must be provided; the native SDK rejects the call if neither is. Both return a `Promise` that resolves on success and rejects with an error on failure.
+
+```typescript
+import {
+  optInMarketingSubscription,
+  optOutMarketingSubscription,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+try {
+  await optInMarketingSubscription({
+    email: 'user@example.com',
+    phone: '+15551234567',
+  })
+} catch (error) {
+  // Handle the failure (e.g. surface an error to the user)
+}
+
+await optOutMarketingSubscription({ email: 'user@example.com' })
+```
+
+#### Pixel-tracking consent (EU only)
+
+EU customers subject to email pixel-tracking consent requirements can pass the shopper's choice via `trackingConsent` on `optInMarketingSubscription`. See the [help article](https://help.attentive.com/hc/en-us/articles/51464632390804-France-Email-Privacy-Compliance-Update) for background.
+
+```typescript
+await optInMarketingSubscription({
+  email: 'user@example.com',
+  trackingConsent: 'ACCEPTED',
+})
+```
+
+Values: `'ACCEPTED'`, `'DECLINED'`, or `'UNSPECIFIED'` (default, backend decides). Any other value rejects the call. `optOutMarketingSubscription` does not accept a consent parameter — consent is captured at opt-in.
+
+Existing call sites that don't pass `trackingConsent` continue to work unchanged — they default to `'UNSPECIFIED'`.
+
 ### Load the Creative
 
 ```typescript
@@ -369,7 +407,7 @@ promise.
 | `opened` | The creative rendered and is visible. |
 | `closed` | The creative was dismissed by the user tapping the creative's own close control. The Android hardware back button does **not** produce this event — see the caveats below. |
 | `notOpened` | The creative could not be shown: no creative is configured for the app, the creative was fatigued, the load timed out, or an unknown error occurred. This is the single catch-all failure status on both platforms — it does not distinguish between those causes. See the Android caveat below. |
-| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `attentive-ios-sdk` 2.0.18-beta.1 declares this status but never reports it, so an iOS-only integration will never see it. |
+| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `ATTNSDKFramework` 2.2.0 declares this status but never reports it, so an iOS-only integration will never see it. |
 
 `creativeId` echoes the id you passed to `triggerCreative(creativeId)`, and is absent when you
 triggered the default creative.

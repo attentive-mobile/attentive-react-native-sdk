@@ -3,38 +3,58 @@ name: Release SDK
 # Manual trigger that dispatches the CircleCI release-sdk pipeline (run_release=true)
 # and waits for it to finish. CircleCI does the actual work: validate -> bump version
 # -> CHANGELOG -> tag -> GitHub Release -> npm publish (Trusted Publishing) -> PR to
-# main. Mirrors the iOS/Android SDK release workflows.
+# main (stables only). Mirrors the iOS/Android SDK release workflows.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version (e.g., 2.1.1 or 2.1.1-beta.1)"
+        description: "Release version, e.g. 2.1.1 (stable, main only), 2.1.1-beta.1 (shared alpha/beta/next/rc tags, main or develop only) or 2.1.1-example.1 (any branch). Prereleases publish under the npm dist-tag their suffix names."
         required: true
         type: string
-      is_prerelease:
-        description: "Mark as prerelease (beta). Publishes under the npm 'beta' dist-tag and skips the PR to main."
-        required: false
-        type: boolean
-        default: false
       release_notes:
         description: "Release notes (optional). If blank, generated from conventional commits."
         required: false
         type: string
 
+# No step uses GITHUB_TOKEN, so grant it no scopes.
+permissions: {}
+
 jobs:
   trigger-release:
-    # Only allow releases to be dispatched from main. This prevents an operator
-    # from running "Release SDK" against a feature branch and publishing unmerged
-    # code to npm, bypassing the main-branch review path.
-    if: github.ref == 'refs/heads/main'
+    # Stables come from main only. Prereleases can come from any branch (develop, or a
+    # client build off a feature branch) and never move the npm `latest` tag. The shared
+    # tags (alpha, beta, next, rc) are main/develop-only, so a client build can't move them.
     runs-on: ubuntu-latest
+    env:
+      CIRCLECI_TOKEN: ${{ secrets.CIRCLECI_TOKEN }}
+      CIRCLECI_PROJECT_SLUG: ${{ vars.CIRCLECI_PROJECT_SLUG }}
     steps:
-      - name: Validate version format
+      - name: Validate inputs
         env:
           VERSION: ${{ inputs.version }}
+          BRANCH: ${{ github.ref_name }}
         run: |
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$ ]]; then
-            echo "::error::Version must be in semver format (e.g., 2.1.1 or 2.1.1-beta.1)"
+          # The suffix's first identifier becomes the npm dist-tag, so it must start with a letter.
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)*)?$ ]]; then
+            echo "::error::Version must be X.Y.Z or X.Y.Z-<tag>[.N], where <tag> starts with a letter (e.g., 2.1.1, 2.1.1-beta.1)"
+            exit 1
+          fi
+          if [[ "$VERSION" == *-* ]]; then
+            dist_tag="${VERSION#*-}"
+            dist_tag="${dist_tag%%.*}"
+            # npm refuses dist-tags that parse as semver ranges (x, v1, vx, ...).
+            if [ "$dist_tag" = "latest" ] || [[ "$dist_tag" =~ ^v*([xX]|[0-9]+)$ ]]; then
+              echo "::error::'$dist_tag' can't be the npm dist-tag: npm rejects range-like tags such as x or v1, and latest is for stables"
+              exit 1
+            fi
+            # Case-insensitive, so -Beta.1 can't sidestep the check.
+            lower_tag=$(printf '%s' "$dist_tag" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lower_tag" =~ ^(alpha|beta|next|rc)$ ]] && [ "$BRANCH" != "main" ] && [ "$BRANCH" != "develop" ]; then
+              echo "::error::'$dist_tag' is a shared npm dist-tag, so only main and develop can publish under it. Use a tag of your own to release from $BRANCH (e.g., -example.1)."
+              exit 1
+            fi
+          elif [ "$BRANCH" != "main" ]; then
+            echo "::error::Stable releases can only be cut from main. Add a prerelease suffix to release from $BRANCH (e.g., -beta.1 from develop, -example.1 from other branches)."
             exit 1
           fi
 
@@ -42,26 +62,29 @@ jobs:
         id: trigger
         env:
           VERSION: ${{ inputs.version }}
-          IS_PRERELEASE: ${{ inputs.is_prerelease }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
+          BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
         run: |
+          # CircleCI can only be triggered by branch, so it gets the dispatched commit to check against.
           payload=$(jq -n \
+            --arg branch "$BRANCH" \
             --arg version "$VERSION" \
             --arg notes "$RELEASE_NOTES" \
-            --arg is_prerelease "$IS_PRERELEASE" \
+            --arg sha "$SHA" \
             '{
-              branch: "main",
+              branch: $branch,
               parameters: {
                 run_release: true,
                 release_version: $version,
                 release_notes: $notes,
-                is_prerelease: $is_prerelease
+                release_sha: $sha
               }
             }')
 
           response=$(curl -s -w "\n%{http_code}" -X POST \
-            "https://circleci.com/api/v2/project/${{ vars.CIRCLECI_PROJECT_SLUG }}/pipeline" \
-            -H "Circle-Token: ${{ secrets.CIRCLECI_TOKEN }}" \
+            "https://circleci.com/api/v2/project/${CIRCLECI_PROJECT_SLUG}/pipeline" \
+            -H "Circle-Token: ${CIRCLECI_TOKEN}" \
             -H "Content-Type: application/json" \
             -d "$payload")
 
@@ -87,20 +110,23 @@ jobs:
           echo "CircleCI pipeline triggered for version $VERSION (pipeline: $pipeline_number)"
 
       - name: Wait for CircleCI pipeline to complete
+        env:
+          PIPELINE_ID: ${{ steps.trigger.outputs.pipeline_id }}
+          PIPELINE_NUMBER: ${{ steps.trigger.outputs.pipeline_number }}
         run: |
-          pipeline_id="${{ steps.trigger.outputs.pipeline_id }}"
-          pipeline_number="${{ steps.trigger.outputs.pipeline_number }}"
+          pipeline_id="$PIPELINE_ID"
+          pipeline_number="$PIPELINE_NUMBER"
           poll_interval=30
           timeout=2700  # 45 minutes
           elapsed=0
 
           echo "Waiting for CircleCI pipeline $pipeline_number to complete..."
-          echo "Pipeline URL: https://app.circleci.com/pipelines/${{ vars.CIRCLECI_PROJECT_SLUG }}/${pipeline_number}"
+          echo "Pipeline URL: https://app.circleci.com/pipelines/${CIRCLECI_PROJECT_SLUG}/${pipeline_number}"
 
           while [ "$elapsed" -lt "$timeout" ]; do
             api_response=$(curl -s -w "\n%{http_code}" -X GET \
               "https://circleci.com/api/v2/pipeline/${pipeline_id}/workflow" \
-              -H "Circle-Token: ${{ secrets.CIRCLECI_TOKEN }}" \
+              -H "Circle-Token: ${CIRCLECI_TOKEN}" \
               -H "Content-Type: application/json")
 
             http_code=$(echo "$api_response" | tail -1)
@@ -129,7 +155,7 @@ jobs:
               name=$(echo "$response" | jq -r ".items[$i].name")
               status=$(echo "$response" | jq -r ".items[$i].status")
               wf_id=$(echo "$response" | jq -r ".items[$i].id")
-              summary="${summary}  - ${name}: ${status} (https://app.circleci.com/pipelines/${{ vars.CIRCLECI_PROJECT_SLUG }}/${pipeline_number}/workflows/${wf_id})\n"
+              summary="${summary}  - ${name}: ${status} (https://app.circleci.com/pipelines/${CIRCLECI_PROJECT_SLUG}/${pipeline_number}/workflows/${wf_id})\n"
 
               case "$status" in
                 success) ;;
