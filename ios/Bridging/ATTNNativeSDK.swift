@@ -1160,7 +1160,7 @@ private extension ATTNNativeSDK {
       }
 
       let price = NSDecimalNumber(string: priceString)
-      let attnPrice = ATTNPrice(price: price, currency: currency)
+      let attnPrice = ATTNPrice(amount: price, currency: currency)
 
       let item = ATTNItem(productId: productId, productVariantId: productVariantId, price: attnPrice)
 
