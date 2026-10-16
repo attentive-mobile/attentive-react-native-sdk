@@ -619,8 +619,8 @@ useEffect(() => {
 ```
 
 The listener fires on every change the SDK makes — a completed fetch, a message read or deleted in
-the inbox UI, an identity change. Repeat values are filtered out natively, so a re-fetch returning
-the same number won't churn your badge. A listener on its own receives nothing until something
+the inbox UI, a `markInboxMessageRead` / `markInboxMessageUnread` call, an identity change. Repeat
+values are filtered out natively, so a re-fetch returning the same number won't churn your badge. A listener on its own receives nothing until something
 starts the inbox, which is why the read call above is not optional.
 
 `0` is both the initial value and the "nothing unread" value, so it cannot tell you whether the
@@ -633,12 +633,39 @@ first fetch has landed. Track that separately if you need to distinguish them.
 > updates when a push arrives while the app is foregrounded, and whenever the inbox view is on
 > screen. A plain foreground with no push and no inbox visit will not refresh it.
 
+#### Read state
+
+`markInboxMessageRead` and `markInboxMessageUnread` change a message's read state from JS. The
+message ID comes from [`onMessageTap`](#message-taps):
+
+```tsx
+import {
+  markInboxMessageRead,
+  markInboxMessageUnread,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+markInboxMessageRead(messageId)
+markInboxMessageUnread(messageId)
+```
+
+Both are fire-and-forget and return nothing. The drop-in view reflects the change immediately.
+`addInboxUnreadCountListener` receives a provisional count right away, which the server's count
+replaces once the sync completes. The sync is never confirmed: if it fails, iOS reverts the change,
+while Android keeps it until the next fetch. A call before `initialize()` is ignored and doesn't
+throw.
+
+Use IDs from `onMessageTap` only. Other IDs, such as one for a message the inbox hasn't loaded,
+aren't supported and are handled differently on each platform.
+
+Don't call them inside `onMessageTap` to undo the tap's own mark-read. Both requests are in flight
+at once, and the server may apply them in either order.
+
 #### Not yet available from TypeScript
 
-The native SDKs expose more than the drop-in view and the unread count. The following are
-**native-only** today — they are not bridged to React Native:
+The native SDKs expose more than the drop-in view, the unread count, and read state. The following
+are **native-only** today — they are not bridged to React Native:
 
-- programmatic `markRead` / `markUnread` / `deleteMessage` / load-next-page
+- programmatic `deleteMessage` / load-next-page
 - a tap handler that *replaces* the SDK's own handling, rather than observing it alongside — see
   [Message taps](#message-taps) for what `onMessageTap` does and does not take over
 - subscribing to the full message stream to build your own inbox UI

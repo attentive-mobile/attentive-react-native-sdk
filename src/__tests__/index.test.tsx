@@ -36,6 +36,8 @@ jest.mock('react-native', () => ({
       getInitialPushNotification: jest.fn().mockResolvedValue(null),
       optInMarketingSubscription: jest.fn().mockResolvedValue(undefined),
       optOutMarketingSubscription: jest.fn().mockResolvedValue(undefined),
+      markInboxMessageRead: jest.fn(),
+      markInboxMessageUnread: jest.fn(),
     },
   },
   TurboModuleRegistry: {
@@ -80,6 +82,9 @@ import {
   // Marketing Subscription Methods
   optInMarketingSubscription,
   optOutMarketingSubscription,
+  // Inbox Methods
+  markInboxMessageRead,
+  markInboxMessageUnread,
 } from '../index'
 import type {
   AttentiveSdkConfiguration,
@@ -425,6 +430,24 @@ describe('Attentive SDK', () => {
 
       expect(mockNativeModule.exportDebugLogs).toHaveBeenCalled()
       expect(logs).toBe('debug logs')
+    })
+  })
+
+  describe('Inbox', () => {
+    it('should mark a message read', () => {
+      markInboxMessageRead('message-1')
+
+      expect(mockNativeModule.markInboxMessageRead).toHaveBeenCalledWith(
+        'message-1'
+      )
+    })
+
+    it('should mark a message unread', () => {
+      markInboxMessageUnread('message-1')
+
+      expect(mockNativeModule.markInboxMessageUnread).toHaveBeenCalledWith(
+        'message-1'
+      )
     })
   })
 
