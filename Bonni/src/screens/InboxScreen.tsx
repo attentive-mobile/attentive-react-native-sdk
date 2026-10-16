@@ -6,10 +6,6 @@
  * foreground, and handles pull-to-refresh and pagination internally. There is no SDK
  * call to make from JS — rendering the component is the integration.
  *
- * The theming props below map Bonni's design system onto the inbox: an off-white background,
- * peach for the swipe action so it matches the nav bar, muted grey for secondary text. Both
- * platforms apply all six.
- *
  * onMessageTap observes a tap, it does not take it over: the SDK tracks the click and marks the
  * message read either way. It would also open the message's actionUrl, except Bonni opts out of
  * that — automaticallyOpensInboxDeepLinks is false in App.tsx (iOS) and on MainApplication.kt's

@@ -139,8 +139,7 @@ using namespace facebook::react;
 }
 
 /**
- * Builds the inbox controller with the component's theming props, all six of which map onto
- * `InboxStyle`.
+ * Builds the inbox controller.
  */
 - (UIViewController *)makeInboxViewControllerWithSDK:(ATTNNativeSDK *)sdk
 {

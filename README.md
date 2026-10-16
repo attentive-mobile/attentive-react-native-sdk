@@ -549,7 +549,7 @@ Handled for you, with no props to set:
 
 #### Theming
 
-Six colors are overridable, on both iOS and Android. Anything you leave unset falls back to the
+Six colors are overridable. Anything you leave unset falls back to the
 SDK's own default, and clearing a prop restores that default rather than keeping the last value.
 
 | Prop | Applies to |

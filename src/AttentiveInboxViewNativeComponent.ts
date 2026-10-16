@@ -19,10 +19,10 @@ import codegenNativeComponent from 'react-native/Libraries/Utilities/codegenNati
  */
 export interface NativeProps extends ViewProps {
   /**
-   * Background behind the message list and its loading and empty states. Named apart from the
-   * built-in `backgroundColor` view prop, which would shadow it. On Android, unread rows use a
-   * slightly shifted shade of it.
+   * Background behind the message list and its loading and empty states. On Android, unread rows
+   * use a slightly shifted shade of it.
    */
+  // Not `backgroundColor`: that's a built-in view prop and would shadow this one.
   inboxBackgroundColor?: ColorValue
   /** Dot marking an unread message. */
   unreadIndicatorColor?: ColorValue
