@@ -14,7 +14,7 @@ This project uses **npm** as the preferred package manager for consistency and a
 | ------------ | --------- |
 | Node.js      | >= 18.0.0 |
 | React Native | >= 0.74   |
-| React Native New Architecture | Required on iOS and Android (default since RN 0.76) |
+| React Native New Architecture | Required on iOS and Android. On by default in new apps since RN 0.76; RN 0.74–0.75 must enable it |
 | Ruby         | >= 3.3    |
 | CocoaPods    | ~> 1.16   |
 | Xcode        | >= 15     |
@@ -416,7 +416,9 @@ Notes:
 
 - Supported on React Native 0.74+. Events travel as `RCTDeviceEventEmitter` device events rather
   than through a codegen event emitter, which would have required 0.76+. Like the rest of the SDK,
-  they need the New Architecture on both platforms.
+  they need the New Architecture on both platforms. With it disabled on iOS, every SDK call,
+  starting with `initialize()`, throws `The package 'attentive-react-native-sdk' doesn't seem to be
+  linked`.
 - **`destroyCreative()` does not emit an event** on either platform, so a `closed` event only ever
   comes from user-driven dismissal. Note the platforms diverge on what it actually does: on Android
   it removes the creative's web view, while on iOS it currently dismisses nothing — the creative

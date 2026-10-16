@@ -5,8 +5,9 @@
 //  Created by Wyatt Davis on 2/13/23.
 //
 //  NOTE: This file contains both new arch and old arch implementations. Only the new arch path
-//  (RCT_NEW_ARCH_ENABLED) is functional. The old arch #else branch does not compile and is
-//  retained as scaffolding for future old arch support work.
+//  (RCT_NEW_ARCH_ENABLED) is functional. The old arch #else branch compiles but exports no
+//  methods, so JS sees the module as null. It is retained as scaffolding for future old arch
+//  support work.
 //
 
 #import "AttentiveReactNativeSdk.h"
@@ -220,9 +221,9 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 #else
-// Old Architecture implementation — currently does not compile (missing RCT_EXPORT_METHOD macros,
-// bridge module registration, etc.). Kept here as a starting point for restoring old arch support
-// in a future ticket.
+// Old Architecture implementation — compiles, but has no RCT_EXPORT_METHOD macros, so the bridge
+// exposes no methods and JS sees the module as null. Kept here as a starting point for restoring
+// old arch support in a future ticket.
 - (void)initialize:(NSDictionary*)configuration {
     // pushEnabled defaults to YES when the key is absent, matching the TypeScript default.
     NSNumber *pushEnabled = configuration[@"pushEnabled"];
