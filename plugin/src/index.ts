@@ -9,6 +9,7 @@ const packageName = '@attentive-mobile/attentive-react-native-sdk'
 export type AttentivePluginProps = {
   domain: string
   mode?: 'debug' | 'production'
+  automaticallyOpensInboxDeepLinks?: boolean
 }
 
 // Runs at config-evaluation time on every platform (not inside the Android
@@ -24,7 +25,10 @@ function validateProps(props: unknown): asserts props is AttentivePluginProps {
       `[attentive-react-native-sdk] The config plugin requires options. ${usage}`
     )
   }
-  const { domain, mode } = props as Record<string, unknown>
+  const { domain, mode, automaticallyOpensInboxDeepLinks } = props as Record<
+    string,
+    unknown
+  >
   if (typeof domain !== 'string' || domain.length === 0) {
     throw new Error(
       `[attentive-react-native-sdk] The config plugin requires a \`domain\` option (your Attentive domain slug). ${usage}`
@@ -35,6 +39,16 @@ function validateProps(props: unknown): asserts props is AttentivePluginProps {
       `[attentive-react-native-sdk] Invalid mode ${JSON.stringify(
         mode
       )} — expected "debug" or "production" (defaults to "production" when omitted).`
+    )
+  }
+  if (
+    automaticallyOpensInboxDeepLinks !== undefined &&
+    typeof automaticallyOpensInboxDeepLinks !== 'boolean'
+  ) {
+    throw new Error(
+      `[attentive-react-native-sdk] Invalid automaticallyOpensInboxDeepLinks ${JSON.stringify(
+        automaticallyOpensInboxDeepLinks
+      )} — expected true or false (defaults to true when omitted).`
     )
   }
 }

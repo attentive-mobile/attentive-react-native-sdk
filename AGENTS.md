@@ -146,6 +146,8 @@ If the host already has a root `useEffect` for app startup, add `initialize(conf
 
 Then run `npx expo prebuild --platform android` (or let the next `npx expo run:android` / EAS build do it). The plugin injects the same initialization shown below into the generated `MainApplication.kt`, inside `@generated` blocks it manages across re-runs. Requires **Expo SDK 50+** — on older SDKs it fails prebuild with an explicit error. The manual instructions below are for **bare React Native apps only**.
 
+If the app routes inbox taps itself (`onMessageTap`), also pass `"automaticallyOpensInboxDeepLinks": false` in the plugin options. That's the Android half; iOS still takes the same field on the TypeScript config.
+
 On Android the SDK must be initialized in `Application.onCreate()`, **not** from TypeScript. Two reasons:
 
 1. The SDK registers lifecycle observers (e.g. `AppLaunchTracker` on the `ProcessLifecycleOwner`) that must be in place **before** the React Native bridge is ready, or early app-launch events are missed.
