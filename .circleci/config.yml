@@ -26,6 +26,10 @@ parameters:
   release_notes:
     type: string
     default: ""
+  # The commit the release was dispatched for; the release job refuses to publish any other.
+  release_sha:
+    type: string
+    default: ""
   # Set true by the GitHub Actions "Deploy Bonni" workflow to build + upload the
   # Bonni app to TestFlight and Firebase App Distribution without cutting an SDK release.
   run_bonni_deploy:
@@ -291,11 +295,24 @@ jobs:
             RELEASE_VERSION: << pipeline.parameters.release_version >>
             RELEASE_NOTES: << pipeline.parameters.release_notes >>
             RELEASE_BRANCH: << pipeline.git.branch >>
+            RELEASE_SHA: << pipeline.parameters.release_sha >>
           command: |
             set -euo pipefail
 
             [ "${RELEASE_VERSION:-}" = "<nil>" ] && RELEASE_VERSION=""
             [ "${RELEASE_NOTES:-}" = "<nil>" ] && RELEASE_NOTES=""
+            [ "${RELEASE_SHA:-}" = "<nil>" ] && RELEASE_SHA=""
+
+            # CircleCI builds the branch's HEAD at pipeline creation, so a push after the
+            # dispatch would otherwise release a commit nobody selected.
+            if [ -z "$RELEASE_SHA" ]; then
+              echo "release_sha is required; trigger releases through the Release SDK workflow" >&2
+              exit 1
+            fi
+            if [ "$RELEASE_SHA" != "$CIRCLE_SHA1" ]; then
+              echo "Release was dispatched for ${RELEASE_SHA} but this pipeline is at ${CIRCLE_SHA1} (${RELEASE_BRANCH:-} moved?). Nothing was published; dispatch Release SDK again." >&2
+              exit 1
+            fi
 
             if [[ ! "$RELEASE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z][a-zA-Z0-9]*(\.[a-zA-Z0-9]+)*)?$ ]]; then
               echo "release_version must be X.Y.Z or X.Y.Z-<tag>[.N], where <tag> starts with a letter" >&2

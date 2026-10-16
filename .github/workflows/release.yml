@@ -64,17 +64,21 @@ jobs:
           VERSION: ${{ inputs.version }}
           RELEASE_NOTES: ${{ inputs.release_notes }}
           BRANCH: ${{ github.ref_name }}
+          SHA: ${{ github.sha }}
         run: |
+          # CircleCI can only be triggered by branch, so it gets the dispatched commit to check against.
           payload=$(jq -n \
             --arg branch "$BRANCH" \
             --arg version "$VERSION" \
             --arg notes "$RELEASE_NOTES" \
+            --arg sha "$SHA" \
             '{
               branch: $branch,
               parameters: {
                 run_release: true,
                 release_version: $version,
-                release_notes: $notes
+                release_notes: $notes,
+                release_sha: $sha
               }
             }')
 
