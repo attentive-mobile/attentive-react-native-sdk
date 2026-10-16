@@ -550,16 +550,17 @@ Handled for you, with no props to set:
 
 #### Theming
 
-Five colors are overridable. Anything you leave unset falls back to the SDK's own default, and
-clearing a prop restores that default rather than keeping the last value.
+Six colors are overridable. Anything you leave unset falls back to the
+SDK's own default, and clearing a prop restores that default rather than keeping the last value.
 
 | Prop | Applies to |
 | --- | --- |
+| `inboxBackgroundColor` | background behind the list and its loading and empty states |
 | `unreadIndicatorColor` | the dot marking an unread message |
 | `titleTextColor` | message title |
 | `bodyTextColor` | message body / preview text |
 | `timestampTextColor` | message timestamp |
-| `swipeBackgroundColor` | background revealed by swipe-left ("mark as unread") |
+| `swipeBackgroundColor` | the read-state swipe action: swipe left to mark unread on Android, swipe right to toggle read/unread on iOS |
 
 Each accepts any React Native `ColorValue` — hex strings, named colors, `PlatformColor`,
 `DynamicColorIOS`:
@@ -567,6 +568,7 @@ Each accepts any React Native `ColorValue` — hex strings, named colors, `Platf
 ```tsx
 <AttentiveInboxView
   style={{ flex: 1 }}
+  inboxBackgroundColor="#F8F9FA"
   unreadIndicatorColor="#1E88E5"
   titleTextColor="#000000"
   bodyTextColor="#666666"
@@ -575,16 +577,11 @@ Each accepts any React Native `ColorValue` — hex strings, named colors, `Platf
 />
 ```
 
-> **Platform support:** Android applies all five. iOS applies `titleTextColor`, `bodyTextColor`, and
-> `timestampTextColor`. `unreadIndicatorColor` and `swipeBackgroundColor` are Android-only. Setting
-> them on iOS is safe and logs once, so they are never dropped silently.
+Use `inboxBackgroundColor` rather than `style={{ backgroundColor }}` to theme the inbox itself. On
+Android, unread rows use a slightly shifted shade of it.
 
-Two knobs are deliberately **not** exposed:
-
-- **Background color** — not themeable yet. Style the container behind the view instead.
-- **Fonts** — not themeable from React Native yet; the inbox uses the SDK's own type styles.
-
-The swipe-right delete action is a fixed red and is not themeable.
+Fonts are not themeable from React Native yet; the inbox uses the SDK's own type styles. The
+delete swipe action is a fixed red on both platforms and is not themeable.
 
 #### Message taps
 

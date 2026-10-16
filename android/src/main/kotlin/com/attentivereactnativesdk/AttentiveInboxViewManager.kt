@@ -86,6 +86,10 @@ class AttentiveInboxViewManager :
         }
     }
 
+    override fun setInboxBackgroundColor(view: AttentiveInboxHostView, value: Int?) {
+        view.setInboxBackgroundColor(value)
+    }
+
     override fun setUnreadIndicatorColor(view: AttentiveInboxHostView, value: Int?) {
         view.setUnreadIndicatorColor(value)
     }
