@@ -483,7 +483,6 @@ describe('Attentive SDK', () => {
       timestamp: 1760000000000,
       isRead: false,
       actionUrl: 'bonni-rn://cart',
-      style: 'small',
     }
     const nativeState = {
       messages: [message],
@@ -531,6 +530,19 @@ describe('Attentive SDK', () => {
         expect.any(Function)
       )
       expect(listener).toHaveBeenCalledWith(nativeState)
+    })
+
+    it('should default missing paging flags to false', () => {
+      const listener = jest.fn()
+      addInboxStateListener(listener)
+
+      emitFromNative({ messages: [message] })
+
+      expect(listener).toHaveBeenCalledWith({
+        messages: [message],
+        hasMoreMessages: false,
+        isLoadingMore: false,
+      })
     })
 
     it('should drop an event without a message list', () => {

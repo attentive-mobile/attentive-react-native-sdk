@@ -109,7 +109,6 @@ export type InboxMessage = {
   isRead: boolean
   imageUrl?: string
   actionUrl?: string
-  style: 'small' | 'large'
 }
 
 /** The inbox as the SDK currently holds it. */

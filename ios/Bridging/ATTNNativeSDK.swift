@@ -699,16 +699,8 @@ struct DebugEvent {
   @objc(inboxStateWithCompletion:)
   public func inboxState(completion: @escaping ([String: Any]) -> Void) {
     Task { @MainActor [sdk] in
-      var state = InboxState.loading
-      for await current in await sdk.inboxStateStream {
-        state = current
-        break
-      }
-      var isLoadingMore = false
-      for await current in await sdk.inboxLoadingMoreStream {
-        isLoadingMore = current
-        break
-      }
+      let state = await sdk.inboxStateStream.first { _ in true } ?? .loading
+      let isLoadingMore = await sdk.inboxLoadingMoreStream.first { _ in true } ?? false
       completion(Self.inboxStatePayload(state, hasMore: await sdk.hasMoreInboxMessages, isLoadingMore: isLoadingMore))
     }
   }
@@ -720,8 +712,12 @@ struct DebugEvent {
     let relay = InboxStateRelay(handler: handler)
     let messages = Task { @MainActor [sdk] in
       for await state in await sdk.inboxStateStream {
-        relay.state = state
+        // A page's list arrives just before isLoadingMore clears; holding emits across this await
+        // keeps JS from seeing the spinner stop before the new rows.
+        relay.isAwaitingHasMore = true
         relay.hasMore = await sdk.hasMoreInboxMessages
+        relay.isAwaitingHasMore = false
+        relay.state = state
         relay.emit()
       }
     }
@@ -772,7 +768,6 @@ struct DebugEvent {
       "body": message.body,
       "timestamp": message.timestamp.timeIntervalSince1970 * 1000,
       "isRead": message.isRead,
-      "style": message.style == .large ? "large" : "small",
     ]
     payload["imageUrl"] = message.imageURLString
     payload["actionUrl"] = message.actionURLString
@@ -1892,7 +1887,7 @@ class EventDetailViewController: UIViewController {
   }
 }
 
-/// Keeps the inbox state observation alive; `cancel()` (or releasing it) stops it.
+/// Keeps the inbox state observation alive; releasing it stops it.
 @objc public final class ATTNInboxStateObservation: NSObject {
   private let tasks: [Task<Void, Never>]
 
@@ -1900,21 +1895,18 @@ class EventDetailViewController: UIViewController {
     self.tasks = tasks
   }
 
-  @objc public func cancel() {
-    tasks.forEach { $0.cancel() }
-  }
-
   deinit {
-    cancel()
+    tasks.forEach { $0.cancel() }
   }
 }
 
 /// Merges `inboxStateStream` and `inboxLoadingMoreStream` into the single payload JS receives.
 @MainActor
 private final class InboxStateRelay {
-  var state = InboxState.loading
+  var state: InboxState?
   var hasMore = false
-  var isLoadingMore = false
+  var isLoadingMore: Bool?
+  var isAwaitingHasMore = false
   private var lastPayload: NSDictionary?
   private let handler: ([String: Any]) -> Void
 
@@ -1922,7 +1914,10 @@ private final class InboxStateRelay {
     self.handler = handler
   }
 
+  /// No-op until both streams have delivered, so JS never sees a placeholder value, and while a
+  /// new list waits for its hasMore.
   func emit() {
+    guard !isAwaitingHasMore, let state, let isLoadingMore else { return }
     let payload = ATTNNativeSDK.inboxStatePayload(state, hasMore: hasMore, isLoadingMore: isLoadingMore)
     let dictionary = payload as NSDictionary
     guard dictionary != lastPayload else { return }

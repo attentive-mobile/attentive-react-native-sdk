@@ -59,7 +59,7 @@
     // Bumped on every delivery that reached JS, so an explicit refresh can tell whether the change
     // observer already delivered its value. See deliverRefreshedInboxUnreadCount:ifNoDeliverySince:.
     uint64_t _unreadCountDeliveries;
-    // Inbox state observation for custom inbox UIs; cancelled in dealloc.
+    // Inbox state observation for custom inbox UIs; releasing it cancels it.
     ATTNInboxStateObservation *_inboxStateObservation;
 }
 
@@ -850,9 +850,7 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   }
   RCTExecuteOnMainQueue(^{
     [self startObservingInboxStateWithSDK:sdk];
-    [sdk inboxStateWithCompletion:^(NSDictionary<NSString *, id> *state) {
-      resolve(state);
-    }];
+    [sdk inboxStateWithCompletion:resolve];
   });
 }
 
@@ -863,8 +861,14 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   }
   __weak __typeof(self) weakSelf = self;
   _inboxStateObservation = [sdk observeInboxStateWithHandler:^(NSDictionary<NSString *, id> *state) {
-    [weakSelf emitDeviceEvent:kAttentiveInboxStateEventName payload:state];
+    [weakSelf emitInboxState:state];
   }];
+}
+
+- (void)emitInboxState:(NSDictionary<NSString *, id> *)state {
+  if (![self emitDeviceEvent:kAttentiveInboxStateEventName payload:state]) {
+    RCTLogWarn(@"[AttentiveSDK] Dropping inbox state: no JS runtime attached yet.");
+  }
 }
 
 - (void)loadMoreInboxMessages:(RCTPromiseResolveBlock)resolve
@@ -898,8 +902,6 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     [[NSNotificationCenter defaultCenter] removeObserver:_inboxSDKAvailabilityObserver];
     _inboxSDKAvailabilityObserver = nil;
   }
-  [_inboxStateObservation cancel];
-  _inboxStateObservation = nil;
 }
 
 - (void)destroyCreative {

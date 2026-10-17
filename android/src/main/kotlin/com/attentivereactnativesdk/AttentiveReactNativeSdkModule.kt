@@ -100,7 +100,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      * catches and logs; this makes the collector behave the same way.
      */
     private val inboxExceptionHandler = CoroutineExceptionHandler { _, error ->
-        Log.w(TAG, "[AttentiveSDK] Inbox unread-count observer failed: ${error.message}", error)
+        Log.w(TAG, "[AttentiveSDK] Inbox observer failed: ${error.message}", error)
     }
 
     private val inboxScope = CoroutineScope(
@@ -108,6 +108,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     )
     private var inboxUnreadCountJob: Job? = null
     private var inboxStateJob: Job? = null
+    private var inboxLoadMoreJob: Job? = null
     private val debugHelper: AttentiveDebugHelper
 
     init {
@@ -403,7 +404,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         try {
             startObservingInboxState()
             AttentiveSdk.startInbox()
-            promise.resolve(InboxSnapshot.of(AttentiveSdk.inboxState.value).toWritableMap())
+            promise.resolve(InboxSnapshot(AttentiveSdk.inboxState.value).toWritableMap())
         } catch (e: Exception) {
             Log.w(TAG, "[AttentiveSDK] getInboxState failed (${e.javaClass.simpleName}): ${e.message}")
             promise.reject("inbox_state_error", e)
@@ -415,19 +416,20 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         if (inboxStateJob?.isActive == true) return
         inboxStateJob = inboxScope.launch {
             AttentiveSdk.inboxState
-                .map { InboxSnapshot.of(it) }
+                .map { InboxSnapshot(it) }
                 .distinctUntilChanged()
                 .collect { emitDeviceEvent(INBOX_STATE_EVENT_NAME, it.toWritableMap()) }
         }
     }
 
     override fun loadMoreInboxMessages(promise: Promise) {
-        // Before the first page lands the SDK would fetch page one again and append a duplicate.
-        if (AttentiveSdk.inboxState.value.currentOffset == 0) {
+        // The SDK checks for a fetch in flight only after taking its lock, so a second call would
+        // wait and then load the page after. Skip it here instead, as iOS does.
+        if (!AttentiveSdk.inboxState.value.hasLoadedFirstPage || inboxLoadMoreJob?.isActive == true) {
             promise.resolve(null)
             return
         }
-        inboxScope.launch {
+        inboxLoadMoreJob = inboxScope.launch {
             try {
                 AttentiveSdk.loadMoreInboxMessages()
                 promise.resolve(null)
@@ -465,31 +467,26 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         val hasMoreMessages: Boolean,
         val isLoadingMore: Boolean,
     ) {
+        constructor(state: InboxState) : this(
+            messages = state.messages,
+            hasMoreMessages = state.hasMoreMessages && state.hasLoadedFirstPage,
+            isLoadingMore = state.isLoadingMore,
+        )
+
         fun toWritableMap(): WritableMap = Arguments.createMap().apply {
             putArray("messages", Arguments.createArray().apply { messages.forEach { pushMap(it.toWritableMap()) } })
             putBoolean("hasMoreMessages", hasMoreMessages)
             putBoolean("isLoadingMore", isLoadingMore)
         }
 
-        companion object {
-            // The SDK starts hasMoreMessages at true; report false until the first page lands, as
-            // iOS does.
-            fun of(state: InboxState) = InboxSnapshot(
-                messages = state.messages,
-                hasMoreMessages = state.hasMoreMessages && state.currentOffset > 0,
-                isLoadingMore = state.isLoadingMore,
-            )
-
-            private fun Message.toWritableMap(): WritableMap = Arguments.createMap().apply {
-                putString("id", id)
-                putString("title", title)
-                putString("body", body)
-                putDouble("timestamp", timestamp.toDouble())
-                putBoolean("isRead", isRead)
-                imageUrl?.let { putString("imageUrl", it) }
-                actionUrl?.let { putString("actionUrl", it) }
-                putString("style", style.value)
-            }
+        private fun Message.toWritableMap(): WritableMap = Arguments.createMap().apply {
+            putString("id", id)
+            putString("title", title)
+            putString("body", body)
+            putDouble("timestamp", timestamp.toDouble())
+            putBoolean("isRead", isRead)
+            imageUrl?.let { putString("imageUrl", it) }
+            actionUrl?.let { putString("actionUrl", it) }
         }
     }
 
@@ -1509,3 +1506,11 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         return items
     }
 }
+
+/**
+ * The SDK has no first-page flag: `hasMoreMessages` starts at true and `loadMoreInboxMessages`
+ * runs anyway (appending mock data if the inbox isn't started). iOS gates both on the first page,
+ * so the bridge does too.
+ */
+private val InboxState.hasLoadedFirstPage: Boolean
+    get() = currentOffset > 0

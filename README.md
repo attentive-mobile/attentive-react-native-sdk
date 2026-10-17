@@ -728,8 +728,8 @@ useEffect(() => {
 until the first page lands. The listener delivers that page and every later change, each event
 carrying the whole state. Call it after `initialize()`; earlier calls reject.
 
-Each message has `id`, `title`, `body`, `timestamp` (milliseconds since the epoch), `isRead`,
-`style` (`'small'` or `'large'`), and optional `imageUrl` and `actionUrl`.
+Each message has `id`, `title`, `body`, `timestamp` (milliseconds since the epoch), `isRead`, and
+optional `imageUrl` and `actionUrl`.
 
 | Call | What it does |
 | --- | --- |

@@ -807,9 +807,6 @@ function markInboxMessageUnread(messageId: string): void {
 function decodeInboxState(raw: unknown): InboxState | undefined {
   const state = raw as Partial<InboxState> | null | undefined
   if (!state || !Array.isArray(state.messages)) {
-    console.warn(
-      '[AttentiveSDK] Ignoring an inbox state without a message list.'
-    )
     return undefined
   }
   return {
@@ -850,7 +847,15 @@ function addInboxStateListener(
 ): InboxStateSubscription {
   return addDeviceEventListener(
     DEVICE_EVENT_NAMES.inboxState,
-    decodeInboxState,
+    (raw: unknown) => {
+      const state = decodeInboxState(raw)
+      if (!state) {
+        console.warn(
+          '[AttentiveSDK] Ignoring an inbox state without a message list.'
+        )
+      }
+      return state
+    },
     listener
   )
 }
