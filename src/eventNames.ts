@@ -20,4 +20,6 @@ export const DEVICE_EVENT_NAMES = {
   creativeEvent: 'AttentiveCreativeEvent',
   /** Inbox unread-count changes. */
   inboxUnreadCount: 'AttentiveInboxUnreadCount',
+  /** Inbox message-list and paging changes. */
+  inboxState: 'AttentiveInboxState',
 } as const

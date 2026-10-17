@@ -251,6 +251,10 @@ export interface Spec extends TurboModule {
   getInboxUnreadCount: () => Promise<number>
   markInboxMessageRead: (messageId: string) => void
   markInboxMessageUnread: (messageId: string) => void
+  getInboxState: () => Promise<Object>
+  loadMoreInboxMessages: () => Promise<void>
+  deleteInboxMessage: (messageId: string) => void
+  markInboxMessageClicked: (messageId: string) => void
 }
 
 // Try to load via TurboModule first (new architecture)

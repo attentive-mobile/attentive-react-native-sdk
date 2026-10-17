@@ -692,6 +692,88 @@ struct DebugEvent {
     Task { [sdk] in await sdk.markUnread(for: id) }
   }
 
+  // MARK: - Custom inbox UI
+
+  /// The current inbox state in the shape JS's `InboxState` expects. Reading the streams
+  /// materializes the inbox manager, which starts the first-page fetch.
+  @objc(inboxStateWithCompletion:)
+  public func inboxState(completion: @escaping ([String: Any]) -> Void) {
+    Task { @MainActor [sdk] in
+      let state = await sdk.inboxStateStream.first { _ in true } ?? .loading
+      let isLoadingMore = await sdk.inboxLoadingMoreStream.first { _ in true } ?? false
+      completion(Self.inboxStatePayload(state, hasMore: await sdk.hasMoreInboxMessages, isLoadingMore: isLoadingMore))
+    }
+  }
+
+  /// Forwards every inbox state change to `handler` on the main actor, skipping repeats.
+  @MainActor
+  @objc(observeInboxStateWithHandler:)
+  public func observeInboxState(handler: @escaping ([String: Any]) -> Void) -> ATTNInboxStateObservation {
+    let relay = InboxStateRelay(handler: handler)
+    let messages = Task { @MainActor [sdk] in
+      for await state in await sdk.inboxStateStream {
+        // A page's list arrives just before isLoadingMore clears; holding emits across this await
+        // keeps JS from seeing the spinner stop before the new rows.
+        relay.isAwaitingHasMore = true
+        relay.hasMore = await sdk.hasMoreInboxMessages
+        relay.isAwaitingHasMore = false
+        relay.state = state
+        relay.emit()
+      }
+    }
+    let loadingMore = Task { @MainActor [sdk] in
+      for await isLoadingMore in await sdk.inboxLoadingMoreStream {
+        relay.isLoadingMore = isLoadingMore
+        relay.emit()
+      }
+    }
+    return ATTNInboxStateObservation(tasks: [messages, loadingMore])
+  }
+
+  @objc(loadMoreInboxMessagesWithCompletion:)
+  public func loadMoreInboxMessages(completion: @escaping () -> Void) {
+    Task { [sdk] in
+      await sdk.loadMoreInboxMessages()
+      completion()
+    }
+  }
+
+  @objc(deleteInboxMessage:)
+  public func deleteInboxMessage(_ id: String) {
+    Task { [sdk] in await sdk.delete(messageID: id) }
+  }
+
+  @objc(markInboxMessageClicked:)
+  public func markInboxMessageClicked(_ id: String) {
+    Task { [sdk] in await sdk.markClicked(for: id) }
+  }
+
+  fileprivate static func inboxStatePayload(_ state: InboxState, hasMore: Bool, isLoadingMore: Bool) -> [String: Any] {
+    // `.error` is only emitted when nothing has loaded, so it reads as an empty list.
+    var messages: [Message] = []
+    if case .loaded(let loaded) = state {
+      messages = loaded
+    }
+    return [
+      "messages": messages.map(inboxMessagePayload),
+      "hasMoreMessages": hasMore,
+      "isLoadingMore": isLoadingMore,
+    ]
+  }
+
+  private static func inboxMessagePayload(_ message: Message) -> [String: Any] {
+    var payload: [String: Any] = [
+      "id": message.id,
+      "title": message.title,
+      "body": message.body,
+      "timestamp": message.timestamp.timeIntervalSince1970 * 1000,
+      "isRead": message.isRead,
+    ]
+    payload["imageUrl"] = message.imageURLString
+    payload["actionUrl"] = message.actionURLString
+    return payload
+  }
+
   // MARK: - Marketing Subscriptions (React Native Bridge)
 
   /// Maps the RN string to the native enum, matching exactly like the TS union, plus the
@@ -1802,5 +1884,44 @@ class EventDetailViewController: UIViewController {
 
   @objc private func closeButtonTapped() {
     dismiss(animated: true)
+  }
+}
+
+/// Keeps the inbox state observation alive; releasing it stops it.
+@objc public final class ATTNInboxStateObservation: NSObject {
+  private let tasks: [Task<Void, Never>]
+
+  init(tasks: [Task<Void, Never>]) {
+    self.tasks = tasks
+  }
+
+  deinit {
+    tasks.forEach { $0.cancel() }
+  }
+}
+
+/// Merges `inboxStateStream` and `inboxLoadingMoreStream` into the single payload JS receives.
+@MainActor
+private final class InboxStateRelay {
+  var state: InboxState?
+  var hasMore = false
+  var isLoadingMore: Bool?
+  var isAwaitingHasMore = false
+  private var lastPayload: NSDictionary?
+  private let handler: ([String: Any]) -> Void
+
+  init(handler: @escaping ([String: Any]) -> Void) {
+    self.handler = handler
+  }
+
+  /// No-op until both streams have delivered, so JS never sees a placeholder value, and while a
+  /// new list waits for its hasMore.
+  func emit() {
+    guard !isAwaitingHasMore, let state, let isLoadingMore else { return }
+    let payload = ATTNNativeSDK.inboxStatePayload(state, hasMore: hasMore, isLoadingMore: isLoadingMore)
+    let dictionary = payload as NSDictionary
+    guard dictionary != lastPayload else { return }
+    lastPayload = dictionary
+    handler(payload)
   }
 }

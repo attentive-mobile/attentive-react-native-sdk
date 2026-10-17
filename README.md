@@ -692,21 +692,62 @@ replaces once the sync completes. The sync is never confirmed: if it fails, iOS 
 while Android keeps it until the next fetch. A call before `initialize()` is ignored and doesn't
 throw.
 
-Use IDs from `onMessageTap` only. Other IDs, such as one for a message the inbox hasn't loaded,
-aren't supported and are handled differently on each platform.
+Use IDs of loaded messages only, from `onMessageTap` or the [inbox state](#custom-inbox-ui). Other
+IDs, such as one for a message the inbox hasn't loaded, aren't supported and are handled differently
+on each platform.
 
 Don't call them inside `onMessageTap` to undo the tap's own mark-read. Both requests are in flight
 at once, and the server may apply them in either order.
 
+#### Custom inbox UI
+
+To render your own inbox instead of `<AttentiveInboxView />`, read the inbox state and subscribe to
+its changes:
+
+```tsx
+import {
+  addInboxStateListener,
+  getInboxState,
+  type InboxState,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+const [inbox, setInbox] = useState<InboxState>({
+  messages: [],
+  hasMoreMessages: false,
+  isLoadingMore: false,
+})
+
+useEffect(() => {
+  const subscription = addInboxStateListener(setInbox)
+  getInboxState().then(setInbox).catch(console.warn)
+  return () => subscription.remove()
+}, [])
+```
+
+`getInboxState()` starts the inbox and resolves right away with what the SDK holds, which is empty
+until the first page lands. The listener delivers that page and every later change, each event
+carrying the whole state. Call it after `initialize()`; earlier calls reject.
+
+Each message has `id`, `title`, `body`, `timestamp` (milliseconds since the epoch), `isRead`, and
+optional `imageUrl` and `actionUrl`.
+
+| Call | What it does |
+| --- | --- |
+| `loadMoreInboxMessages()` | Loads the next page. Call it when the user nears the end of the list; it's a no-op until the first page has loaded, when `hasMoreMessages` is `false`, or while a page is loading. |
+| `markInboxMessageClicked(id)` | Call it when the user opens a message: tracks the click and marks the message read. Navigating to `actionUrl` is up to you. |
+| `markInboxMessageRead(id)` / `markInboxMessageUnread(id)` | See [Read state](#read-state). |
+| `deleteInboxMessage(id)` | Removes the message. The list updates immediately and the server sync runs in the background. |
+
+All of them take IDs from the inbox state. There is no on-demand refresh yet.
+
 #### Not yet available from TypeScript
 
-The native SDKs expose more than the drop-in view, the unread count, and read state. The following
-are **native-only** today — they are not bridged to React Native:
+The native SDKs expose more than what's above. The following are **native-only** today — they are
+not bridged to React Native:
 
-- programmatic `deleteMessage` / load-next-page
+- refreshing the message list on demand
 - a tap handler that *replaces* the SDK's own handling, rather than observing it alongside — see
   [Message taps](#message-taps) for what `onMessageTap` does and does not take over
-- subscribing to the full message stream to build your own inbox UI
 
 If you need any of these, talk to your Attentive contact before designing around the drop-in view.
 
