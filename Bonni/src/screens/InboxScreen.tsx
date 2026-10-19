@@ -7,11 +7,11 @@
  * call to make from JS — rendering the component is the integration.
  *
  * onMessageTap observes a tap, it does not take it over: the SDK tracks the click and marks the
- * message read either way. It would also open the message's actionUrl, except Bonni opts out of
- * that — automaticallyOpensInboxDeepLinks is false in App.tsx (iOS) and on MainApplication.kt's
- * AttentiveConfig.Builder (Android) — so the alert below is the only thing a tap does here. Leave
- * the flag at its default and the SDK navigates as well, which is why an app routing taps itself
- * has to opt out on both platforms or the user gets it twice.
+ * message read either way. It would also open the message's actionUrl, but Bonni turns
+ * automaticallyOpensInboxDeepLinks off by default, so the alert below is the only thing a tap does
+ * here. Settings → "SDK opens inbox deep links" turns it back on after a restart (App.tsx reads it
+ * on iOS, MainApplication.kt on Android). With it on, the SDK navigates as well, which is why an
+ * app routing taps itself has to opt out on both platforms or the user gets it twice.
  */
 
 import React, { useCallback } from 'react'
