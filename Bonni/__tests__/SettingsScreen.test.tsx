@@ -16,6 +16,10 @@
  * SDK call to observe at toggle time, so these tests assert against the
  * AsyncStorage mock.
  *
+ * Inbox deep links toggle (MSDK-563): same restart-to-apply flow. App.tsx reads
+ * the flag on iOS; on Android, MainApplication.kt reads the same AsyncStorage
+ * row straight from its SQLite file.
+ *
  * The SDK module is auto-mocked (jest replaces every export with a jest.fn())
  * rather than hand-stubbed: SettingsScreen mounts six hooks that import ~a dozen
  * SDK functions between them, and automock spares the test from tracking that
@@ -24,7 +28,7 @@
  */
 import React from 'react'
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native'
-import { Alert } from 'react-native'
+import { Alert, Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as sdk from '@attentive-mobile/attentive-react-native-sdk'
 import { CONFIG_STORAGE_KEYS } from '../src/constants/storage'
@@ -177,6 +181,91 @@ describe('SettingsScreen', () => {
         'Failed to save push setting'
       )
       consoleError.mockRestore()
+    })
+  })
+
+  describe('Inbox deep links toggle (MSDK-563)', () => {
+    it('renders the switch off when nothing is persisted', async () => {
+      const { getByTestId } = render(<SettingsScreen {...stubProps} />)
+      await act(async () => {})
+      expect(getByTestId('inboxDeepLinksSwitch').props.value).toBe(false)
+    })
+
+    it('renders the switch on when persisted as "true"', async () => {
+      seedStorage({
+        [CONFIG_STORAGE_KEYS.AUTOMATICALLY_OPENS_INBOX_DEEP_LINKS]: 'true',
+      })
+      const { getByTestId } = render(<SettingsScreen {...stubProps} />)
+      await act(async () => {})
+      expect(getByTestId('inboxDeepLinksSwitch').props.value).toBe(true)
+    })
+
+    it('persists "true" when toggled on', async () => {
+      const { findByTestId } = render(<SettingsScreen {...stubProps} />)
+
+      fireEvent(await findByTestId('inboxDeepLinksSwitch'), 'valueChange', true)
+
+      // MainApplication.kt compares this exact string, so the encoding matters.
+      await waitFor(() =>
+        expect(mockSetItem).toHaveBeenCalledWith(
+          CONFIG_STORAGE_KEYS.AUTOMATICALLY_OPENS_INBOX_DEEP_LINKS,
+          'true'
+        )
+      )
+    })
+
+    describe('on Android', () => {
+      const nextLaunchNotice =
+        'This applies on the next launch. Fully close Bonni and reopen it.'
+      let platformOS: jest.ReplaceProperty<typeof Platform.OS>
+
+      beforeEach(() => {
+        platformOS = jest.replaceProperty(Platform, 'OS', 'android')
+      })
+
+      afterEach(() => {
+        platformOS.restore()
+      })
+
+      it('shows the next-launch alert instead of the generic one', async () => {
+        const { findByTestId } = render(<SettingsScreen {...stubProps} />)
+
+        fireEvent(
+          await findByTestId('inboxDeepLinksSwitch'),
+          'valueChange',
+          true
+        )
+
+        await waitFor(() =>
+          expect(Alert.alert).toHaveBeenCalledWith(
+            'Inbox deep links Setting',
+            nextLaunchNotice
+          )
+        )
+        expect(Alert.alert).toHaveBeenCalledTimes(1)
+      })
+
+      it('shows the next-launch alert even when display alerts are off', async () => {
+        seedStorage({
+          [CONFIG_STORAGE_KEYS.DISPLAY_ALERTS]: 'false',
+          [CONFIG_STORAGE_KEYS.PUSH_ENABLED]: 'false',
+        })
+        const { getByTestId } = render(<SettingsScreen {...stubProps} />)
+        // Both flags land in the same loadConfiguration pass, so the push switch
+        // turning off proves displayAlerts=false has committed too. Android's
+        // Switch passes its value to the native view as `on`.
+        await act(async () => {})
+        expect(getByTestId('pushEnabledSwitch').props.on).toBe(false)
+
+        fireEvent(getByTestId('inboxDeepLinksSwitch'), 'valueChange', true)
+
+        await waitFor(() =>
+          expect(Alert.alert).toHaveBeenCalledWith(
+            'Inbox deep links Setting',
+            nextLaunchNotice
+          )
+        )
+      })
     })
   })
 })

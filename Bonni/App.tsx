@@ -265,9 +265,14 @@ function App(): React.JSX.Element {
      */
     const startAttentiveSdk = async () => {
       // 1. Load persisted config (falls back to the default if storage fails).
-      const pushEnabled = await getStoredBoolean(
-        CONFIG_STORAGE_KEYS.PUSH_ENABLED,
-        true
+      const [pushEnabled, automaticallyOpensInboxDeepLinks] = await Promise.all(
+        [
+          getStoredBoolean(CONFIG_STORAGE_KEYS.PUSH_ENABLED, true),
+          getStoredBoolean(
+            CONFIG_STORAGE_KEYS.AUTOMATICALLY_OPENS_INBOX_DEEP_LINKS,
+            false
+          ),
+        ]
       )
 
       const config: AttentiveSdkConfiguration = {
@@ -275,7 +280,7 @@ function App(): React.JSX.Element {
         mode: 'debug',
         enableDebugger: true,
         pushEnabled,
-        automaticallyOpensInboxDeepLinks: false,
+        automaticallyOpensInboxDeepLinks,
       }
 
       console.log('📦 [Attentive] Initializing SDK with config:', config)
