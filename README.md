@@ -14,6 +14,7 @@ This project uses **npm** as the preferred package manager for consistency and a
 | ------------ | --------- |
 | Node.js      | >= 18.0.0 |
 | React Native | >= 0.74   |
+| React Native New Architecture | Required on iOS and Android. On by default in new apps since RN 0.76; RN 0.74–0.75 must enable it |
 | Ruby         | >= 3.3    |
 | CocoaPods    | ~> 1.16   |
 | Xcode        | >= 15     |
@@ -414,10 +415,10 @@ triggered the default creative.
 Notes:
 
 - Supported on React Native 0.74+. Events travel as `RCTDeviceEventEmitter` device events rather
-  than through a codegen event emitter, so the transport itself needs no New Architecture opt-in.
-  **On iOS the New Architecture is still required**, because the native module only exports its
-  methods under `RCT_NEW_ARCH_ENABLED`; old-architecture iOS support is not implemented yet. With
-  the New Architecture disabled on iOS, `triggerCreative()` throws rather than emitting anything.
+  than through a codegen event emitter, which would have required 0.76+. Like the rest of the SDK,
+  they need the New Architecture on both platforms. With it disabled on iOS, every SDK call,
+  starting with `initialize()`, throws `The package 'attentive-react-native-sdk' doesn't seem to be
+  linked`.
 - **`destroyCreative()` does not emit an event** on either platform, so a `closed` event only ever
   comes from user-driven dismissal. Note the platforms diverge on what it actually does: on Android
   it removes the creative's web view, while on iOS it currently dismisses nothing — the creative
