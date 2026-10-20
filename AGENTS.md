@@ -64,7 +64,12 @@ Before editing anything, determine:
 3. **Package manager**: detect from the lockfile (`package-lock.json` → npm, `yarn.lock` → yarn, `pnpm-lock.yaml` → pnpm). Use the matching install command.
 4. **iOS project**: confirm an `ios/` directory with a `Podfile` (and a `Podfile` referencing `use_native_modules!` / autolinking, which RN apps have by default).
 5. **Android project**: locate the host `MainApplication` file — `android/app/src/main/java/<package-path>/MainApplication.kt` (or `.java`). Note whether it's **Kotlin or Java** and match it. Locate `AndroidManifest.xml` too (not edited in the base case).
-6. **Architecture**: the SDK is autolinked and works on both the New Architecture (TurboModule) and the old architecture (it falls back automatically). **Do not** toggle the New Architecture flag or bump the host's React Native version.
+6. **Architecture**: the SDK is autolinked and requires the **New Architecture on both platforms**. Check the host's React Native version, then each platform:
+   - **Android**: `android/gradle.properties` must have `newArchEnabled=true` on every RN version. On RN 0.82+ the New Architecture is always on, so if the line is missing or `false`, set it to `newArchEnabled=true`; this doesn't change the app's architecture. Before 0.82, a missing or `false` flag means the app is on the old architecture.
+   - **iOS**: on RN 0.82+ it's always on. On 0.76–0.81 it's on unless `RCT_NEW_ARCH_ENABLED=0` is set (in the Podfile or the `pod install` environment). On 0.74–0.75 it's off unless `pod install` runs with `RCT_NEW_ARCH_ENABLED=1`.
+   - **Expo apps**: prebuild writes these flags from the app config's `newArchEnabled` (or `expo-build-properties`), so check it there.
+
+   If the app is on the old architecture, **stop and tell the user**: the SDK doesn't build there on Android, and its methods aren't callable on iOS. Apart from the RN 0.82+ Android line above, **do not** toggle the New Architecture flag or bump the host's React Native version.
 
 ---
 
