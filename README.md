@@ -522,8 +522,7 @@ call to make from TypeScript.
 - The device is **registered for push** on the same company. Inbox messages are addressed to the same
   audience as push, so a device that never registered a push token has no inbox to read. See
   [Push Notifications](#push-notifications-ios-and-android).
-- **iOS: the new architecture.** The iOS half is a Fabric component compiled only under
-  `RCT_NEW_ARCH_ENABLED`; there is no old-architecture view manager for it yet.
+- The New Architecture, like the rest of the SDK — see [Requirements](#requirements).
 
 #### Usage
 
@@ -543,7 +542,8 @@ Handled for you, with no props to set:
 - message list with title, body, timestamp, and optional image
 - unread indicator dot on unread rows
 - pull-to-refresh and infinite-scroll pagination
-- swipe left to mark unread, swipe right to delete
+- swipe actions to delete and to change read state: on Android, swipe left to mark unread and
+  right to delete; on iOS, swipe right to toggle read/unread and left to delete
 - tap to mark read and follow the message's deep link — both overridable, see
   [Message taps](#message-taps)
 - empty state when there are no messages
