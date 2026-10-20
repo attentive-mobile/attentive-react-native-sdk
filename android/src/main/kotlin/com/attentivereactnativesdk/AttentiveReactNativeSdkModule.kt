@@ -22,13 +22,26 @@ import com.attentive.androidsdk.events.Order
 import com.attentive.androidsdk.events.Price
 import com.attentive.androidsdk.events.ProductViewEvent
 import com.attentive.androidsdk.events.PurchaseEvent
+import com.attentive.androidsdk.inbox.InboxState
+import com.attentive.androidsdk.inbox.Message
 import com.attentive.androidsdk.push.TokenFetchResult
+import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableArray
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.bridge.UiThreadUtil
+import com.facebook.react.bridge.WritableMap
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.Callback
 import com.facebook.react.modules.core.DeviceEventManagerModule
@@ -54,9 +67,48 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
          * a mismatch silently stops all creative events rather than failing loudly.
          */
         private const val CREATIVE_EVENT_NAME = "AttentiveCreativeEvent"
+
+        /**
+         * Device-event name carrying inbox unread-count changes to JS.
+         *
+         * Same contract as [CREATIVE_EVENT_NAME] — shared verbatim with
+         * `INBOX_UNREAD_COUNT_EVENT_NAME` in `src/index.tsx` and the iOS bridge.
+         */
+        private const val INBOX_UNREAD_COUNT_EVENT_NAME = "AttentiveInboxUnreadCount"
+
+        /** Device-event name carrying inbox message-list and paging changes to JS. */
+        private const val INBOX_STATE_EVENT_NAME = "AttentiveInboxState"
     }
 
     private var creative: Creative? = null
+
+    /**
+     * Scope for observing the SDK's inbox state.
+     *
+     * The bridge owns this one (unlike the suspend SDK calls, which run their own coroutines)
+     * because a `StateFlow` collector outlives the call that started it. `Dispatchers.Main.immediate`
+     * keeps emission on the thread React Native already expects for JS calls, and `SupervisorJob`
+     * stops a failed collector from cancelling anything else added here later. Cancelled in
+     * [invalidate].
+     */
+    /**
+     * Handler, not just a [SupervisorJob]: the job stops one failed child from cancelling the
+     * others, but it does not swallow the exception — with no handler in the context it reaches
+     * `Thread.getDefaultUncaughtExceptionHandler` and terminates the process. [emitDeviceEvent] is
+     * already guarded, but `AttentiveSdk.inboxState` and the `map` over it are not, so a throw from
+     * the SDK's flow would crash the host app. Every other native entry point in this module
+     * catches and logs; this makes the collector behave the same way.
+     */
+    private val inboxExceptionHandler = CoroutineExceptionHandler { _, error ->
+        Log.w(TAG, "[AttentiveSDK] Inbox observer failed: ${error.message}", error)
+    }
+
+    private val inboxScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate + inboxExceptionHandler,
+    )
+    private var inboxUnreadCountJob: Job? = null
+    private var inboxStateJob: Job? = null
+    private var inboxLoadMoreJob: Job? = null
     private val debugHelper: AttentiveDebugHelper
 
     init {
@@ -99,7 +151,8 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         mode: String,
         skipFatigueOnCreatives: Boolean,
         enableDebugger: Boolean,
-        pushEnabled: Boolean
+        pushEnabled: Boolean,
+        automaticallyOpensInboxDeepLinks: Boolean
     ) {
         debugHelper.initialize(enableDebugger)
 
@@ -110,6 +163,16 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             "so that lifecycle observers are registered before the React Native bridge is ready. " +
             "See README.md § 'Android Native Initialization' for the required setup."
         )
+
+        if (!automaticallyOpensInboxDeepLinks) {
+            Log.w(
+                TAG,
+                "[AttentiveSDK] automaticallyOpensInboxDeepLinks=false was ignored. On Android " +
+                "it is an init-time setting owned by the host app — call " +
+                ".automaticallyOpensInboxDeepLinks(false) on the AttentiveConfig.Builder in your " +
+                "Application.onCreate(). Until then a tapped message opens its deep link here."
+            )
+        }
     }
 
     /**
@@ -266,6 +329,174 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         } catch (e: Exception) {
             Log.w(TAG, "[AttentiveSDK] Could not emit $name event: ${e.message}")
         }
+    }
+
+    // =========================================================================
+    // Inbox
+    // =========================================================================
+
+    /**
+     * Resolves the unread inbox count and starts the inbox.
+     *
+     * `startInbox` is explicit here even though `startObservingInboxUnreadCount` also starts the
+     * inbox, so that a throw (SDK not initialized) rejects the promise instead of only being logged.
+     *
+     * Starting the observer here too means one JS call yields both the initial value and every
+     * subsequent [INBOX_UNREAD_COUNT_EVENT_NAME] event.
+     */
+    override fun getInboxUnreadCount(promise: Promise) {
+        try {
+            startObservingInboxUnreadCount()
+            AttentiveSdk.startInbox()
+            promise.resolve(AttentiveSdk.inboxState.value.unreadCount)
+        } catch (e: Exception) {
+            Log.w(
+                TAG,
+                "[AttentiveSDK] getInboxUnreadCount failed (${e.javaClass.simpleName}): ${e.message}"
+            )
+            promise.reject("inbox_unread_count_error", e)
+        }
+    }
+
+    /**
+     * Collects `AttentiveSdk.inboxState` and emits each distinct unread count to JS.
+     *
+     * Idempotent — a live collector is reused, so repeated [getInboxUnreadCount] calls don't stack
+     * collectors. The guard tests `isActive` rather than the reference on purpose:
+     * [inboxExceptionHandler] keeps a throw from `inboxState` non-fatal, but the job still
+     * *completes*, and a reference check would then read that dead job as running and never
+     * relaunch it — freezing the badge for the rest of the process, which is the very outcome the
+     * handler exists to avoid.
+     *
+     * Mapping to the count before [distinctUntilChanged] means a refetch returning the same number
+     * doesn't churn the consumer's badge, matching the dedupe iOS does in its own unread-count box.
+     * A `StateFlow` replays its current value to each new collector, so the first event repeats the
+     * value [getInboxUnreadCount] just resolved; that is deliberate, since dropping it would lose a
+     * fetch that completed in between.
+     */
+    private fun startObservingInboxUnreadCount() {
+        if (inboxUnreadCountJob?.isActive == true) return
+        inboxUnreadCountJob = inboxScope.launch {
+            AttentiveSdk.inboxState
+                .map { it.unreadCount }
+                .distinctUntilChanged()
+                .collect { unreadCount ->
+                    val payload = Arguments.createMap()
+                    payload.putInt("unreadCount", unreadCount)
+                    emitDeviceEvent(INBOX_UNREAD_COUNT_EVENT_NAME, payload)
+                }
+        }
+    }
+
+    override fun markInboxMessageRead(messageId: String) {
+        AttentiveSdk.markRead(messageId)
+    }
+
+    override fun markInboxMessageUnread(messageId: String) {
+        AttentiveSdk.markUnread(messageId)
+    }
+
+    /**
+     * Resolves the current inbox state and starts the inbox, like [getInboxUnreadCount]. The first
+     * page usually lands afterwards, through [INBOX_STATE_EVENT_NAME].
+     */
+    override fun getInboxState(promise: Promise) {
+        try {
+            startObservingInboxState()
+            AttentiveSdk.startInbox()
+            promise.resolve(InboxSnapshot(AttentiveSdk.inboxState.value).toWritableMap())
+        } catch (e: Exception) {
+            Log.w(TAG, "[AttentiveSDK] getInboxState failed (${e.javaClass.simpleName}): ${e.message}")
+            promise.reject("inbox_state_error", e)
+        }
+    }
+
+    /** Idempotent, like [startObservingInboxUnreadCount]. */
+    private fun startObservingInboxState() {
+        if (inboxStateJob?.isActive == true) return
+        inboxStateJob = inboxScope.launch {
+            AttentiveSdk.inboxState
+                .map { InboxSnapshot(it) }
+                .distinctUntilChanged()
+                .collect { emitDeviceEvent(INBOX_STATE_EVENT_NAME, it.toWritableMap()) }
+        }
+    }
+
+    override fun loadMoreInboxMessages(promise: Promise) {
+        // The SDK checks for a fetch in flight only after taking its lock, so a second call would
+        // wait and then load the page after. Skip it here instead, as iOS does.
+        if (!AttentiveSdk.inboxState.value.hasLoadedFirstPage || inboxLoadMoreJob?.isActive == true) {
+            promise.resolve(null)
+            return
+        }
+        inboxLoadMoreJob = inboxScope.launch {
+            try {
+                AttentiveSdk.loadMoreInboxMessages()
+                promise.resolve(null)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "[AttentiveSDK] loadMoreInboxMessages failed: ${e.message}")
+                promise.reject("inbox_load_more_error", e)
+            }
+        }
+    }
+
+    override fun deleteInboxMessage(messageId: String) {
+        AttentiveSdk.deleteMessage(messageId)
+    }
+
+    /**
+     * Matches iOS `markClicked`: ignores messages that aren't loaded, skips click tracking when
+     * there is no action URL (the server rejects those), and marks the message read.
+     */
+    override fun markInboxMessageClicked(messageId: String) {
+        val message = AttentiveSdk.inboxState.value.messages.firstOrNull { it.id == messageId } ?: return
+        message.actionUrl?.takeIf { it.isNotBlank() }?.let { AttentiveSdk.trackInboxClick(messageId, it) }
+        if (!message.isRead) {
+            AttentiveSdk.markRead(messageId)
+        }
+    }
+
+    /**
+     * The part of the SDK's [InboxState] that JS sees. Mapping to it before `distinctUntilChanged`
+     * keeps unread-count-only changes from re-sending the whole list.
+     */
+    private data class InboxSnapshot(
+        val messages: List<Message>,
+        val hasMoreMessages: Boolean,
+        val isLoadingMore: Boolean,
+    ) {
+        constructor(state: InboxState) : this(
+            messages = state.messages,
+            hasMoreMessages = state.hasMoreMessages && state.hasLoadedFirstPage,
+            isLoadingMore = state.isLoadingMore,
+        )
+
+        fun toWritableMap(): WritableMap = Arguments.createMap().apply {
+            putArray("messages", Arguments.createArray().apply { messages.forEach { pushMap(it.toWritableMap()) } })
+            putBoolean("hasMoreMessages", hasMoreMessages)
+            putBoolean("isLoadingMore", isLoadingMore)
+        }
+
+        private fun Message.toWritableMap(): WritableMap = Arguments.createMap().apply {
+            putString("id", id)
+            putString("title", title)
+            putString("body", body)
+            putDouble("timestamp", timestamp.toDouble())
+            putBoolean("isRead", isRead)
+            imageUrl?.let { putString("imageUrl", it) }
+            actionUrl?.let { putString("actionUrl", it) }
+        }
+    }
+
+    /**
+     * Stops the inbox observer when React Native tears the module down, so a reload doesn't leave
+     * a collector emitting into a dead JS runtime.
+     */
+    override fun invalidate() {
+        inboxScope.cancel()
+        super.invalidate()
     }
 
     override fun destroyCreative() {
@@ -1275,3 +1506,11 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
         return items
     }
 }
+
+/**
+ * The SDK has no first-page flag: `hasMoreMessages` starts at true and `loadMoreInboxMessages`
+ * runs anyway (appending mock data if the inbox isn't started). iOS gates both on the first page,
+ * so the bridge does too.
+ */
+private val InboxState.hasLoadedFirstPage: Boolean
+    get() = currentOffset > 0

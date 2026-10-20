@@ -14,6 +14,7 @@ export type RootStackParamList = {
   Checkout: undefined
   OrderConfirmation: { orderId: string }
   Settings: undefined
+  Inbox: undefined
 }
 
 export type LoginScreenProps = NativeStackScreenProps<
@@ -44,4 +45,8 @@ export type OrderConfirmationScreenProps = NativeStackScreenProps<
 export type SettingsScreenProps = NativeStackScreenProps<
   RootStackParamList,
   'Settings'
+>
+export type InboxScreenProps = NativeStackScreenProps<
+  RootStackParamList,
+  'Inbox'
 >

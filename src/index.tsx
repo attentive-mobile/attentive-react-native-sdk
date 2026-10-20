@@ -12,6 +12,10 @@ import type {
   CreativeEvent,
   AttentiveEventSubscription,
   CreativeEventSubscription,
+  InboxUnreadCountSubscription,
+  InboxMessage,
+  InboxState,
+  InboxStateSubscription,
   PushAuthorizationStatus,
   ApplicationState,
   PushNotificationUserInfo,
@@ -25,6 +29,8 @@ import { CREATIVE_STATUSES, TRACKING_CONSENTS } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
   type Spec,
 } from './NativeAttentiveReactNativeSdk'
+import AttentiveInboxView from './AttentiveInboxViewNativeComponent'
+import type { NativeProps as AttentiveInboxViewProps } from './AttentiveInboxViewNativeComponent'
 
 /** Any name in [DEVICE_EVENT_NAMES] — the only names either native bridge emits. */
 type DeviceEventName =
@@ -80,7 +86,8 @@ function initialize(configuration: AttentiveSdkConfiguration) {
     configuration.mode,
     configuration.skipFatigueOnCreatives ?? false,
     configuration.enableDebugger ?? false,
-    configuration.pushEnabled ?? true
+    configuration.pushEnabled ?? true,
+    configuration.automaticallyOpensInboxDeepLinks ?? true
   )
 }
 
@@ -699,6 +706,188 @@ function updateUser(params: UpdateUserParams): Promise<void> {
   return AttentiveReactNativeSdk.updateUser(params?.email, params?.phone)
 }
 
+/**
+ * Reads the unread inbox message count, and starts the inbox.
+ *
+ * This is the call that gets an inbox badge going: it kicks off the first server fetch and,
+ * on Android, starts the observer behind `addInboxUnreadCountListener`. Render the count it
+ * resolves with, then let the listener keep it current.
+ *
+ * ```ts
+ * useEffect(() => {
+ *   const subscription = addInboxUnreadCountListener(setCount)
+ *   getInboxUnreadCount()
+ *     .then(setCount)
+ *     .catch((error) => console.warn('Inbox unread count unavailable:', error))
+ *   return () => subscription.remove()
+ * }, [])
+ * ```
+ *
+ * Register the listener before the read, as above. If the read lands before `initialize()` it
+ * rejects, but the count is not lost: the native side waits for initialization and then delivers
+ * it to the listener, so the badge fills in without a remount. Log the rejection rather than
+ * discarding it — any *other* cause is a real failure, and an empty catch is how it goes unnoticed.
+ *
+ * `0` is both the initial value and the "nothing unread" value, so it cannot tell you whether
+ * the first fetch has landed.
+ *
+ * Refresh behaviour is platform-specific — on iOS every call refreshes from the server, on
+ * Android only the first one does. See the JSDoc on the native spec for why, and what that
+ * means for badge accuracy.
+ *
+ * @returns Promise resolving to the unread count
+ */
+function getInboxUnreadCount(): Promise<number> {
+  return AttentiveReactNativeSdk.getInboxUnreadCount()
+}
+
+/**
+ * Subscribe to inbox unread-count changes.
+ *
+ * Fires whenever the count the native SDK holds changes — after a fetch, after a message is
+ * read or deleted in the inbox UI or through `markInboxMessageRead` / `markInboxMessageUnread`,
+ * and when the user's identity changes. Repeats of the same value are filtered out natively, so
+ * a re-fetch returning an unchanged count will not churn your badge.
+ *
+ * Pair it with [getInboxUnreadCount] for the initial value; a listener on its own receives
+ * nothing until something starts the inbox.
+ *
+ * @param listener - Invoked with the new unread count
+ * @returns A subscription; call `remove()` to stop receiving updates
+ */
+function addInboxUnreadCountListener(
+  listener: (unreadCount: number) => void
+): InboxUnreadCountSubscription {
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.inboxUnreadCount,
+    (event: { unreadCount?: number }) => {
+      const unreadCount = event?.unreadCount
+      if (typeof unreadCount !== 'number' || !Number.isFinite(unreadCount)) {
+        console.warn(
+          `[AttentiveSDK] Ignoring inbox unread-count event with a non-numeric count: ${String(
+            unreadCount
+          )}.`
+        )
+        return undefined
+      }
+      return unreadCount
+    },
+    listener
+  )
+}
+
+/**
+ * Marks an inbox message as read.
+ *
+ * Fire-and-forget: the inbox view updates immediately, and the unread count is provisional until
+ * the background server sync returns the server's count. Use an ID from `onMessageTap` or
+ * [getInboxState]; other IDs aren't supported and are handled differently on each platform.
+ *
+ * @param messageId - The message's ID
+ */
+function markInboxMessageRead(messageId: string): void {
+  AttentiveReactNativeSdk.markInboxMessageRead(messageId)
+}
+
+/**
+ * Marks an inbox message as unread.
+ *
+ * Fire-and-forget: the inbox view updates immediately, and the unread count is provisional until
+ * the background server sync returns the server's count. Use an ID from `onMessageTap` or
+ * [getInboxState]; other IDs aren't supported and are handled differently on each platform.
+ *
+ * @param messageId - The message's ID
+ */
+function markInboxMessageUnread(messageId: string): void {
+  AttentiveReactNativeSdk.markInboxMessageUnread(messageId)
+}
+
+function decodeInboxState(raw: unknown): InboxState | undefined {
+  const state = raw as Partial<InboxState> | null | undefined
+  if (!state || !Array.isArray(state.messages)) {
+    return undefined
+  }
+  return {
+    messages: state.messages,
+    hasMoreMessages: state.hasMoreMessages === true,
+    isLoadingMore: state.isLoadingMore === true,
+  }
+}
+
+/**
+ * Reads the inbox for a custom inbox UI, and starts it if it isn't running yet.
+ *
+ * Resolves right away with what the SDK holds, which is empty until the first page lands; the
+ * first page and every later change arrive through [addInboxStateListener], so register that
+ * first. Call after `initialize()`: earlier calls reject.
+ */
+async function getInboxState(): Promise<InboxState> {
+  const state = decodeInboxState(await AttentiveReactNativeSdk.getInboxState())
+  if (!state) {
+    throw new Error(
+      '[AttentiveSDK] The native inbox state had no message list.'
+    )
+  }
+  return state
+}
+
+/**
+ * Subscribe to the inbox's message list and paging state.
+ *
+ * Fires when messages load, change read state, or are deleted, and when a page fetch starts or
+ * finishes. Each event carries the whole state, not a diff. Pair it with [getInboxState], which
+ * also starts the inbox.
+ *
+ * @returns A subscription; call `remove()` to stop receiving updates
+ */
+function addInboxStateListener(
+  listener: (state: InboxState) => void
+): InboxStateSubscription {
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.inboxState,
+    (raw: unknown) => {
+      const state = decodeInboxState(raw)
+      if (!state) {
+        console.warn(
+          '[AttentiveSDK] Ignoring an inbox state without a message list.'
+        )
+      }
+      return state
+    },
+    listener
+  )
+}
+
+/**
+ * Loads the next page of messages, which arrives through [addInboxStateListener]. Call it when
+ * the user nears the end of the list. A no-op before the first page has loaded, when there are no
+ * more pages, or while a fetch is already in flight.
+ */
+function loadMoreInboxMessages(): Promise<void> {
+  return AttentiveReactNativeSdk.loadMoreInboxMessages()
+}
+
+/**
+ * Deletes an inbox message. Fire-and-forget: the list updates immediately and the server sync
+ * runs in the background. Only IDs of loaded messages are supported.
+ *
+ * @param messageId - The message's ID
+ */
+function deleteInboxMessage(messageId: string): void {
+  AttentiveReactNativeSdk.deleteInboxMessage(messageId)
+}
+
+/**
+ * Reports that the user opened a message in a custom inbox UI: tracks the click and marks the
+ * message read. Navigating to its `actionUrl` is up to you. Fire-and-forget, and only IDs of
+ * loaded messages are supported.
+ *
+ * @param messageId - The message's ID
+ */
+function markInboxMessageClicked(messageId: string): void {
+  AttentiveReactNativeSdk.markInboxMessageClicked(messageId)
+}
+
 export {
   initialize,
   triggerCreative,
@@ -728,6 +917,17 @@ export {
   optInMarketingSubscription,
   optOutMarketingSubscription,
   updateUser,
+  // Inbox
+  AttentiveInboxView,
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
+  markInboxMessageRead,
+  markInboxMessageUnread,
+  getInboxState,
+  addInboxStateListener,
+  loadMoreInboxMessages,
+  deleteInboxMessage,
+  markInboxMessageClicked,
 }
 
 export type {
@@ -752,4 +952,10 @@ export type {
   OptInMarketingSubscriptionParams,
   TrackingConsent,
   UpdateUserParams,
+  // Inbox Types
+  AttentiveInboxViewProps,
+  InboxUnreadCountSubscription,
+  InboxMessage,
+  InboxState,
+  InboxStateSubscription,
 }

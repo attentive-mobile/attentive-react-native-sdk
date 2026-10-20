@@ -48,7 +48,7 @@ import PushNotificationIOS from '@react-native-community/push-notification-ios'
 import { CONFIG_STORAGE_KEYS } from '../constants/storage'
 import { getStoredBoolean, setStoredBoolean } from '../services/storage'
 
-const SettingsScreen: React.FC<SettingsScreenProps> = () => {
+const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [deviceToken, setDeviceToken] = useState<string>('Not saved')
@@ -58,6 +58,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   const [responseData, setResponseData] = useState<string>('')
   const [debuggerEnabled, setDebuggerEnabled] = useState<boolean>(true)
   const [pushEnabled, setPushEnabled] = useState(true)
+  const [
+    automaticallyOpensInboxDeepLinks,
+    setAutomaticallyOpensInboxDeepLinks,
+  ] = useState(false)
   const [displayAlerts, setDisplayAlerts] = useState<boolean>(true)
   const {
     domain: attentiveDomain,
@@ -146,15 +150,21 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
    */
   const loadConfiguration = async () => {
     try {
-      const [debuggerValue, alertsValue, pushValue] = await Promise.all([
-        getStoredBoolean(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED, true),
-        getStoredBoolean(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, true),
-        getStoredBoolean(CONFIG_STORAGE_KEYS.PUSH_ENABLED, true),
-      ])
+      const [debuggerValue, alertsValue, pushValue, inboxDeepLinksValue] =
+        await Promise.all([
+          getStoredBoolean(CONFIG_STORAGE_KEYS.DEBUGGER_ENABLED, true),
+          getStoredBoolean(CONFIG_STORAGE_KEYS.DISPLAY_ALERTS, true),
+          getStoredBoolean(CONFIG_STORAGE_KEYS.PUSH_ENABLED, true),
+          getStoredBoolean(
+            CONFIG_STORAGE_KEYS.AUTOMATICALLY_OPENS_INBOX_DEEP_LINKS,
+            false
+          ),
+        ])
 
       setDebuggerEnabled(debuggerValue)
       setDisplayAlerts(alertsValue)
       setPushEnabled(pushValue)
+      setAutomaticallyOpensInboxDeepLinks(inboxDeepLinksValue)
     } catch (error) {
       console.error('Error loading configuration:', error)
     }
@@ -163,13 +173,15 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
   /**
    * Persist a restart-to-apply setting and notify. These settings are read at
    * SDK initialization, so the success alert notes the restart requirement.
+   * `alwaysShownMessage` replaces that alert and shows even with Display Alerts off.
    */
   const makeRestartToggle = useCallback(
     (
         key: string,
         label: string,
         setValue: (value: boolean) => void,
-        previousValue: boolean
+        previousValue: boolean,
+        alwaysShownMessage?: string
       ) =>
       async (value: boolean) => {
         // Flip the switch immediately, then roll back if the write fails so the
@@ -177,7 +189,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
         setValue(value)
         try {
           await setStoredBoolean(key, value)
-          if (displayAlerts) {
+          if (alwaysShownMessage) {
+            Alert.alert(`${label} Setting`, alwaysShownMessage)
+          } else if (displayAlerts) {
             Alert.alert(
               `${label} Setting`,
               `${label} setting has been saved. Note: This setting requires app restart to take effect.`
@@ -209,6 +223,17 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     'Push',
     setPushEnabled,
     pushEnabled
+  )
+
+  const handleInboxDeepLinksToggle = makeRestartToggle(
+    CONFIG_STORAGE_KEYS.AUTOMATICALLY_OPENS_INBOX_DEEP_LINKS,
+    'Inbox deep links',
+    setAutomaticallyOpensInboxDeepLinks,
+    automaticallyOpensInboxDeepLinks,
+    // MainApplication.onCreate() reads it, and that only runs when the process starts.
+    Platform.OS === 'android'
+      ? 'This applies on the next launch. Fully close Bonni and reopen it.'
+      : undefined
   )
 
   /**
@@ -247,6 +272,10 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
     // TODO: Implement address management
     Alert.alert('Manage Addresses', 'Address management feature coming soon')
   }, [])
+
+  const handleShowInbox = useCallback(() => {
+    navigation.navigate('Inbox')
+  }, [navigation])
 
   const handleShowCreative = useCallback(() => {
     // Prompting for the id keeps both paths on one button: confirm targets a specific
@@ -606,6 +635,20 @@ The SDK will handle the API request internally.`
               getSecondaryButtonStyle(pressed),
               styles.buttonSpacing,
             ]}
+            onPress={handleShowInbox}
+          >
+            {({ pressed }) => (
+              <Text style={getSecondaryButtonTextStyle(pressed)}>
+                Show Inbox
+              </Text>
+            )}
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              getSecondaryButtonStyle(pressed),
+              styles.buttonSpacing,
+            ]}
             onPress={handleShowPushPermission}
           >
             {({ pressed }) => (
@@ -943,6 +986,24 @@ The SDK will handle the API request internally.`
               testID="pushEnabledSwitch"
               value={pushEnabled}
               onValueChange={handlePushToggle}
+              trackColor={{ false: Colors.lightBackground, true: Colors.peach }}
+              thumbColor={Colors.white}
+            />
+          </View>
+
+          {/* Inbox Deep Links Toggle */}
+          <View style={styles.configRow}>
+            <View style={styles.configLabelContainer}>
+              <Text style={styles.configLabel}>SDK opens inbox deep links</Text>
+              <Text style={styles.configHint}>
+                When on, the SDK opens a tapped inbox message&apos;s link. Takes
+                effect after an app restart.
+              </Text>
+            </View>
+            <Switch
+              testID="inboxDeepLinksSwitch"
+              value={automaticallyOpensInboxDeepLinks}
+              onValueChange={handleInboxDeepLinksToggle}
               trackColor={{ false: Colors.lightBackground, true: Colors.peach }}
               thumbColor={Colors.white}
             />

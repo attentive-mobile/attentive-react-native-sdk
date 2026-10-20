@@ -6,6 +6,7 @@
 //  Copyright © 2026 Attentive. All rights reserved.
 //
 
+import ATTNSDKFramework
 import Foundation
 import UIKit
 import UserNotifications
@@ -37,12 +38,47 @@ import UserNotifications
     /// Shared singleton instance
     @objc public static let shared: AttentiveSDKManager = AttentiveSDKManager()
 
+    /// Broadcast when `sdk` transitions from nil to a live instance.
+    ///
+    /// Native code that needs the SDK can run before JS calls `initialize()` — a host app is free
+    /// to make the inbox its very first screen, and the unread-count bridge can be asked for a
+    /// count before the SDK exists — so both observe this instead of capturing whatever `sdk`
+    /// happened to be at the time and giving up.
+    public static let sdkDidBecomeAvailable = Notification.Name(sdkDidBecomeAvailableName)
+
+    /// The same name as a plain `String`, for the Objective-C side.
+    ///
+    /// `Notification.Name` is a Swift struct and cannot cross into Objective-C, so the `.mm` files
+    /// used to re-declare the literal. They read this instead: a rename here now reaches every
+    /// observer, where before it would silently stop them from ever recovering.
+    @objc public static let sdkDidBecomeAvailableName = "ATTNSDKDidBecomeAvailable"
+
+    /// Name of the native SDK's inbox message-tap broadcast, for the Objective-C side.
+    ///
+    /// Read from the SDK's own `Notification.Name` rather than re-spelling the literal, so a
+    /// rename there fails the build instead of leaving an observer that never fires.
+    @objc public static let inboxMessageTappedName: String =
+        Notification.Name.ATTNSDKInboxMessageTapped.rawValue
+
+    /// userInfo keys carried by `inboxMessageTappedName`. The message id is always present; the
+    /// action URL only when the tapped message has one.
+    ///
+    /// The SDK writes these as inline literals with no public constants, so unlike the name above
+    /// they are re-spelled here — a rename on that side is a silent payload change rather than a
+    /// build failure, and the tap event would start arriving with an empty message id.
+    @objc public static let inboxMessageTappedMessageIdKey = "attentiveInboxMessageId"
+    @objc public static let inboxMessageTappedActionUrlKey = "attentiveInboxActionUrl"
+
     /// The Attentive SDK instance as AnyObject for Objective-C compatibility.
     /// When set, any pending (untracked) notification response is automatically flushed.
     @objc public var sdk: AnyObject? {
         didSet {
             if sdk != nil {
                 flushPendingResponseIfNeeded()
+                NotificationCenter.default.post(
+                    name: AttentiveSDKManager.sdkDidBecomeAvailable,
+                    object: self
+                )
             }
         }
     }

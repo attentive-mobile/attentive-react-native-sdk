@@ -153,7 +153,6 @@ class MainApplication : Application(), ReactApplication {
             .domain("YOUR_ATTENTIVE_DOMAIN")
             .mode(AttentiveConfig.Mode.PRODUCTION) // or Mode.DEBUG for testing
             .notificationIconId(R.drawable.ic_stat_notification)
-            .skipFatigueOnCreatives(false)
             .logLevel(AttentiveLogLevel.VERBOSE)
             .build()
 
@@ -225,6 +224,7 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 | -------- | ------------------------- | ------------------------------------------------------------------------------------------ |
 | `domain` | `string`                  | Your Attentive domain (required).                                                          |
 | `mode`   | `'debug' \| 'production'` | Native SDK mode. Use `debug` while testing creatives. Optional — defaults to `production`. |
+| `automaticallyOpensInboxDeepLinks` | `boolean` | Set `false` if you route inbox taps yourself — see [SDK-opened deep links](#sdk-opened-deep-links-automaticallyopensinboxdeeplinks). Optional — defaults to `true`. Android only; on iOS set the TypeScript config field. |
 
 **Notes:**
 
@@ -232,7 +232,7 @@ The plugin adds the `AttentiveConfig` + `AttentiveSdk.initialize(...)` call show
 - **iOS is untouched by the plugin.** iOS still initializes from TypeScript — the [`initialize()` call](#ios--initialize-from-typescript) is required either way.
 - The debug overlay (`enableDebugger`, see [Debugging Features](#debugging-features)) is wired only by the TypeScript `initialize()` call. The plugin's `mode: 'debug'` sets the _native_ SDK mode (creative debug view, verbose native logging) — a different switch.
 - If your `MainApplication` already contains a manual Attentive integration, the plugin leaves the file alone and prints a warning during prebuild — remove the manual code to let the plugin manage initialization.
-- Builder options beyond `domain`/`mode` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
+- Builder options beyond `domain`/`mode`/`automaticallyOpensInboxDeepLinks` (`notificationIconId`, `skipFatigueOnCreatives`, `logLevel`) are not yet exposed as plugin props.
 - Bare React Native apps (no prebuild) should not use the plugin — follow the manual instructions above.
 
 #### Disabling push at initialization (`pushEnabled`)
@@ -407,7 +407,7 @@ promise.
 | `opened` | The creative rendered and is visible. |
 | `closed` | The creative was dismissed by the user tapping the creative's own close control. The Android hardware back button does **not** produce this event — see the caveats below. |
 | `notOpened` | The creative could not be shown: no creative is configured for the app, the creative was fatigued, the load timed out, or an unknown error occurred. This is the single catch-all failure status on both platforms — it does not distinguish between those causes. See the Android caveat below. |
-| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `attentive-ios-sdk` 2.1.0 declares this status but never reports it, so an iOS-only integration will never see it. |
+| `notClosed` | The creative failed to close cleanly (e.g. the web view was already gone). **Android only in practice** — `ATTNSDKFramework` 2.2.0 declares this status but never reports it, so an iOS-only integration will never see it. |
 
 `creativeId` echoes the id you passed to `triggerCreative(creativeId)`, and is absent when you
 triggered the default creative.
@@ -503,6 +503,271 @@ Push can also be disabled entirely at initialization — see [Disabling push at 
 > directly from your AppDelegate, **replace** that code with the single
 > `handleNotificationResponse` call above. Using both will result in
 > double-tracked events. The old methods are now deprecated.
+
+---
+
+### Inbox
+
+An in-app message center: a drop-in native view that renders the messages Attentive has delivered to
+the current user. Each message has a title, body, timestamp, read/unread state, and optionally an
+image (static or animated GIF) and a deep link.
+
+Rendering the component **is** the integration. The native view initializes the inbox on first use,
+fetches the first page in the background, and refreshes when the screen resumes — there is no inbox
+call to make from TypeScript.
+
+#### Requirements
+
+- The SDK is initialized — see [Initialize the SDK](#initialize-the-sdk).
+- The device is **registered for push** on the same company. Inbox messages are addressed to the same
+  audience as push, so a device that never registered a push token has no inbox to read. See
+  [Push Notifications](#push-notifications-ios-and-android).
+- The New Architecture, like the rest of the SDK — see [Requirements](#requirements).
+
+#### Usage
+
+```tsx
+import { AttentiveInboxView } from '@attentive-mobile/attentive-react-native-sdk'
+
+export default function InboxScreen() {
+  return <AttentiveInboxView style={{ flex: 1 }} />
+}
+```
+
+The native view fills the box you give it, so **it needs bounded height** — `flex: 1` inside a
+filling parent, or an explicit `height`. Given a zero-height box it renders nothing.
+
+Handled for you, with no props to set:
+
+- message list with title, body, timestamp, and optional image
+- unread indicator dot on unread rows
+- pull-to-refresh and infinite-scroll pagination
+- swipe actions to delete and to change read state: on Android, swipe left to mark unread and
+  right to delete; on iOS, swipe right to toggle read/unread and left to delete
+- tap to mark read and follow the message's deep link — both overridable, see
+  [Message taps](#message-taps)
+- empty state when there are no messages
+
+#### Theming
+
+Six colors are overridable. Anything you leave unset falls back to the
+SDK's own default, and clearing a prop restores that default rather than keeping the last value.
+
+| Prop | Applies to |
+| --- | --- |
+| `inboxBackgroundColor` | background behind the list and its loading and empty states |
+| `unreadIndicatorColor` | the dot marking an unread message |
+| `titleTextColor` | message title |
+| `bodyTextColor` | message body / preview text |
+| `timestampTextColor` | message timestamp |
+| `swipeBackgroundColor` | the read-state swipe action: swipe left to mark unread on Android, swipe right to toggle read/unread on iOS |
+
+Each accepts any React Native `ColorValue` — hex strings, named colors, `PlatformColor`,
+`DynamicColorIOS`:
+
+```tsx
+<AttentiveInboxView
+  style={{ flex: 1 }}
+  inboxBackgroundColor="#F8F9FA"
+  unreadIndicatorColor="#1E88E5"
+  titleTextColor="#000000"
+  bodyTextColor="#666666"
+  timestampTextColor="#999999"
+  swipeBackgroundColor="#FFC5B9"
+/>
+```
+
+Use `inboxBackgroundColor` rather than `style={{ backgroundColor }}` to theme the inbox itself. On
+Android, unread rows use a slightly shifted shade of it.
+
+Fonts are not themeable from React Native yet; the inbox uses the SDK's own type styles. The
+delete swipe action is a fixed red on both platforms and is not themeable.
+
+#### Message taps
+
+`onMessageTap` fires when the user taps a message row:
+
+```tsx
+<AttentiveInboxView
+  style={{ flex: 1 }}
+  onMessageTap={({ nativeEvent: { messageId, actionUrl } }) => {
+    analytics.track('inbox_message_opened', { messageId })
+    if (actionUrl) console.log('links to', actionUrl)
+  }}
+/>
+```
+
+`actionUrl` is `''` when the tapped message has no deep link.
+
+Attaching a handler still records the click, still marks the message read, and still opens the message's `actionUrl` itself.
+
+**If you navigate from `onMessageTap`, the SDK navigates
+too, and the user sees it twice.** To own routing, turn the SDK's own navigation off with
+`automaticallyOpensInboxDeepLinks` (below) and handle `actionUrl` yourself.
+
+#### SDK-opened deep links (`automaticallyOpensInboxDeepLinks`)
+
+Defaults to `true`: a tapped message opens its `actionUrl` with no wiring from you. Set it to
+`false` when you route taps yourself. Click tracking and `onMessageTap` are unaffected either way
+— only the SDK-initiated navigation stops.
+
+Like `pushEnabled`, the flag follows each platform's initialization path:
+
+**iOS** — set the optional field on the TypeScript configuration:
+
+```typescript
+const config: AttentiveSdkConfiguration = {
+  attentiveDomain: 'YOUR_ATTENTIVE_DOMAIN',
+  mode: 'production',
+  automaticallyOpensInboxDeepLinks: false, // optional; defaults to true
+}
+```
+
+**Android** — because initialization is native, the TypeScript field has no effect. Set it on the
+config builder in `MainApplication.kt` instead:
+
+```kotlin
+.automaticallyOpensInboxDeepLinks(false)
+```
+
+In an Expo CNG app, set `"automaticallyOpensInboxDeepLinks": false` in the
+[config plugin](#expo-apps--config-plugin-android) options instead; the plugin adds that builder call.
+
+Setting only the TypeScript field gives you a working opt-out on iOS and double navigation on
+Android — so set both. Passing `false` from TypeScript logs a warning on Android naming the
+builder call, rather than failing quietly.
+
+#### Unread badge
+
+`getInboxUnreadCount()` reads the count and is also what *starts* the inbox — it kicks off the first
+fetch and, on Android, the observer behind the change events. Register the listener first, then read:
+
+```tsx
+import {
+  getInboxUnreadCount,
+  addInboxUnreadCountListener,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+const [unreadCount, setUnreadCount] = useState(0)
+
+useEffect(() => {
+  const subscription = addInboxUnreadCountListener(setUnreadCount)
+  getInboxUnreadCount().then(setUnreadCount).catch(() => {})
+  return () => subscription.remove()
+}, [])
+```
+
+The listener fires on every change the SDK makes — a completed fetch, a message read or deleted in
+the inbox UI, a `markInboxMessageRead` / `markInboxMessageUnread` call, an identity change. Repeat
+values are filtered out natively, so a re-fetch returning the same number won't churn your badge. A listener on its own receives nothing until something
+starts the inbox, which is why the read call above is not optional.
+
+`0` is both the initial value and the "nothing unread" value, so it cannot tell you whether the
+first fetch has landed. Track that separately if you need to distinguish them.
+
+> **Refresh differs by platform, and it affects badge accuracy.** On **iOS** every
+> `getInboxUnreadCount()` call refreshes from the server, so calling it on app foreground and after
+> a push open — Attentive's iOS guidance — keeps the badge correct. On **Android** only the *first*
+> call fetches; the native refresh entry points are still internal, so afterwards an Android badge
+> updates when a push arrives while the app is foregrounded, and whenever the inbox view is on
+> screen. A plain foreground with no push and no inbox visit will not refresh it.
+
+#### Read state
+
+`markInboxMessageRead` and `markInboxMessageUnread` change a message's read state from JS. The
+message ID comes from [`onMessageTap`](#message-taps):
+
+```tsx
+import {
+  markInboxMessageRead,
+  markInboxMessageUnread,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+markInboxMessageRead(messageId)
+markInboxMessageUnread(messageId)
+```
+
+Both are fire-and-forget and return nothing. The drop-in view reflects the change immediately.
+`addInboxUnreadCountListener` receives a provisional count right away, which the server's count
+replaces once the sync completes. The sync is never confirmed: if it fails, iOS reverts the change,
+while Android keeps it until the next fetch. A call before `initialize()` is ignored and doesn't
+throw.
+
+Use IDs of loaded messages only, from `onMessageTap` or the [inbox state](#custom-inbox-ui). Other
+IDs, such as one for a message the inbox hasn't loaded, aren't supported and are handled differently
+on each platform.
+
+Don't call them inside `onMessageTap` to undo the tap's own mark-read. Both requests are in flight
+at once, and the server may apply them in either order.
+
+#### Custom inbox UI
+
+To render your own inbox instead of `<AttentiveInboxView />`, read the inbox state and subscribe to
+its changes:
+
+```tsx
+import {
+  addInboxStateListener,
+  getInboxState,
+  type InboxState,
+} from '@attentive-mobile/attentive-react-native-sdk'
+
+const [inbox, setInbox] = useState<InboxState>({
+  messages: [],
+  hasMoreMessages: false,
+  isLoadingMore: false,
+})
+
+useEffect(() => {
+  const subscription = addInboxStateListener(setInbox)
+  getInboxState().then(setInbox).catch(console.warn)
+  return () => subscription.remove()
+}, [])
+```
+
+`getInboxState()` starts the inbox and resolves right away with what the SDK holds, which is empty
+until the first page lands. The listener delivers that page and every later change, each event
+carrying the whole state. Call it after `initialize()`; earlier calls reject.
+
+Each message has `id`, `title`, `body`, `timestamp` (milliseconds since the epoch), `isRead`, and
+optional `imageUrl` and `actionUrl`.
+
+| Call | What it does |
+| --- | --- |
+| `loadMoreInboxMessages()` | Loads the next page. Call it when the user nears the end of the list; it's a no-op until the first page has loaded, when `hasMoreMessages` is `false`, or while a page is loading. |
+| `markInboxMessageClicked(id)` | Call it when the user opens a message: tracks the click and marks the message read. Navigating to `actionUrl` is up to you. |
+| `markInboxMessageRead(id)` / `markInboxMessageUnread(id)` | See [Read state](#read-state). |
+| `deleteInboxMessage(id)` | Removes the message. The list updates immediately and the server sync runs in the background. |
+
+All of them take IDs from the inbox state. There is no on-demand refresh yet.
+
+#### Not yet available from TypeScript
+
+The native SDKs expose more than what's above. The following are **native-only** today — they are
+not bridged to React Native:
+
+- refreshing the message list on demand
+- a tap handler that *replaces* the SDK's own handling, rather than observing it alongside — see
+  [Message taps](#message-taps) for what `onMessageTap` does and does not take over
+
+If you need any of these, talk to your Attentive contact before designing around the drop-in view.
+
+#### Identity
+
+`clearUser()` and `updateUser()` clear the inbox, so one user's messages never leak into the next
+session; inbox requests already in flight are discarded when they land.
+
+#### Troubleshooting an empty inbox
+
+Inbox messages are created server-side — there is no SDK API to inject one. If the list is empty:
+
+1. Confirm the device registered a push token for that company. Without a resolved identity the
+   server serves an empty inbox.
+2. Confirm the message was sent **after** the device registered. Sends are addressed to a
+   precomputed subscriber audience, so a device that registered shortly before the send may not be
+   included in it yet.
+3. Messages expire (30 days by default). An expired inbox is indistinguishable from a
+   never-populated one on the client — both are `HTTP 200` with zero messages.
 
 ---
 

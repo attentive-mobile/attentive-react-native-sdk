@@ -72,8 +72,8 @@ class AppDelegate: RCTAppDelegate {
   /// requirements as overridable members in a subclass. The push delegate methods above are
   /// marked the same way for the same reason.
   ///
-  /// Universal links would additionally need `application(_:continue:restorationHandler:)`; only
-  /// the scheme path is wired here.
+  /// Universal links would additionally need `application(_:continue:restorationHandler:)`; the
+  /// Attentive inbox opens `actionURL` directly, so only the scheme path is wired here.
   override func application(
     _ app: UIApplication,
     open url: URL,

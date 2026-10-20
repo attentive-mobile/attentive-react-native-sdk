@@ -106,6 +106,38 @@ describe('App SDK startup sequence', () => {
     })
   })
 
+  it('passes the persisted automaticallyOpensInboxDeepLinks=true through to initialize()', async () => {
+    mockGetItem.mockImplementation((key: string) =>
+      Promise.resolve(
+        key === CONFIG_STORAGE_KEYS.AUTOMATICALLY_OPENS_INBOX_DEEP_LINKS
+          ? 'true'
+          : null
+      )
+    )
+
+    const renderer = await renderApp()
+
+    expect(mockInitialize).toHaveBeenCalledWith(
+      expect.objectContaining({ automaticallyOpensInboxDeepLinks: true })
+    )
+
+    await act(async () => {
+      renderer.unmount()
+    })
+  })
+
+  it('defaults automaticallyOpensInboxDeepLinks to false when nothing is persisted', async () => {
+    const renderer = await renderApp()
+
+    expect(mockInitialize).toHaveBeenCalledWith(
+      expect.objectContaining({ automaticallyOpensInboxDeepLinks: false })
+    )
+
+    await act(async () => {
+      renderer.unmount()
+    })
+  })
+
   it('skips the app-side push setup when push is disabled', async () => {
     mockGetItem.mockImplementation((key: string) =>
       Promise.resolve(key === CONFIG_STORAGE_KEYS.PUSH_ENABLED ? 'false' : null)

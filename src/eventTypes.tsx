@@ -10,9 +10,14 @@ export type UserIdentifiers = {
 export type AttentiveSdkConfiguration = {
   attentiveDomain: string
   mode: string // "production" or "debug"
+  /**
+   * @deprecated Has no effect: fatigue is evaluated on the backend. To force a creative while
+   * debugging, trigger it by ID instead. Will be removed in the next major version.
+   */
   skipFatigueOnCreatives?: boolean
   enableDebugger?: boolean
   pushEnabled?: boolean
+  automaticallyOpensInboxDeepLinks?: boolean
 }
 
 // Codegen does not support nested objects inside of arrays. We must flatten the Item type.
@@ -48,7 +53,7 @@ export type ProductView = {
  *   load timed out, or an unknown exception occurred. Android does not report it for a failed
  *   page load or render timeout (see the README caveats).
  * - `notClosed` — the creative failed to close cleanly (rare; e.g. the web view was already
- *   gone at close time). Android only in practice: `attentive-ios-sdk` 2.1.0 declares this
+ *   gone at close time). Android only in practice: `ATTNSDKFramework` 2.2.0 declares this
  *   status but has no call site for it.
  */
 export const CREATIVE_STATUSES = [
@@ -87,6 +92,34 @@ export type AttentiveEventSubscription = {
 
 /** Handle returned by `addCreativeEventListener`. Call `remove()` to stop receiving events. */
 export type CreativeEventSubscription = AttentiveEventSubscription
+
+/** Handle returned by `addInboxUnreadCountListener`; call `remove()` to unsubscribe. */
+export type InboxUnreadCountSubscription = AttentiveEventSubscription
+
+/** Handle returned by `addInboxStateListener`; call `remove()` to unsubscribe. */
+export type InboxStateSubscription = AttentiveEventSubscription
+
+/** An inbox message, for apps that render their own inbox UI. */
+export type InboxMessage = {
+  id: string
+  title: string
+  body: string
+  /** When the message was sent, in milliseconds since the Unix epoch. */
+  timestamp: number
+  isRead: boolean
+  imageUrl?: string
+  actionUrl?: string
+}
+
+/** The inbox as the SDK currently holds it. */
+export type InboxState = {
+  /** The messages loaded so far. */
+  messages: InboxMessage[]
+  /** Whether another page can be loaded. `false` until the first page has loaded. */
+  hasMoreMessages: boolean
+  /** Whether a `loadMoreInboxMessages()` fetch is in flight. */
+  isLoadingMore: boolean
+}
 
 // Codegen does not support nested objects. We must flatten the Purchase type.
 export type Purchase = {

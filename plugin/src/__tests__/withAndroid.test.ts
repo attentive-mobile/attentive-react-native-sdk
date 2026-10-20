@@ -136,6 +136,15 @@ describe('prop validation', () => {
       } as unknown as AttentivePluginProps)
     ).toThrow(/Invalid mode "staging"/)
   })
+
+  it('throws a clear error on a non-boolean automaticallyOpensInboxDeepLinks', () => {
+    expect(() =>
+      withAttentive(config, {
+        domain: 'games',
+        automaticallyOpensInboxDeepLinks: 'false',
+      } as unknown as AttentivePluginProps)
+    ).toThrow(/Invalid automaticallyOpensInboxDeepLinks "false"/)
+  })
 })
 
 describe('generated Kotlin safety', () => {
@@ -150,6 +159,41 @@ describe('generated Kotlin safety', () => {
   it('defaults to Mode.PRODUCTION when mode is omitted', () => {
     const result = modifyMainApplication(kt(fixture), { domain: 'games' })
     expect(result).toContain('.mode(AttentiveConfig.Mode.PRODUCTION)')
+  })
+})
+
+describe('automaticallyOpensInboxDeepLinks', () => {
+  it('emits the builder call before build() when false', () => {
+    const result = modifyMainApplication(kt(fixture), {
+      ...props,
+      automaticallyOpensInboxDeepLinks: false,
+    })
+    expect(result).toMatch(
+      /\.automaticallyOpensInboxDeepLinks\(false\)\n\s*\.build\(\)/
+    )
+    expect(result).toMatchSnapshot()
+  })
+
+  it('leaves the generated code unchanged when true or omitted', () => {
+    const omitted = modifyMainApplication(kt(fixture), props)
+    const enabled = modifyMainApplication(kt(fixture), {
+      ...props,
+      automaticallyOpensInboxDeepLinks: true,
+    })
+    expect(enabled).toBe(omitted)
+    expect(omitted).not.toContain('automaticallyOpensInboxDeepLinks')
+  })
+
+  it('removes the call in place when the option flips back to true', () => {
+    const disabled = modifyMainApplication(kt(fixture), {
+      ...props,
+      automaticallyOpensInboxDeepLinks: false,
+    })
+    const reenabled = modifyMainApplication(kt(disabled), {
+      ...props,
+      automaticallyOpensInboxDeepLinks: true,
+    })
+    expect(reenabled).toBe(modifyMainApplication(kt(fixture), props))
   })
 })
 

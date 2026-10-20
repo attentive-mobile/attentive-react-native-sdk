@@ -36,6 +36,12 @@ jest.mock('react-native', () => ({
       getInitialPushNotification: jest.fn().mockResolvedValue(null),
       optInMarketingSubscription: jest.fn().mockResolvedValue(undefined),
       optOutMarketingSubscription: jest.fn().mockResolvedValue(undefined),
+      markInboxMessageRead: jest.fn(),
+      markInboxMessageUnread: jest.fn(),
+      getInboxState: jest.fn(),
+      loadMoreInboxMessages: jest.fn().mockResolvedValue(undefined),
+      deleteInboxMessage: jest.fn(),
+      markInboxMessageClicked: jest.fn(),
     },
   },
   TurboModuleRegistry: {
@@ -80,6 +86,14 @@ import {
   // Marketing Subscription Methods
   optInMarketingSubscription,
   optOutMarketingSubscription,
+  // Inbox Methods
+  markInboxMessageRead,
+  markInboxMessageUnread,
+  getInboxState,
+  addInboxStateListener,
+  loadMoreInboxMessages,
+  deleteInboxMessage,
+  markInboxMessageClicked,
 } from '../index'
 import type {
   AttentiveSdkConfiguration,
@@ -100,6 +114,7 @@ describe('Attentive SDK', () => {
         enableDebugger: true,
         skipFatigueOnCreatives: true,
         pushEnabled: false,
+        automaticallyOpensInboxDeepLinks: false,
       }
 
       initialize(config)
@@ -109,6 +124,7 @@ describe('Attentive SDK', () => {
         'debug',
         true,
         true,
+        false,
         false
       )
     })
@@ -126,6 +142,20 @@ describe('Attentive SDK', () => {
         'production',
         false,
         false,
+        true,
+        true
+      )
+    })
+
+    it('should default automaticallyOpensInboxDeepLinks to true', () => {
+      initialize({ attentiveDomain: 'test-domain', mode: 'production' })
+
+      expect(mockNativeModule.initialize).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
+        expect.anything(),
         true
       )
     })
@@ -410,6 +440,119 @@ describe('Attentive SDK', () => {
 
       expect(mockNativeModule.exportDebugLogs).toHaveBeenCalled()
       expect(logs).toBe('debug logs')
+    })
+  })
+
+  describe('Inbox', () => {
+    it('should mark a message read', () => {
+      markInboxMessageRead('message-1')
+
+      expect(mockNativeModule.markInboxMessageRead).toHaveBeenCalledWith(
+        'message-1'
+      )
+    })
+
+    it('should mark a message unread', () => {
+      markInboxMessageUnread('message-1')
+
+      expect(mockNativeModule.markInboxMessageUnread).toHaveBeenCalledWith(
+        'message-1'
+      )
+    })
+
+    it('should forward load more, delete and click to the native module', async () => {
+      await loadMoreInboxMessages()
+      deleteInboxMessage('message-1')
+      markInboxMessageClicked('message-2')
+
+      expect(mockNativeModule.loadMoreInboxMessages).toHaveBeenCalled()
+      expect(mockNativeModule.deleteInboxMessage).toHaveBeenCalledWith(
+        'message-1'
+      )
+      expect(mockNativeModule.markInboxMessageClicked).toHaveBeenCalledWith(
+        'message-2'
+      )
+    })
+  })
+
+  describe('Inbox state', () => {
+    const message = {
+      id: 'message-1',
+      title: 'Title',
+      body: 'Body',
+      timestamp: 1760000000000,
+      isRead: false,
+      actionUrl: 'bonni-rn://cart',
+    }
+    const nativeState = {
+      messages: [message],
+      hasMoreMessages: true,
+      isLoadingMore: false,
+    }
+
+    let warnSpy: jest.SpyInstance
+    let emitFromNative: (state: unknown) => void
+
+    beforeEach(() => {
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      mockDeviceEventEmitter.addListener.mockImplementation(
+        (_name: string, handler: (state: unknown) => void) => {
+          emitFromNative = handler
+          return { remove: jest.fn() }
+        }
+      )
+    })
+
+    afterEach(() => {
+      warnSpy.mockRestore()
+    })
+
+    it('should resolve the native state', async () => {
+      mockNativeModule.getInboxState.mockResolvedValueOnce(nativeState)
+
+      await expect(getInboxState()).resolves.toEqual(nativeState)
+    })
+
+    it('should reject a native state without a message list', async () => {
+      mockNativeModule.getInboxState.mockResolvedValueOnce({})
+
+      await expect(getInboxState()).rejects.toThrow(/no message list/)
+    })
+
+    it('should deliver state changes on the device event both bridges emit', () => {
+      const listener = jest.fn()
+      addInboxStateListener(listener)
+
+      emitFromNative(nativeState)
+
+      expect(mockDeviceEventEmitter.addListener).toHaveBeenCalledWith(
+        'AttentiveInboxState',
+        expect.any(Function)
+      )
+      expect(listener).toHaveBeenCalledWith(nativeState)
+    })
+
+    it('should default missing paging flags to false', () => {
+      const listener = jest.fn()
+      addInboxStateListener(listener)
+
+      emitFromNative({ messages: [message] })
+
+      expect(listener).toHaveBeenCalledWith({
+        messages: [message],
+        hasMoreMessages: false,
+        isLoadingMore: false,
+      })
+    })
+
+    it('should drop an event without a message list', () => {
+      const listener = jest.fn()
+      addInboxStateListener(listener)
+
+      emitFromNative({ hasMoreMessages: true })
+
+      expect(listener).not.toHaveBeenCalled()
+      expect(warnSpy).toHaveBeenCalled()
     })
   })
 

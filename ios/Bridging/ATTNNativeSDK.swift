@@ -8,6 +8,7 @@
 
 import Foundation
 import ATTNSDKFramework
+import SwiftUI
 import UIKit
 import UserNotifications
 
@@ -92,14 +93,21 @@ struct DebugEvent {
   private var debugOverlayWindow: UIWindow?
   private var debugHistory: [DebugEvent] = []
 
-  @objc(initWithDomain:mode:skipFatigueOnCreatives:enableDebugger:pushEnabled:)
-  public init(domain: String, mode: String, skipFatigueOnCreatives: Bool, enableDebugger: Bool, pushEnabled: Bool) {
+  @objc(initWithDomain:mode:skipFatigueOnCreatives:enableDebugger:pushEnabled:automaticallyOpensInboxDeepLinks:)
+  public init(
+    domain: String,
+    mode: String,
+    skipFatigueOnCreatives: Bool,
+    enableDebugger: Bool,
+    pushEnabled: Bool,
+    automaticallyOpensInboxDeepLinks: Bool
+  ) {
     self.sdk = ATTNSDK(
       domain: domain,
       mode: ATTNSDKMode(rawValue: mode) ?? .production,
       pushEnabled: pushEnabled
     )
-    self.sdk.skipFatigueOnCreative = skipFatigueOnCreatives
+    self.sdk.automaticallyOpensInboxDeepLinks = automaticallyOpensInboxDeepLinks
 
     // Only enable debugging if both enableDebugger is true AND the app is running in debug mode
     #if DEBUG
@@ -562,6 +570,208 @@ struct DebugEvent {
         ])
       }
     }
+  }
+
+  // MARK: - Inbox (default renderer)
+
+  /// Builds the SDK's drop-in inbox UI ("default renderer") as a `UIViewController`.
+  ///
+  /// `ATTNSDK.inboxViewController(style:onMessageTap:)` can't be called from Objective-C — it is
+  /// `@MainActor`, takes defaulted Swift arguments, and its tap callback carries a `Message`
+  /// struct — so the RN view component goes through this shim. The returned controller is a
+  /// `UIHostingController` wrapping the SwiftUI inbox, which fetches its first page, refreshes on
+  /// foreground, and paginates on its own; there is nothing to drive from JS.
+  ///
+  /// No `onMessageTap` closure is passed, deliberately: handing one to the SDK makes it skip its
+  /// own routing, which would tie deep links to whether JS attached a handler — something Fabric
+  /// never reports. `AttentiveInboxView` observes the SDK's `ATTNSDKInboxMessageTapped` broadcast
+  /// instead, so navigation stays governed by `automaticallyOpensInboxDeepLinks` alone, matching
+  /// Android.
+  ///
+  /// A nil colour keeps the SDK's own default. The background, indicator and swipe colours pass
+  /// straight through as `Color?`, but the text defaults below must stay in step with
+  /// `InboxStyle.init`'s (.headline/.primary, .subheadline/.secondary, .caption/.secondary), since
+  /// passing a style always replaces all three.
+  ///
+  /// Fonts stay at the SDK defaults: React Native has no font props yet, because Android's font
+  /// setters take an Android resource id that an RN app has no way to produce.
+  @MainActor
+  @objc(makeInboxViewControllerWithTitleColor:bodyColor:timestampColor:backgroundColor:unreadIndicatorColor:swipeBackgroundColor:)
+  public func makeInboxViewController(
+    titleColor: UIColor?,
+    bodyColor: UIColor?,
+    timestampColor: UIColor?,
+    backgroundColor: UIColor?,
+    unreadIndicatorColor: UIColor?,
+    swipeBackgroundColor: UIColor?
+  ) -> UIViewController {
+    let style = InboxStyle(
+      title: InboxStyle.Text(
+        font: .headline,
+        color: titleColor.map { Color(uiColor: $0) } ?? .primary
+      ),
+      body: InboxStyle.Text(
+        font: .subheadline,
+        color: bodyColor.map { Color(uiColor: $0) } ?? .secondary
+      ),
+      timestamp: InboxStyle.Text(
+        font: .caption,
+        color: timestampColor.map { Color(uiColor: $0) } ?? .secondary
+      ),
+      background: backgroundColor.map { Color(uiColor: $0) },
+      unreadIndicator: unreadIndicatorColor.map { Color(uiColor: $0) },
+      swipeBackground: swipeBackgroundColor.map { Color(uiColor: $0) }
+    )
+    return sdk.inboxViewController(style: style)
+  }
+
+  // MARK: - Inbox Methods
+
+  /// Refreshes the unread inbox count from the server, then reports it.
+  ///
+  /// `ATTNSDK.refreshInboxUnreadCount()` is `async`, and `inboxUnreadCount` is a plain
+  /// synchronous mirror that does *not* itself fetch — so a caller that only reads the mirror
+  /// gets whatever the last fetch left behind. This wrapper does both, in that order, because
+  /// Attentive's iOS guidance is to refresh when the app comes to the foreground and after a
+  /// push open, and the React Native bridge has no other way to honour that.
+  ///
+  /// The completion runs on the main actor, which is where React Native resolves promises, and it
+  /// is guaranteed to run exactly once — `nil` meaning the refresh could not be performed.
+  ///
+  /// The count is optional rather than a plain `Int` because there are three outcomes, not two:
+  /// a real count, and two flavours of failure. Reporting `0` on failure would be wrong (`0` is a
+  /// legitimate count, so a caller would overwrite a correct badge with "nothing unread"), and
+  /// skipping the completion would be worse still — the bridge turns this into a JS promise, and a
+  /// promise that never settles hangs every `await` on it for the life of the runtime.
+  ///
+  /// Android has no equivalent: its refresh entry points are still `internal`, so the
+  /// TypeScript API documents this call as refreshing on iOS and reading a cache on Android.
+  @objc(refreshInboxUnreadCountWithCompletion:)
+  public func refreshInboxUnreadCount(completion: @escaping (NSNumber?) -> Void) {
+    Task { @MainActor [weak self] in
+      // The shim is gone: the module was torn down, or a JS reload landed mid-refresh. The
+      // completion is captured strongly by this task, so it can still be called even though
+      // `self` cannot.
+      guard let self else {
+        completion(nil)
+        return
+      }
+
+      await self.sdk.refreshInboxUnreadCount()
+      completion(NSNumber(value: self.sdk.inboxUnreadCount))
+    }
+  }
+
+  /// Observes unread-count changes and forwards each one to `handler` on the main queue.
+  ///
+  /// Uses the SDK's `.ATTNSDKInboxUnreadCountChanged` notification rather than
+  /// `inboxStateStream`, because the notification is already deduped on same-value writes and
+  /// needs no task to keep alive — the bridge only wants the count, not the message list.
+  /// Filtered to this SDK instance via `object:`.
+  ///
+  /// - Returns: the observer token; hand it back to `NotificationCenter.removeObserver` to stop.
+  @objc(observeInboxUnreadCountWithHandler:)
+  public func observeInboxUnreadCount(handler: @escaping (Int) -> Void) -> NSObjectProtocol {
+    NotificationCenter.default.addObserver(
+      forName: .ATTNSDKInboxUnreadCountChanged,
+      object: sdk,
+      queue: .main
+    ) { note in
+      let count = note.userInfo?["attentiveInboxUnreadCount"] as? Int ?? 0
+      handler(count)
+    }
+  }
+
+  @objc(markInboxMessageRead:)
+  public func markInboxMessageRead(_ id: String) {
+    Task { [sdk] in await sdk.markRead(for: id) }
+  }
+
+  @objc(markInboxMessageUnread:)
+  public func markInboxMessageUnread(_ id: String) {
+    Task { [sdk] in await sdk.markUnread(for: id) }
+  }
+
+  // MARK: - Custom inbox UI
+
+  /// The current inbox state in the shape JS's `InboxState` expects. Reading the streams
+  /// materializes the inbox manager, which starts the first-page fetch.
+  @objc(inboxStateWithCompletion:)
+  public func inboxState(completion: @escaping ([String: Any]) -> Void) {
+    Task { @MainActor [sdk] in
+      let state = await sdk.inboxStateStream.first { _ in true } ?? .loading
+      let isLoadingMore = await sdk.inboxLoadingMoreStream.first { _ in true } ?? false
+      completion(Self.inboxStatePayload(state, hasMore: await sdk.hasMoreInboxMessages, isLoadingMore: isLoadingMore))
+    }
+  }
+
+  /// Forwards every inbox state change to `handler` on the main actor, skipping repeats.
+  @MainActor
+  @objc(observeInboxStateWithHandler:)
+  public func observeInboxState(handler: @escaping ([String: Any]) -> Void) -> ATTNInboxStateObservation {
+    let relay = InboxStateRelay(handler: handler)
+    let messages = Task { @MainActor [sdk] in
+      for await state in await sdk.inboxStateStream {
+        // A page's list arrives just before isLoadingMore clears; holding emits across this await
+        // keeps JS from seeing the spinner stop before the new rows.
+        relay.isAwaitingHasMore = true
+        relay.hasMore = await sdk.hasMoreInboxMessages
+        relay.isAwaitingHasMore = false
+        relay.state = state
+        relay.emit()
+      }
+    }
+    let loadingMore = Task { @MainActor [sdk] in
+      for await isLoadingMore in await sdk.inboxLoadingMoreStream {
+        relay.isLoadingMore = isLoadingMore
+        relay.emit()
+      }
+    }
+    return ATTNInboxStateObservation(tasks: [messages, loadingMore])
+  }
+
+  @objc(loadMoreInboxMessagesWithCompletion:)
+  public func loadMoreInboxMessages(completion: @escaping () -> Void) {
+    Task { [sdk] in
+      await sdk.loadMoreInboxMessages()
+      completion()
+    }
+  }
+
+  @objc(deleteInboxMessage:)
+  public func deleteInboxMessage(_ id: String) {
+    Task { [sdk] in await sdk.delete(messageID: id) }
+  }
+
+  @objc(markInboxMessageClicked:)
+  public func markInboxMessageClicked(_ id: String) {
+    Task { [sdk] in await sdk.markClicked(for: id) }
+  }
+
+  fileprivate static func inboxStatePayload(_ state: InboxState, hasMore: Bool, isLoadingMore: Bool) -> [String: Any] {
+    // `.error` is only emitted when nothing has loaded, so it reads as an empty list.
+    var messages: [Message] = []
+    if case .loaded(let loaded) = state {
+      messages = loaded
+    }
+    return [
+      "messages": messages.map(inboxMessagePayload),
+      "hasMoreMessages": hasMore,
+      "isLoadingMore": isLoadingMore,
+    ]
+  }
+
+  private static func inboxMessagePayload(_ message: Message) -> [String: Any] {
+    var payload: [String: Any] = [
+      "id": message.id,
+      "title": message.title,
+      "body": message.body,
+      "timestamp": message.timestamp.timeIntervalSince1970 * 1000,
+      "isRead": message.isRead,
+    ]
+    payload["imageUrl"] = message.imageURLString
+    payload["actionUrl"] = message.actionURLString
+    return payload
   }
 
   // MARK: - Marketing Subscriptions (React Native Bridge)
@@ -1036,7 +1246,7 @@ private extension ATTNNativeSDK {
       }
 
       let price = NSDecimalNumber(string: priceString)
-      let attnPrice = ATTNPrice(price: price, currency: currency)
+      let attnPrice = ATTNPrice(amount: price, currency: currency)
 
       let item = ATTNItem(productId: productId, productVariantId: productVariantId, price: attnPrice)
 
@@ -1674,5 +1884,44 @@ class EventDetailViewController: UIViewController {
 
   @objc private func closeButtonTapped() {
     dismiss(animated: true)
+  }
+}
+
+/// Keeps the inbox state observation alive; releasing it stops it.
+@objc public final class ATTNInboxStateObservation: NSObject {
+  private let tasks: [Task<Void, Never>]
+
+  init(tasks: [Task<Void, Never>]) {
+    self.tasks = tasks
+  }
+
+  deinit {
+    tasks.forEach { $0.cancel() }
+  }
+}
+
+/// Merges `inboxStateStream` and `inboxLoadingMoreStream` into the single payload JS receives.
+@MainActor
+private final class InboxStateRelay {
+  var state: InboxState?
+  var hasMore = false
+  var isLoadingMore: Bool?
+  var isAwaitingHasMore = false
+  private var lastPayload: NSDictionary?
+  private let handler: ([String: Any]) -> Void
+
+  init(handler: @escaping ([String: Any]) -> Void) {
+    self.handler = handler
+  }
+
+  /// No-op until both streams have delivered, so JS never sees a placeholder value, and while a
+  /// new list waits for its hasMore.
+  func emit() {
+    guard !isAwaitingHasMore, let state, let isLoadingMore else { return }
+    let payload = ATTNNativeSDK.inboxStatePayload(state, hasMore: hasMore, isLoadingMore: isLoadingMore)
+    let dictionary = payload as NSDictionary
+    guard dictionary != lastPayload else { return }
+    lastPayload = dictionary
+    handler(payload)
   }
 }

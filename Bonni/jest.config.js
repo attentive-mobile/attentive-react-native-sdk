@@ -12,6 +12,13 @@ module.exports = {
   // bare `react-native` import to Bonni's copy, which the preset has set up.
   moduleNameMapper: {
     '^react-native$': '<rootDir>/node_modules/react-native',
+    // The SDK's inbox component runs `codegenNativeComponent` at module scope, so importing the
+    // SDK's public API touches the bridge at require time and throws
+    // "__fbBatchedBridgeConfig is not set" before any test renders. Mapped here rather than
+    // mocked in jest.setup.js because `jest.mock` from `setupFiles` does not intercept it.
+    // Matches both import styles: `../src/...` and the built `lib/commonjs/...`.
+    'AttentiveInboxViewNativeComponent$':
+      '<rootDir>/__mocks__/attentiveInboxViewNativeComponent.js',
   },
   setupFiles: ['<rootDir>/jest.setup.js'],
 }
