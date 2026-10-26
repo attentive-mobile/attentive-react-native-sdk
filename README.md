@@ -449,6 +449,38 @@ Notes:
   behaviours come from the pinned native SDK versions and may change in a future release.
 - Always `remove()` the subscription when your component unmounts.
 
+### Observe email leads from creatives
+
+Subscribe with `addEmailLeadListener` to get the email address each time a user submits one in a
+creative, for example to prefill your own sign-up form.
+
+```typescript
+import { addEmailLeadListener } from '@attentive-mobile/attentive-react-native-sdk';
+
+useEffect(() => {
+  const subscription = addEmailLeadListener(({ email, rawPayload }) => {
+    if (email) {
+      // The email the user entered in the creative.
+    }
+  });
+
+  return () => subscription.remove();
+}, []);
+```
+
+| Field | Meaning |
+|---|---|
+| `email` | The submitted email. Absent when the creative's message carries no email. |
+| `rawPayload` | The creative's full message, for fields the SDK doesn't model (such as `visitorId`, or the phone number when the creative also collects SMS). Its keys are set by the creative, not by the SDK, so don't rely on a fixed shape. |
+
+Notes:
+
+- Leads aren't buffered: one that arrives while nothing is subscribed is lost. Keep the
+  subscription active whenever a creative can be on screen.
+- Same transport and requirements as [creative lifecycle events](#observe-creative-lifecycle-events):
+  React Native 0.74+, and the New Architecture on iOS.
+- Always `remove()` the subscription when your component unmounts.
+
 ### Record user events
 
 The SDK currently supports `Purchase`, `AddToCart`, `ProductView`, and `CustomEvent`.

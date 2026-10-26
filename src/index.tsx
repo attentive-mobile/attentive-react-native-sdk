@@ -24,6 +24,7 @@ import type {
   OptInMarketingSubscriptionParams,
   TrackingConsent,
   UpdateUserParams,
+  EmailLeadEvent,
 } from './eventTypes'
 import { CREATIVE_STATUSES, TRACKING_CONSENTS } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
@@ -149,8 +150,6 @@ function addDeviceEventListener<TRaw, TPayload>(
     try {
       listener(payload)
     } catch (error) {
-      // The decoded payload goes in the message, not just the event name: knowing a creative
-      // listener threw is much less useful than knowing it threw on `opened`.
       console.error(
         `[AttentiveSDK] A ${eventName} listener threw while handling ${JSON.stringify(
           payload
@@ -779,6 +778,42 @@ function addInboxUnreadCountListener(
 }
 
 /**
+ * Subscribe to emails the user submits in a creative
+ *
+ * @param listener - Invoked for each submitted lead
+ * @returns A subscription; call `remove()` to stop receiving events
+ */
+function addEmailLeadListener(
+  listener: (event: EmailLeadEvent) => void
+): AttentiveEventSubscription {
+  return addDeviceEventListener(
+    DEVICE_EVENT_NAMES.emailLead,
+    (event: { email?: string | null; rawPayload?: unknown }) => {
+      const rawPayload = event?.rawPayload
+      if (
+        rawPayload == null ||
+        typeof rawPayload !== 'object' ||
+        Array.isArray(rawPayload)
+      ) {
+        console.warn(
+          '[AttentiveSDK] Ignoring email lead event without a rawPayload object.'
+        )
+        return undefined
+      }
+
+      const emailLead: EmailLeadEvent = {
+        rawPayload: rawPayload as Record<string, unknown>,
+      }
+      if (typeof event.email === 'string') {
+        emailLead.email = event.email
+      }
+      return emailLead
+    },
+    listener
+  )
+}
+
+/**
  * Marks an inbox message as read.
  *
  * Fire-and-forget: the inbox view updates immediately, and the unread count is provisional until
@@ -892,9 +927,6 @@ function markInboxMessageClicked(messageId: string): void {
 
 export {
   initialize,
-  triggerCreative,
-  destroyCreative,
-  addCreativeEventListener,
   updateDomain,
   identify,
   clearUser,
@@ -904,6 +936,11 @@ export {
   recordCustomEvent,
   invokeAttentiveDebugHelper,
   exportDebugLogs,
+  // Creative Methods
+  triggerCreative,
+  destroyCreative,
+  addCreativeEventListener,
+  addEmailLeadListener,
   // Push Notification Methods
   registerForPushNotifications,
   getPushAuthorizationStatus,
@@ -940,6 +977,7 @@ export type {
   AddToCart,
   CustomEvent,
   Item,
+  EmailLeadEvent,
   // Creative Event Types
   CreativeStatus,
   CreativeEvent,
