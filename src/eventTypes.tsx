@@ -222,3 +222,11 @@ export interface UpdateUserParams {
   /** E.164 phone number to set for the user */
   phone?: string
 }
+
+/**
+ * Event fired when an email lead is captured.
+ */
+export type EmailLeadEvent = {
+  email?: string
+  rawPayload: Record<string, unknown>
+}

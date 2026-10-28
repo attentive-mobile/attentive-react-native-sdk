@@ -22,4 +22,6 @@ export const DEVICE_EVENT_NAMES = {
   inboxUnreadCount: 'AttentiveInboxUnreadCount',
   /** Inbox message-list and paging changes. */
   inboxState: 'AttentiveInboxState',
+  /** Email lead events. */
+  emailLead: 'AttentiveEmailLead',
 } as const
