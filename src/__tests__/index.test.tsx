@@ -364,7 +364,7 @@ describe('Attentive SDK', () => {
       expect(() => emitFromNative({ status: 'opened' })).not.toThrow()
       expect(listener).toHaveBeenCalled()
       expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('opened'),
+        expect.stringContaining('AttentiveCreativeEvent'),
         boom
       )
     })

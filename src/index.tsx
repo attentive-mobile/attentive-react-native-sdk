@@ -151,9 +151,7 @@ function addDeviceEventListener<TRaw, TPayload>(
       listener(payload)
     } catch (error) {
       console.error(
-        `[AttentiveSDK] A ${eventName} listener threw while handling ${JSON.stringify(
-          payload
-        )}. Other listeners are unaffected.`,
+        `[AttentiveSDK] A ${eventName} listener threw. Other listeners are unaffected.`,
         error
       )
     }
