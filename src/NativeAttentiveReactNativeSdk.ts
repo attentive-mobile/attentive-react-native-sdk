@@ -257,8 +257,8 @@ export interface Spec extends TurboModule {
   markInboxMessageClicked: (messageId: string) => void
 }
 
-// Try to load via TurboModule first (new architecture)
-// Fall back to NativeModules for old architecture
+// The SDK requires the New Architecture. The NativeModules branch is old-architecture scaffolding:
+// on iOS it resolves to null, so calls throw LINKING_ERROR (MSDK-350).
 const isTurboModuleEnabled = (global as any).__turboModuleProxy != null
 
 const AttentiveReactNativeSdkModule = isTurboModuleEnabled
