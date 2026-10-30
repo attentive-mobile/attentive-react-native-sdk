@@ -11,14 +11,14 @@
 
 #ifdef RCT_NEW_ARCH_ENABLED
 
-#import <react/renderer/components/AttentiveReactNativeSdkSpec/ComponentDescriptors.h>
-#import <react/renderer/components/AttentiveReactNativeSdkSpec/EventEmitters.h>
-#import <react/renderer/components/AttentiveReactNativeSdkSpec/Props.h>
-#import <react/renderer/components/AttentiveReactNativeSdkSpec/RCTComponentViewHelpers.h>
 #import <React/RCTConversions.h>
 #import <React/RCTLog.h>
 #import <React/RCTUtils.h>
 #import <React/UIView+React.h>
+#import <react/renderer/components/AttentiveReactNativeSdkSpec/ComponentDescriptors.h>
+#import <react/renderer/components/AttentiveReactNativeSdkSpec/EventEmitters.h>
+#import <react/renderer/components/AttentiveReactNativeSdkSpec/Props.h>
+#import <react/renderer/components/AttentiveReactNativeSdkSpec/RCTComponentViewHelpers.h>
 
 // Must precede the generated Swift header: ATTNNativeSDK's push methods surface
 // UNAuthorizationStatus / UNNotificationResponse in it, and those types are otherwise
@@ -150,10 +150,8 @@ using namespace facebook::react;
   // default" — so test it explicitly rather than lean on that chain.
   UIColor *titleColor = props.titleTextColor ? RCTUIColorFromSharedColor(props.titleTextColor) : nil;
   UIColor *bodyColor = props.bodyTextColor ? RCTUIColorFromSharedColor(props.bodyTextColor) : nil;
-  UIColor *timestampColor =
-      props.timestampTextColor ? RCTUIColorFromSharedColor(props.timestampTextColor) : nil;
-  UIColor *backgroundColor =
-      props.inboxBackgroundColor ? RCTUIColorFromSharedColor(props.inboxBackgroundColor) : nil;
+  UIColor *timestampColor = props.timestampTextColor ? RCTUIColorFromSharedColor(props.timestampTextColor) : nil;
+  UIColor *backgroundColor = props.inboxBackgroundColor ? RCTUIColorFromSharedColor(props.inboxBackgroundColor) : nil;
   UIColor *unreadIndicatorColor =
       props.unreadIndicatorColor ? RCTUIColorFromSharedColor(props.unreadIndicatorColor) : nil;
   UIColor *swipeBackgroundColor =
@@ -214,9 +212,9 @@ using namespace facebook::react;
   }
   _observingSDKAvailability = YES;
   [NSNotificationCenter.defaultCenter addObserver:self
-                                        selector:@selector(sdkDidBecomeAvailable)
-                                            name:AttentiveSDKManager.sdkDidBecomeAvailableName
-                                          object:nil];
+                                         selector:@selector(sdkDidBecomeAvailable)
+                                             name:AttentiveSDKManager.sdkDidBecomeAvailableName
+                                           object:nil];
 }
 
 - (void)stopObservingSDKAvailability
@@ -226,8 +224,8 @@ using namespace facebook::react;
   }
   _observingSDKAvailability = NO;
   [NSNotificationCenter.defaultCenter removeObserver:self
-                                               name:AttentiveSDKManager.sdkDidBecomeAvailableName
-                                             object:nil];
+                                                name:AttentiveSDKManager.sdkDidBecomeAvailableName
+                                              object:nil];
 }
 
 /**
@@ -275,8 +273,7 @@ using namespace facebook::react;
   // Absent deep link travels as "", not as a missing key: the generated payload writes this field
   // unconditionally, so an optional type here would be a promise iOS cannot keep.
   event.actionUrl = actionUrl != nil ? actionUrl.UTF8String : "";
-  std::static_pointer_cast<const AttentiveInboxViewEventEmitter>(_eventEmitter)
-      ->onMessageTap(std::move(event));
+  std::static_pointer_cast<const AttentiveInboxViewEventEmitter>(_eventEmitter)->onMessageTap(std::move(event));
 }
 
 - (void)sdkDidBecomeAvailable
@@ -299,9 +296,7 @@ using namespace facebook::react;
 - (void)dealloc
 {
   [self stopObservingSDKAvailability];
-  [NSNotificationCenter.defaultCenter removeObserver:self
-                                                name:AttentiveSDKManager.inboxMessageTappedName
-                                              object:nil];
+  [NSNotificationCenter.defaultCenter removeObserver:self name:AttentiveSDKManager.inboxMessageTappedName object:nil];
   // Also tear down the child controller. prepareForRecycle covers the pooling path, but a
   // component view can be deallocated outright (pool eviction, surface stop, recycling disabled),
   // and releasing self takes the controller's *view* out of the hierarchy while the screen's

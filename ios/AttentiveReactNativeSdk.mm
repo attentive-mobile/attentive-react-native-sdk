@@ -33,35 +33,35 @@
 #endif
 
 @implementation AttentiveReactNativeSdk {
-    ATTNNativeSDK* _sdk;
+  ATTNNativeSDK *_sdk;
 
-    // --- Inbox unread count: main queue only. ---
-    //
-    // This module declares no methodQueue, so RCTTurboModuleManager runs its methods on the
-    // shared serial queue it creates for such modules ("com.meta.react.turbomodulemanager.queue")
-    // — not the JS thread, and not main. Both writers below, however, are on main: the change
-    // observer is registered with `queue: .main` and the refresh completion is `@MainActor`.
-    // Reading them from a method body would therefore be a genuine data race, and the
-    // delivery-counter handshake in particular is a check-then-act that misbehaves when the
-    // sample and the comparison happen on different threads. So every inbox entry point hops to
-    // main first, and these five are only ever touched there.
-    //
-    // dealloc is the one exception, and is safe by construction: nothing else can be running
-    // against an object that is being destroyed.
+  // --- Inbox unread count: main queue only. ---
+  //
+  // This module declares no methodQueue, so RCTTurboModuleManager runs its methods on the
+  // shared serial queue it creates for such modules ("com.meta.react.turbomodulemanager.queue")
+  // — not the JS thread, and not main. Both writers below, however, are on main: the change
+  // observer is registered with `queue: .main` and the refresh completion is `@MainActor`.
+  // Reading them from a method body would therefore be a genuine data race, and the
+  // delivery-counter handshake in particular is a check-then-act that misbehaves when the
+  // sample and the comparison happen on different threads. So every inbox entry point hops to
+  // main first, and these five are only ever touched there.
+  //
+  // dealloc is the one exception, and is safe by construction: nothing else can be running
+  // against an object that is being destroyed.
 
-    // Block-based NSNotificationCenter token for inbox unread-count changes; removed in dealloc.
-    id<NSObject> _inboxUnreadCountObserver;
-    // Token for AttentiveSDKManager's availability broadcast, held only while an inbox read is
-    // waiting for initialize(). See startObservingSDKAvailabilityForInbox.
-    id<NSObject> _inboxSDKAvailabilityObserver;
-    // Last count actually delivered to JS, so repeats can be filtered. See emitInboxUnreadCount:.
-    NSInteger _lastEmittedUnreadCount;
-    BOOL _hasEmittedUnreadCount;
-    // Bumped on every delivery that reached JS, so an explicit refresh can tell whether the change
-    // observer already delivered its value. See deliverRefreshedInboxUnreadCount:ifNoDeliverySince:.
-    uint64_t _unreadCountDeliveries;
-    // Inbox state observation for custom inbox UIs; releasing it cancels it.
-    ATTNInboxStateObservation *_inboxStateObservation;
+  // Block-based NSNotificationCenter token for inbox unread-count changes; removed in dealloc.
+  id<NSObject> _inboxUnreadCountObserver;
+  // Token for AttentiveSDKManager's availability broadcast, held only while an inbox read is
+  // waiting for initialize(). See startObservingSDKAvailabilityForInbox.
+  id<NSObject> _inboxSDKAvailabilityObserver;
+  // Last count actually delivered to JS, so repeats can be filtered. See emitInboxUnreadCount:.
+  NSInteger _lastEmittedUnreadCount;
+  BOOL _hasEmittedUnreadCount;
+  // Bumped on every delivery that reached JS, so an explicit refresh can tell whether the change
+  // observer already delivered its value. See deliverRefreshedInboxUnreadCount:ifNoDeliverySince:.
+  uint64_t _unreadCountDeliveries;
+  // Inbox state observation for custom inbox UIs; releasing it cancels it.
+  ATTNInboxStateObservation *_inboxStateObservation;
 }
 
 // Creative lifecycle events are delivered as RCTDeviceEventEmitter device events. This is the
@@ -90,301 +90,345 @@ RCT_EXPORT_MODULE()
 // New Architecture implementation with flattened parameters.
 // Initialize is invoked only from TypeScript (e.g. Bonni App); native must not auto-initialize.
 - (void)initialize:(NSString *)attentiveDomain
-              mode:(NSString *)mode
-skipFatigueOnCreatives:(BOOL)skipFatigueOnCreatives
-    enableDebugger:(BOOL)enableDebugger
-       pushEnabled:(BOOL)pushEnabled
-automaticallyOpensInboxDeepLinks:(BOOL)automaticallyOpensInboxDeepLinks {
-    _sdk = [[ATTNNativeSDK alloc] initWithDomain:attentiveDomain
-                                            mode:mode
-                          skipFatigueOnCreatives:skipFatigueOnCreatives
-                                  enableDebugger:enableDebugger
-                                     pushEnabled:pushEnabled
-                automaticallyOpensInboxDeepLinks:automaticallyOpensInboxDeepLinks];
+                                mode:(NSString *)mode
+              skipFatigueOnCreatives:(BOOL)skipFatigueOnCreatives
+                      enableDebugger:(BOOL)enableDebugger
+                         pushEnabled:(BOOL)pushEnabled
+    automaticallyOpensInboxDeepLinks:(BOOL)automaticallyOpensInboxDeepLinks
+{
+  _sdk = [[ATTNNativeSDK alloc] initWithDomain:attentiveDomain
+                                          mode:mode
+                        skipFatigueOnCreatives:skipFatigueOnCreatives
+                                enableDebugger:enableDebugger
+                                   pushEnabled:pushEnabled
+              automaticallyOpensInboxDeepLinks:automaticallyOpensInboxDeepLinks];
 
-    // Make SDK instance accessible from native code (e.g., AppDelegate)
-    [AttentiveSDKManager shared].sdk = _sdk;
+  // Make SDK instance accessible from native code (e.g., AppDelegate)
+  [AttentiveSDKManager shared].sdk = _sdk;
 }
 
 - (void)identify:(NSString *)phone
-           email:(NSString *)email
-       klaviyoId:(NSString *)klaviyoId
-       shopifyId:(NSString *)shopifyId
-    clientUserId:(NSString *)clientUserId
-customIdentifiers:(NSDictionary *)customIdentifiers {
-    NSMutableDictionary *identifiers = [NSMutableDictionary new];
-    if (phone && ![phone isEqual:[NSNull null]]) identifiers[@"phone"] = phone;
-    if (email && ![email isEqual:[NSNull null]]) identifiers[@"email"] = email;
-    if (klaviyoId && ![klaviyoId isEqual:[NSNull null]]) identifiers[@"klaviyoId"] = klaviyoId;
-    if (shopifyId && ![shopifyId isEqual:[NSNull null]]) identifiers[@"shopifyId"] = shopifyId;
-    if (clientUserId && ![clientUserId isEqual:[NSNull null]]) identifiers[@"clientUserId"] = clientUserId;
-    if (customIdentifiers && ![customIdentifiers isEqual:[NSNull null]]) identifiers[@"customIdentifiers"] = customIdentifiers;
+                email:(NSString *)email
+            klaviyoId:(NSString *)klaviyoId
+            shopifyId:(NSString *)shopifyId
+         clientUserId:(NSString *)clientUserId
+    customIdentifiers:(NSDictionary *)customIdentifiers
+{
+  NSMutableDictionary *identifiers = [NSMutableDictionary new];
+  if (phone && ![phone isEqual:[NSNull null]])
+    identifiers[@"phone"] = phone;
+  if (email && ![email isEqual:[NSNull null]])
+    identifiers[@"email"] = email;
+  if (klaviyoId && ![klaviyoId isEqual:[NSNull null]])
+    identifiers[@"klaviyoId"] = klaviyoId;
+  if (shopifyId && ![shopifyId isEqual:[NSNull null]])
+    identifiers[@"shopifyId"] = shopifyId;
+  if (clientUserId && ![clientUserId isEqual:[NSNull null]])
+    identifiers[@"clientUserId"] = clientUserId;
+  if (customIdentifiers && ![customIdentifiers isEqual:[NSNull null]])
+    identifiers[@"customIdentifiers"] = customIdentifiers;
 
-    [_sdk identify:identifiers];
+  [_sdk identify:identifiers];
 }
 
-- (void)recordAddToCartEvent:(NSArray *)items
-                     deeplink:(NSString *)deeplink {
-    NSMutableDictionary *attrs = [NSMutableDictionary new];
-    attrs[@"items"] = items;
-    if (deeplink && ![deeplink isEqual:[NSNull null]]) attrs[@"deeplink"] = deeplink;
-    [_sdk recordAddToCartEvent:attrs];
+- (void)recordAddToCartEvent:(NSArray *)items deeplink:(NSString *)deeplink
+{
+  NSMutableDictionary *attrs = [NSMutableDictionary new];
+  attrs[@"items"] = items;
+  if (deeplink && ![deeplink isEqual:[NSNull null]])
+    attrs[@"deeplink"] = deeplink;
+  [_sdk recordAddToCartEvent:attrs];
 }
 
-- (void)recordProductViewEvent:(NSArray *)items
-                       deeplink:(NSString *)deeplink {
-    NSMutableDictionary *attrs = [NSMutableDictionary new];
-    attrs[@"items"] = items;
-    if (deeplink && ![deeplink isEqual:[NSNull null]]) attrs[@"deeplink"] = deeplink;
-    [_sdk recordProductViewEvent:attrs];
+- (void)recordProductViewEvent:(NSArray *)items deeplink:(NSString *)deeplink
+{
+  NSMutableDictionary *attrs = [NSMutableDictionary new];
+  attrs[@"items"] = items;
+  if (deeplink && ![deeplink isEqual:[NSNull null]])
+    attrs[@"deeplink"] = deeplink;
+  [_sdk recordProductViewEvent:attrs];
 }
 
 - (void)recordPurchaseEvent:(NSArray *)items
                     orderId:(NSString *)orderId
                      cartId:(NSString *)cartId
-                 cartCoupon:(NSString *)cartCoupon {
-    NSMutableDictionary *attrs = [NSMutableDictionary new];
-    attrs[@"items"] = items;
-    attrs[@"orderId"] = orderId;
-    if (cartId && ![cartId isEqual:[NSNull null]]) attrs[@"cartId"] = cartId;
-    if (cartCoupon && ![cartCoupon isEqual:[NSNull null]]) attrs[@"cartCoupon"] = cartCoupon;
-    [_sdk recordPurchaseEvent:attrs];
+                 cartCoupon:(NSString *)cartCoupon
+{
+  NSMutableDictionary *attrs = [NSMutableDictionary new];
+  attrs[@"items"] = items;
+  attrs[@"orderId"] = orderId;
+  if (cartId && ![cartId isEqual:[NSNull null]])
+    attrs[@"cartId"] = cartId;
+  if (cartCoupon && ![cartCoupon isEqual:[NSNull null]])
+    attrs[@"cartCoupon"] = cartCoupon;
+  [_sdk recordPurchaseEvent:attrs];
 }
 
-- (void)recordCustomEvent:(NSString *)type
-               properties:(NSDictionary *)properties {
-    NSMutableDictionary *attrs = [NSMutableDictionary new];
-    attrs[@"type"] = type;
-    attrs[@"properties"] = properties;
-    [_sdk recordCustomEvent:attrs];
+- (void)recordCustomEvent:(NSString *)type properties:(NSDictionary *)properties
+{
+  NSMutableDictionary *attrs = [NSMutableDictionary new];
+  attrs[@"type"] = type;
+  attrs[@"properties"] = properties;
+  [_sdk recordCustomEvent:attrs];
 }
 
 // Push Notification Methods (New Architecture)
-- (void)registerForPushNotifications {
-    [_sdk registerForPushNotifications];
+- (void)registerForPushNotifications
+{
+  [_sdk registerForPushNotifications];
 }
 
-- (void)registerDeviceToken:(NSString *)token
-       authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
+- (void)registerDeviceToken:(NSString *)token authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
 }
 
 - (void)registerDeviceTokenWithCallback:(NSString *)token
-                   authorizationStatus:(NSString *)authorizationStatus
-                              callback:(RCTResponseSenderBlock)callback {
-    // Convert hex string token to Data
-    NSMutableData *tokenData = [[NSMutableData alloc] init];
-    unsigned char byte;
-    for (NSUInteger i = 0; i < token.length; i += 2) {
-        NSString *hex = [token substringWithRange:NSMakeRange(i, 2)];
-        if ([[NSScanner scannerWithString:hex] scanHexInt:(unsigned int *)&byte]) {
-            [tokenData appendBytes:&byte length:1];
-        }
+                    authorizationStatus:(NSString *)authorizationStatus
+                               callback:(RCTResponseSenderBlock)callback
+{
+  // Convert hex string token to Data
+  NSMutableData *tokenData = [[NSMutableData alloc] init];
+  unsigned char byte;
+  for (NSUInteger i = 0; i < token.length; i += 2) {
+    NSString *hex = [token substringWithRange:NSMakeRange(i, 2)];
+    if ([[NSScanner scannerWithString:hex] scanHexInt:(unsigned int *)&byte]) {
+      [tokenData appendBytes:&byte length:1];
     }
+  }
 
-    // Convert string authorization status to UNAuthorizationStatus enum
-    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+  // Convert string authorization status to UNAuthorizationStatus enum
+  UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
 
-    // Call the Swift method with callback (note: selector is registerDeviceTokenWithCallback:authorizationStatus:callback:)
-    [_sdk registerDeviceTokenWithCallback:tokenData
-                     authorizationStatus:authStatus
-                                callback:^(NSData * _Nullable data, NSURL * _Nullable url, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-        // Convert response to JavaScript-compatible objects
-        NSDictionary *dataDict = nil;
-        if (data) {
-            NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-            if (dataString) {
-                dataDict = @{@"string": dataString, @"length": @(data.length)};
-            }
-        }
+  // Call the Swift method with callback (note: selector is
+  // registerDeviceTokenWithCallback:authorizationStatus:callback:)
+  [_sdk registerDeviceTokenWithCallback:tokenData
+                    authorizationStatus:authStatus
+                               callback:^(
+                                   NSData *_Nullable data,
+                                   NSURL *_Nullable url,
+                                   NSURLResponse *_Nullable response,
+                                   NSError *_Nullable error) {
+                                 // Convert response to JavaScript-compatible objects
+                                 NSDictionary *dataDict = nil;
+                                 if (data) {
+                                   NSString *dataString = [[NSString alloc] initWithData:data
+                                                                                encoding:NSUTF8StringEncoding];
+                                   if (dataString) {
+                                     dataDict = @{@"string" : dataString, @"length" : @(data.length)};
+                                   }
+                                 }
 
-        NSString *urlString = url ? [url absoluteString] : nil;
+                                 NSString *urlString = url ? [url absoluteString] : nil;
 
-        NSDictionary *responseDict = nil;
-        if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
-            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-            responseDict = @{
-                @"statusCode": @(httpResponse.statusCode),
-                @"headers": httpResponse.allHeaderFields ?: @{}
-            };
-        }
+                                 NSDictionary *responseDict = nil;
+                                 if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+                                   NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+                                   responseDict = @{
+                                     @"statusCode" : @(httpResponse.statusCode),
+                                     @"headers" : httpResponse.allHeaderFields ?: @{}
+                                   };
+                                 }
 
-        NSDictionary *errorDict = nil;
-        if (error) {
-            errorDict = @{
-                @"code": @(error.code),
-                @"domain": error.domain,
-                @"description": error.localizedDescription
-            };
-        }
+                                 NSDictionary *errorDict = nil;
+                                 if (error) {
+                                   errorDict = @{
+                                     @"code" : @(error.code),
+                                     @"domain" : error.domain,
+                                     @"description" : error.localizedDescription
+                                   };
+                                 }
 
-        // Invoke the callback with the results
-        callback(@[dataDict ?: [NSNull null],
-                   urlString ?: [NSNull null],
-                   responseDict ?: [NSNull null],
-                   errorDict ?: [NSNull null]]);
-    }];
+                                 // Invoke the callback with the results
+                                 callback(@[
+                                   dataDict ?: [NSNull null],
+                                   urlString ?: [NSNull null],
+                                   responseDict ?: [NSNull null],
+                                   errorDict ?: [NSNull null]
+                                 ]);
+                               }];
 }
 
-- (void)handleRegularOpen:(NSString *)authorizationStatus {
-    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
-    [_sdk handleRegularOpen:authStatus];
+- (void)handleRegularOpen:(NSString *)authorizationStatus
+{
+  UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+  [_sdk handleRegularOpen:authStatus];
 }
 
 - (void)handlePushOpened:(NSDictionary *)userInfo
         applicationState:(NSString *)applicationState
-    authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk handlePushOpened:userInfo applicationState:applicationState authorizationStatus:authorizationStatus];
+     authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk handlePushOpened:userInfo applicationState:applicationState authorizationStatus:authorizationStatus];
 }
 
-- (void)handleForegroundNotification:(NSDictionary *)userInfo {
-    [_sdk handleForegroundNotification:userInfo];
+- (void)handleForegroundNotification:(NSDictionary *)userInfo
+{
+  [_sdk handleForegroundNotification:userInfo];
 }
 
-- (void)handleForegroundPush:(NSDictionary *)userInfo
-        authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk handleForegroundPushFromRN:userInfo authorizationStatus:authorizationStatus];
+- (void)handleForegroundPush:(NSDictionary *)userInfo authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk handleForegroundPushFromRN:userInfo authorizationStatus:authorizationStatus];
 }
 
-- (void)handlePushOpen:(NSDictionary *)userInfo
-   authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
+- (void)handlePushOpen:(NSDictionary *)userInfo authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
 }
-
 
 - (std::shared_ptr<facebook::react::TurboModule>)getTurboModule:
     (const facebook::react::ObjCTurboModule::InitParams &)params
 {
-    return std::make_shared<facebook::react::NativeAttentiveReactNativeSdkSpecJSI>(params);
+  return std::make_shared<facebook::react::NativeAttentiveReactNativeSdkSpecJSI>(params);
 }
 
 #else
 // Old Architecture implementation — compiles, but has no RCT_EXPORT_METHOD macros, so the bridge
 // exposes no methods and JS sees the module as null. Kept here as a starting point for restoring
 // old arch support in a future ticket.
-- (void)initialize:(NSDictionary*)configuration {
-    // pushEnabled defaults to YES when the key is absent, matching the TypeScript default.
-    NSNumber *pushEnabled = configuration[@"pushEnabled"];
-    _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"]
-                                            mode:configuration[@"mode"]
-                         skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"]
-                                  enableDebugger:configuration[@"enableDebugger"]
-                                     pushEnabled:pushEnabled ? [pushEnabled boolValue] : YES];
+- (void)initialize:(NSDictionary *)configuration
+{
+  // pushEnabled defaults to YES when the key is absent, matching the TypeScript default.
+  NSNumber *pushEnabled = configuration[@"pushEnabled"];
+  _sdk = [[ATTNNativeSDK alloc] initWithDomain:configuration[@"attentiveDomain"]
+                                          mode:configuration[@"mode"]
+                        skipFatigueOnCreatives:configuration[@"skipFatigueOnCreatives"]
+                                enableDebugger:configuration[@"enableDebugger"]
+                                   pushEnabled:pushEnabled ? [pushEnabled boolValue] : YES];
 
-    // Make SDK instance accessible from native code (e.g., AppDelegate)
-    [AttentiveSDKManager shared].sdk = _sdk;
+  // Make SDK instance accessible from native code (e.g., AppDelegate)
+  [AttentiveSDKManager shared].sdk = _sdk;
 }
 
-- (void)identify:(NSDictionary*)identifiers {
-    [_sdk identify:identifiers];
+- (void)identify:(NSDictionary *)identifiers
+{
+  [_sdk identify:identifiers];
 }
 
-- (void)recordAddToCartEvent:(NSDictionary*)attrs {
-    [_sdk recordAddToCartEvent:attrs];
+- (void)recordAddToCartEvent:(NSDictionary *)attrs
+{
+  [_sdk recordAddToCartEvent:attrs];
 }
 
-- (void)recordProductViewEvent:(NSDictionary*)attrs {
-    [_sdk recordProductViewEvent:attrs];
+- (void)recordProductViewEvent:(NSDictionary *)attrs
+{
+  [_sdk recordProductViewEvent:attrs];
 }
 
-- (void)recordPurchaseEvent:(NSDictionary*)attrs {
-    [_sdk recordPurchaseEvent:attrs];
+- (void)recordPurchaseEvent:(NSDictionary *)attrs
+{
+  [_sdk recordPurchaseEvent:attrs];
 }
 
-- (void)recordCustomEvent:(NSDictionary*)attrs {
-    [_sdk recordCustomEvent:attrs];
+- (void)recordCustomEvent:(NSDictionary *)attrs
+{
+  [_sdk recordCustomEvent:attrs];
 }
 
 // Push Notification Methods (Old Architecture)
-- (void)registerForPushNotifications {
-    [_sdk registerForPushNotifications];
+- (void)registerForPushNotifications
+{
+  [_sdk registerForPushNotifications];
 }
 
-- (void)registerDeviceToken:(NSString *)token
-       authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
+- (void)registerDeviceToken:(NSString *)token authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk registerDeviceToken:token authorizationStatus:authorizationStatus];
 }
 
 - (void)registerDeviceTokenWithCallback:(NSString *)token
-                   authorizationStatus:(NSString *)authorizationStatus
-                              callback:(RCTResponseSenderBlock)callback {
-    // Convert hex string token to Data
-    NSMutableData *tokenData = [[NSMutableData alloc] init];
-    unsigned char byte;
-    for (NSUInteger i = 0; i < token.length; i += 2) {
-        NSString *hex = [token substringWithRange:NSMakeRange(i, 2)];
-        if ([[NSScanner scannerWithString:hex] scanHexInt:(unsigned int *)&byte]) {
-            [tokenData appendBytes:&byte length:1];
-        }
+                    authorizationStatus:(NSString *)authorizationStatus
+                               callback:(RCTResponseSenderBlock)callback
+{
+  // Convert hex string token to Data
+  NSMutableData *tokenData = [[NSMutableData alloc] init];
+  unsigned char byte;
+  for (NSUInteger i = 0; i < token.length; i += 2) {
+    NSString *hex = [token substringWithRange:NSMakeRange(i, 2)];
+    if ([[NSScanner scannerWithString:hex] scanHexInt:(unsigned int *)&byte]) {
+      [tokenData appendBytes:&byte length:1];
     }
+  }
 
-    // Convert string authorization status to UNAuthorizationStatus enum
-    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+  // Convert string authorization status to UNAuthorizationStatus enum
+  UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
 
-    // Call the Swift method with callback (note: selector is registerDeviceTokenWithCallback:authorizationStatus:callback:)
-    [_sdk registerDeviceTokenWithCallback:tokenData
-                     authorizationStatus:authStatus
-                                callback:^(NSData * _Nullable data, NSURL * _Nullable url, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-        // Convert response to JavaScript-compatible objects
-        NSDictionary *dataDict = nil;
-        if (data) {
-            NSString *dataString = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-            if (dataString) {
-                dataDict = @{@"string": dataString, @"length": @(data.length)};
-            }
-        }
+  // Call the Swift method with callback (note: selector is
+  // registerDeviceTokenWithCallback:authorizationStatus:callback:)
+  [_sdk registerDeviceTokenWithCallback:tokenData
+                    authorizationStatus:authStatus
+                               callback:^(
+                                   NSData *_Nullable data,
+                                   NSURL *_Nullable url,
+                                   NSURLResponse *_Nullable response,
+                                   NSError *_Nullable error) {
+                                 // Convert response to JavaScript-compatible objects
+                                 NSDictionary *dataDict = nil;
+                                 if (data) {
+                                   NSString *dataString = [[NSString alloc] initWithData:data
+                                                                                encoding:NSUTF8StringEncoding];
+                                   if (dataString) {
+                                     dataDict = @{@"string" : dataString, @"length" : @(data.length)};
+                                   }
+                                 }
 
-        NSString *urlString = url ? [url absoluteString] : nil;
+                                 NSString *urlString = url ? [url absoluteString] : nil;
 
-        NSDictionary *responseDict = nil;
-        if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
-            NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
-            responseDict = @{
-                @"statusCode": @(httpResponse.statusCode),
-                @"headers": httpResponse.allHeaderFields ?: @{}
-            };
-        }
+                                 NSDictionary *responseDict = nil;
+                                 if ([response isKindOfClass:[NSHTTPURLResponse class]]) {
+                                   NSHTTPURLResponse *httpResponse = (NSHTTPURLResponse *)response;
+                                   responseDict = @{
+                                     @"statusCode" : @(httpResponse.statusCode),
+                                     @"headers" : httpResponse.allHeaderFields ?: @{}
+                                   };
+                                 }
 
-        NSDictionary *errorDict = nil;
-        if (error) {
-            errorDict = @{
-                @"code": @(error.code),
-                @"domain": error.domain,
-                @"description": error.localizedDescription
-            };
-        }
+                                 NSDictionary *errorDict = nil;
+                                 if (error) {
+                                   errorDict = @{
+                                     @"code" : @(error.code),
+                                     @"domain" : error.domain,
+                                     @"description" : error.localizedDescription
+                                   };
+                                 }
 
-        // Invoke the callback with the results
-        callback(@[dataDict ?: [NSNull null],
-                   urlString ?: [NSNull null],
-                   responseDict ?: [NSNull null],
-                   errorDict ?: [NSNull null]]);
-    }];
+                                 // Invoke the callback with the results
+                                 callback(@[
+                                   dataDict ?: [NSNull null],
+                                   urlString ?: [NSNull null],
+                                   responseDict ?: [NSNull null],
+                                   errorDict ?: [NSNull null]
+                                 ]);
+                               }];
 }
 
-- (void)handleRegularOpen:(NSString *)authorizationStatus {
-    UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
-    [_sdk handleRegularOpen:authStatus];
+- (void)handleRegularOpen:(NSString *)authorizationStatus
+{
+  UNAuthorizationStatus authStatus = [self authorizationStatusFromString:authorizationStatus];
+  [_sdk handleRegularOpen:authStatus];
 }
 
 - (void)handlePushOpened:(NSDictionary *)userInfo
         applicationState:(NSString *)applicationState
-    authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk handlePushOpened:userInfo applicationState:applicationState authorizationStatus:authorizationStatus];
+     authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk handlePushOpened:userInfo applicationState:applicationState authorizationStatus:authorizationStatus];
 }
 
-- (void)handleForegroundNotification:(NSDictionary *)userInfo {
-    [_sdk handleForegroundNotification:userInfo];
+- (void)handleForegroundNotification:(NSDictionary *)userInfo
+{
+  [_sdk handleForegroundNotification:userInfo];
 }
 
-- (void)handleForegroundPush:(NSDictionary *)userInfo
-        authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk handleForegroundPushFromRN:userInfo authorizationStatus:authorizationStatus];
+- (void)handleForegroundPush:(NSDictionary *)userInfo authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk handleForegroundPushFromRN:userInfo authorizationStatus:authorizationStatus];
 }
 
-- (void)handlePushOpen:(NSDictionary *)userInfo
-   authorizationStatus:(NSString *)authorizationStatus {
-    [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
+- (void)handlePushOpen:(NSDictionary *)userInfo authorizationStatus:(NSString *)authorizationStatus
+{
+  [_sdk handlePushOpenFromRN:userInfo authorizationStatus:authorizationStatus];
 }
 
 /**
@@ -395,64 +439,65 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
  * AttentiveSDKManager.shared, so there is no pending payload to return here.
  * Resolves with nil so callers on both platforms can share the same code path.
  */
-- (void)getInitialPushNotification:(RCTPromiseResolveBlock)resolve
-                             reject:(RCTPromiseRejectBlock)reject {
-    resolve(nil);
+- (void)getInitialPushNotification:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
+  resolve(nil);
 }
 #endif
 
-
 // Helper method to convert string to UNAuthorizationStatus
-- (UNAuthorizationStatus)authorizationStatusFromString:(NSString *)statusString {
-    if ([statusString isEqualToString:@"authorized"]) {
-        return UNAuthorizationStatusAuthorized;
-    } else if ([statusString isEqualToString:@"denied"]) {
-        return UNAuthorizationStatusDenied;
-    } else if ([statusString isEqualToString:@"notDetermined"]) {
-        return UNAuthorizationStatusNotDetermined;
-    } else if ([statusString isEqualToString:@"provisional"]) {
-        if (@available(iOS 12.0, *)) {
-            return UNAuthorizationStatusProvisional;
-        }
-        return UNAuthorizationStatusNotDetermined;
-    } else if ([statusString isEqualToString:@"ephemeral"]) {
-        if (@available(iOS 14.0, *)) {
-            return UNAuthorizationStatusEphemeral;
-        }
-        return UNAuthorizationStatusNotDetermined;
+- (UNAuthorizationStatus)authorizationStatusFromString:(NSString *)statusString
+{
+  if ([statusString isEqualToString:@"authorized"]) {
+    return UNAuthorizationStatusAuthorized;
+  } else if ([statusString isEqualToString:@"denied"]) {
+    return UNAuthorizationStatusDenied;
+  } else if ([statusString isEqualToString:@"notDetermined"]) {
+    return UNAuthorizationStatusNotDetermined;
+  } else if ([statusString isEqualToString:@"provisional"]) {
+    if (@available(iOS 12.0, *)) {
+      return UNAuthorizationStatusProvisional;
     }
     return UNAuthorizationStatusNotDetermined;
+  } else if ([statusString isEqualToString:@"ephemeral"]) {
+    if (@available(iOS 14.0, *)) {
+      return UNAuthorizationStatusEphemeral;
+    }
+    return UNAuthorizationStatusNotDetermined;
+  }
+  return UNAuthorizationStatusNotDetermined;
 }
 
 // Helper to convert UNAuthorizationStatus to string for getPushAuthorizationStatus
-- (NSString *)authorizationStatusToRNString:(UNAuthorizationStatus)status {
-    switch (status) {
-        case UNAuthorizationStatusAuthorized:
-            return @"authorized";
-        case UNAuthorizationStatusDenied:
-            return @"denied";
-        case UNAuthorizationStatusNotDetermined:
-            return @"notDetermined";
+- (NSString *)authorizationStatusToRNString:(UNAuthorizationStatus)status
+{
+  switch (status) {
+    case UNAuthorizationStatusAuthorized:
+      return @"authorized";
+    case UNAuthorizationStatusDenied:
+      return @"denied";
+    case UNAuthorizationStatusNotDetermined:
+      return @"notDetermined";
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 120000
-        case UNAuthorizationStatusProvisional:
-            return @"provisional";
+    case UNAuthorizationStatusProvisional:
+      return @"provisional";
 #endif
 #if __IPHONE_OS_VERSION_MAX_ALLOWED >= 140000
-        case UNAuthorizationStatusEphemeral:
-            return @"ephemeral";
+    case UNAuthorizationStatusEphemeral:
+      return @"ephemeral";
 #endif
-        default:
-            return @"notDetermined";
-    }
+    default:
+      return @"notDetermined";
+  }
 }
 
-- (void)getPushAuthorizationStatus:(RCTPromiseResolveBlock)resolve
-                            reject:(RCTPromiseRejectBlock)reject {
-    UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
-    [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings * _Nonnull settings) {
-        NSString *status = [self authorizationStatusToRNString:settings.authorizationStatus];
-        resolve(status);
-    }];
+- (void)getPushAuthorizationStatus:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
+  UNUserNotificationCenter *center = [UNUserNotificationCenter currentNotificationCenter];
+  [center getNotificationSettingsWithCompletionHandler:^(UNNotificationSettings *_Nonnull settings) {
+    NSString *status = [self authorizationStatusToRNString:settings.authorizationStatus];
+    resolve(status);
+  }];
 }
 
 // =============================================================================
@@ -460,79 +505,85 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 // =============================================================================
 
 - (void)optInMarketingSubscription:(NSString *)email
-                              phone:(NSString *)phone
-                    trackingConsent:(NSString *)trackingConsent
-                            resolve:(RCTPromiseResolveBlock)resolve
-                             reject:(RCTPromiseRejectBlock)reject {
-    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
-    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
-    // nil reaches the Swift bridge as .unspecified, which omits the field on the wire.
-    NSString *normalizedConsent = (trackingConsent && ![trackingConsent isEqual:[NSNull null]] && trackingConsent.length > 0) ? trackingConsent : nil;
+                             phone:(NSString *)phone
+                   trackingConsent:(NSString *)trackingConsent
+                           resolve:(RCTPromiseResolveBlock)resolve
+                            reject:(RCTPromiseRejectBlock)reject
+{
+  NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+  NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+  // nil reaches the Swift bridge as .unspecified, which omits the field on the wire.
+  NSString *normalizedConsent =
+      (trackingConsent && ![trackingConsent isEqual:[NSNull null]] && trackingConsent.length > 0) ? trackingConsent
+                                                                                                  : nil;
 
-    if (!_sdk) {
-        reject(@"OPT_IN_ERROR", @"SDK not initialized", nil);
-        return;
-    }
+  if (!_sdk) {
+    reject(@"OPT_IN_ERROR", @"SDK not initialized", nil);
+    return;
+  }
 
-    [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
-                                        phone:normalizedPhone
-                              trackingConsent:normalizedConsent
-                                   completion:^(NSError * _Nullable error) {
-        if (error) {
-            reject(@"OPT_IN_ERROR", error.localizedDescription, error);
-        } else {
-            resolve(nil);
-        }
-    }];
+  [_sdk optInMarketingSubscriptionWithEmail:normalizedEmail
+                                      phone:normalizedPhone
+                            trackingConsent:normalizedConsent
+                                 completion:^(NSError *_Nullable error) {
+                                   if (error) {
+                                     reject(@"OPT_IN_ERROR", error.localizedDescription, error);
+                                   } else {
+                                     resolve(nil);
+                                   }
+                                 }];
 }
 
 - (void)optOutMarketingSubscription:(NSString *)email
-                               phone:(NSString *)phone
-                             resolve:(RCTPromiseResolveBlock)resolve
-                              reject:(RCTPromiseRejectBlock)reject {
-    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
-    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+                              phone:(NSString *)phone
+                            resolve:(RCTPromiseResolveBlock)resolve
+                             reject:(RCTPromiseRejectBlock)reject
+{
+  NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+  NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
 
-    if (!_sdk) {
-        reject(@"OPT_OUT_ERROR", @"SDK not initialized", nil);
-        return;
-    }
+  if (!_sdk) {
+    reject(@"OPT_OUT_ERROR", @"SDK not initialized", nil);
+    return;
+  }
 
-    [_sdk optOutMarketingSubscriptionWithEmail:normalizedEmail
-                                         phone:normalizedPhone
-                                    completion:^(NSError * _Nullable error) {
-        if (error) {
-            reject(@"OPT_OUT_ERROR", error.localizedDescription, error);
-        } else {
-            resolve(nil);
-        }
-    }];
+  [_sdk optOutMarketingSubscriptionWithEmail:normalizedEmail
+                                       phone:normalizedPhone
+                                  completion:^(NSError *_Nullable error) {
+                                    if (error) {
+                                      reject(@"OPT_OUT_ERROR", error.localizedDescription, error);
+                                    } else {
+                                      resolve(nil);
+                                    }
+                                  }];
 }
 
-- (void)updateUser:(NSString * _Nullable)email
-             phone:(NSString * _Nullable)phone
+- (void)updateUser:(NSString *_Nullable)email
+             phone:(NSString *_Nullable)phone
            resolve:(RCTPromiseResolveBlock)resolve
-            reject:(RCTPromiseRejectBlock)reject {
-    NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
-    NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
+            reject:(RCTPromiseRejectBlock)reject
+{
+  NSString *normalizedEmail = (email && ![email isEqual:[NSNull null]] && email.length > 0) ? email : nil;
+  NSString *normalizedPhone = (phone && ![phone isEqual:[NSNull null]] && phone.length > 0) ? phone : nil;
 
-    if (!_sdk) {
-        reject(@"UPDATE_USER_ERROR", @"SDK not initialized", nil);
-        return;
-    }
+  if (!_sdk) {
+    reject(@"UPDATE_USER_ERROR", @"SDK not initialized", nil);
+    return;
+  }
 
-    [_sdk updateUserWithEmail:normalizedEmail
-                        phone:normalizedPhone
-                   completion:^(NSError * _Nullable error) {
-        if (error) {
-            reject(@"UPDATE_USER_ERROR", error.localizedDescription, error);
-        } else {
-            resolve(nil);
-        }
-    }];
+  [_sdk updateUserWithEmail:normalizedEmail
+                      phone:normalizedPhone
+                 completion:^(NSError *_Nullable error) {
+                   if (error) {
+                     reject(@"UPDATE_USER_ERROR", error.localizedDescription, error);
+                   } else {
+                     resolve(nil);
+                   }
+                 }];
 }
 
-- (void)triggerCreative:(NSString *)creativeId {
+- (void)triggerCreative:(NSString *)creativeId
+{
   // Only `handler` needs the weak capture. The dispatch block below is transient — it is released
   // as soon as it runs — so capturing self strongly there is safe and matches destroyCreative.
   // The handler is different: the SDK retains it for the creative's lifetime and calls it on each
@@ -584,18 +635,18 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
  * future event cannot get a third hand-rolled copy of them. Returns NO when there was no runtime
  * to emit into; callers log that themselves, since only they know what was dropped.
  */
-- (BOOL)emitDeviceEvent:(NSString *)name payload:(id)payload {
+- (BOOL)emitDeviceEvent:(NSString *)name payload:(id)payload
+{
   if (_callableJSModules == nil) {
     return NO;
   }
 
-  [_callableJSModules invokeModule:@"RCTDeviceEventEmitter"
-                            method:@"emit"
-                          withArgs:@[ name, payload ]];
+  [_callableJSModules invokeModule:@"RCTDeviceEventEmitter" method:@"emit" withArgs:@[ name, payload ]];
   return YES;
 }
 
-- (void)emitCreativeEventWithStatus:(NSString *)status creativeId:(NSString *)creativeId {
+- (void)emitCreativeEventWithStatus:(NSString *)status creativeId:(NSString *)creativeId
+{
   if (status == nil) {
     return;
   }
@@ -622,8 +673,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 //
 // Starting the observer here as well means one JS call delivers both the initial value and every
 // later change, so a consumer never has to sequence two native calls.
-- (void)getInboxUnreadCount:(RCTPromiseResolveBlock)resolve
-                     reject:(RCTPromiseRejectBlock)reject {
+- (void)getInboxUnreadCount:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
   // Two different owners, so read each on its own thread. `_sdk` belongs to the method queue —
   // initialize: writes it there, and every other method reads it there — so it is captured *here*
   // and handed over, rather than read again on main. The inbox counters belong to main. Reading
@@ -640,7 +691,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 // Main queue only.
 - (void)readInboxUnreadCountWithSDK:(ATTNNativeSDK *)capturedSDK
                             resolve:(RCTPromiseResolveBlock)resolve
-                             reject:(RCTPromiseRejectBlock)reject {
+                             reject:(RCTPromiseRejectBlock)reject
+{
   ATTNNativeSDK *sdk = capturedSDK;
 
   if (sdk == nil) {
@@ -660,10 +712,11 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
     sdk = [self availableSDKFromManager];
     if (sdk == nil) {
-      reject(@"inbox_unread_count_error",
-             @"The Attentive SDK is not initialized. Call initialize() before reading the inbox. "
-              "The unread count will be delivered to addInboxUnreadCountListener once it is.",
-             nil);
+      reject(
+          @"inbox_unread_count_error",
+          @"The Attentive SDK is not initialized. Call initialize() before reading the inbox. "
+           "The unread count will be delivered to addInboxUnreadCountListener once it is.",
+          nil);
       return;
     }
 
@@ -684,14 +737,14 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     // teardown or a JS reload. Reject rather than resolve: the promise has to settle either way,
     // and resolving with a placeholder count would overwrite a correct badge.
     if (unreadCount == nil) {
-      reject(@"inbox_unread_count_error",
-             @"The Attentive SDK was torn down before the inbox unread count came back.",
-             nil);
+      reject(
+          @"inbox_unread_count_error",
+          @"The Attentive SDK was torn down before the inbox unread count came back.",
+          nil);
       return;
     }
 
-    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount.integerValue
-                            ifNoDeliverySince:deliveriesBeforeRefresh];
+    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount.integerValue ifNoDeliverySince:deliveriesBeforeRefresh];
     resolve(unreadCount);
   }];
 }
@@ -706,23 +759,25 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
  * Android there is nothing to register against while the SDK is nil — the retry has to be driven
  * by AttentiveSDKManager's broadcast. AttentiveInboxView does the same thing for the same reason.
  */
-- (void)startObservingSDKAvailabilityForInbox {
+- (void)startObservingSDKAvailabilityForInbox
+{
   if (_inboxSDKAvailabilityObserver != nil) {
     return;
   }
 
   __weak __typeof(self) weakSelf = self;
-  _inboxSDKAvailabilityObserver = [NSNotificationCenter.defaultCenter
-      addObserverForName:AttentiveSDKManager.sdkDidBecomeAvailableName
-                  object:nil
-                   queue:NSOperationQueue.mainQueue
-              usingBlock:^(__unused NSNotification *note) {
-                [weakSelf inboxSDKDidBecomeAvailable];
-              }];
+  _inboxSDKAvailabilityObserver =
+      [NSNotificationCenter.defaultCenter addObserverForName:AttentiveSDKManager.sdkDidBecomeAvailableName
+                                                      object:nil
+                                                       queue:NSOperationQueue.mainQueue
+                                                  usingBlock:^(__unused NSNotification *note) {
+                                                    [weakSelf inboxSDKDidBecomeAvailable];
+                                                  }];
 }
 
 // Main queue only — NSOperationQueue.mainQueue above guarantees it.
-- (void)stopObservingSDKAvailabilityForInbox {
+- (void)stopObservingSDKAvailabilityForInbox
+{
   if (_inboxSDKAvailabilityObserver == nil) {
     return;
   }
@@ -738,13 +793,15 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
  * AttentiveInboxView reads it the same way, with the same class check. (The manager's own property
  * is not yet synchronised; MSDK-509.)
  */
-- (ATTNNativeSDK *)availableSDKFromManager {
+- (ATTNNativeSDK *)availableSDKFromManager
+{
   id maybeSDK = AttentiveSDKManager.shared.sdk;
   return [maybeSDK isKindOfClass:ATTNNativeSDK.class] ? (ATTNNativeSDK *)maybeSDK : nil;
 }
 
 // Main queue only.
-- (void)inboxSDKDidBecomeAvailable {
+- (void)inboxSDKDidBecomeAvailable
+{
   ATTNNativeSDK *sdk = [self availableSDKFromManager];
   if (sdk == nil) {
     return;
@@ -763,14 +820,14 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     if (unreadCount == nil) {
       return;
     }
-    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount.integerValue
-                            ifNoDeliverySince:deliveriesBeforeRefresh];
+    [weakSelf deliverRefreshedInboxUnreadCount:unreadCount.integerValue ifNoDeliverySince:deliveriesBeforeRefresh];
   }];
 }
 
 // Idempotent — the token is created once and reused, so repeated getInboxUnreadCount calls do not
 // stack observers. Main queue only.
-- (void)startObservingInboxUnreadCountWithSDK:(ATTNNativeSDK *)sdk {
+- (void)startObservingInboxUnreadCountWithSDK:(ATTNNativeSDK *)sdk
+{
   if (_inboxUnreadCountObserver != nil || sdk == nil) {
     return;
   }
@@ -791,8 +848,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
  * emitInboxUnreadCount: filters out. The delivery counter separates those two cases without a
  * second source of truth for "what has JS seen".
  */
-- (void)deliverRefreshedInboxUnreadCount:(NSInteger)unreadCount
-                       ifNoDeliverySince:(uint64_t)deliveries {
+- (void)deliverRefreshedInboxUnreadCount:(NSInteger)unreadCount ifNoDeliverySince:(uint64_t)deliveries
+{
   if (_unreadCountDeliveries != deliveries) {
     return;
   }
@@ -800,11 +857,13 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   [self emitInboxUnreadCount:unreadCount force:YES];
 }
 
-- (void)emitInboxUnreadCount:(NSInteger)unreadCount {
+- (void)emitInboxUnreadCount:(NSInteger)unreadCount
+{
   [self emitInboxUnreadCount:unreadCount force:NO];
 }
 
-- (void)emitInboxUnreadCount:(NSInteger)unreadCount force:(BOOL)force {
+- (void)emitInboxUnreadCount:(NSInteger)unreadCount force:(BOOL)force
+{
   // Filter repeats, which is what addInboxUnreadCountListener already documents ("repeats of the
   // same value are filtered out natively"). Android gets this free from StateFlow's
   // distinctUntilChanged; iOS has two paths into this method — the change observer and the explicit
@@ -816,10 +875,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
     return;
   }
 
-  if (![self emitDeviceEvent:kAttentiveInboxUnreadCountEventName
-                     payload:@{ @"unreadCount" : @(unreadCount) }]) {
-    RCTLogWarn(@"[AttentiveSDK] Dropping inbox unread count %ld: no JS runtime attached yet.",
-               (long)unreadCount);
+  if (![self emitDeviceEvent:kAttentiveInboxUnreadCountEventName payload:@{@"unreadCount" : @(unreadCount)}]) {
+    RCTLogWarn(@"[AttentiveSDK] Dropping inbox unread count %ld: no JS runtime attached yet.", (long)unreadCount);
     return;
   }
 
@@ -830,23 +887,26 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   _unreadCountDeliveries++;
 }
 
-- (void)markInboxMessageRead:(nonnull NSString *)messageId {
+- (void)markInboxMessageRead:(nonnull NSString *)messageId
+{
   [_sdk markInboxMessageRead:messageId];
 }
 
-- (void)markInboxMessageUnread:(nonnull NSString *)messageId {
+- (void)markInboxMessageUnread:(nonnull NSString *)messageId
+{
   [_sdk markInboxMessageUnread:messageId];
 }
 
 // Resolves the current state and starts observing it, like getInboxUnreadCount. Unlike the unread
 // count there is no wait-for-initialize recovery: a custom inbox screen mounts after startup.
-- (void)getInboxState:(RCTPromiseResolveBlock)resolve
-               reject:(RCTPromiseRejectBlock)reject {
+- (void)getInboxState:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
   ATTNNativeSDK *sdk = _sdk;
   if (sdk == nil) {
-    reject(@"inbox_state_error",
-           @"The Attentive SDK is not initialized. Call initialize() before reading the inbox.",
-           nil);
+    reject(
+        @"inbox_state_error",
+        @"The Attentive SDK is not initialized. Call initialize() before reading the inbox.",
+        nil);
     return;
   }
   RCTExecuteOnMainQueue(^{
@@ -856,7 +916,8 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 }
 
 // Idempotent. Main queue only.
-- (void)startObservingInboxStateWithSDK:(ATTNNativeSDK *)sdk {
+- (void)startObservingInboxStateWithSDK:(ATTNNativeSDK *)sdk
+{
   if (_inboxStateObservation != nil) {
     return;
   }
@@ -866,14 +927,15 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   }];
 }
 
-- (void)emitInboxState:(NSDictionary<NSString *, id> *)state {
+- (void)emitInboxState:(NSDictionary<NSString *, id> *)state
+{
   if (![self emitDeviceEvent:kAttentiveInboxStateEventName payload:state]) {
     RCTLogWarn(@"[AttentiveSDK] Dropping inbox state: no JS runtime attached yet.");
   }
 }
 
-- (void)loadMoreInboxMessages:(RCTPromiseResolveBlock)resolve
-                       reject:(RCTPromiseRejectBlock)reject {
+- (void)loadMoreInboxMessages:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
   ATTNNativeSDK *sdk = _sdk;
   if (sdk == nil) {
     reject(@"inbox_load_more_error", @"The Attentive SDK is not initialized.", nil);
@@ -884,17 +946,20 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   }];
 }
 
-- (void)deleteInboxMessage:(nonnull NSString *)messageId {
+- (void)deleteInboxMessage:(nonnull NSString *)messageId
+{
   [_sdk deleteInboxMessage:messageId];
 }
 
-- (void)markInboxMessageClicked:(nonnull NSString *)messageId {
+- (void)markInboxMessageClicked:(nonnull NSString *)messageId
+{
   [_sdk markInboxMessageClicked:messageId];
 }
 
 // The observer is block-based, so it must be removed explicitly; a weak self in the handler stops
 // calls into a dead module but would still leak the registration itself.
-- (void)dealloc {
+- (void)dealloc
+{
   if (_inboxUnreadCountObserver != nil) {
     [[NSNotificationCenter defaultCenter] removeObserver:_inboxUnreadCountObserver];
     _inboxUnreadCountObserver = nil;
@@ -905,27 +970,31 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
   }
 }
 
-- (void)destroyCreative {
+- (void)destroyCreative
+{
   dispatch_async(dispatch_get_main_queue(), ^{
-//    [self->_sdk closeCreative]
+    //    [self->_sdk closeCreative]
     [self->_sdk notifyCreativeDestroyed];
   });
 }
 
-- (void)updateDomain:(NSString *)domain {
+- (void)updateDomain:(NSString *)domain
+{
   [_sdk updateDomain:domain];
 }
 
-- (void)clearUser {
+- (void)clearUser
+{
   [_sdk clearUser];
 }
 
-- (void)invokeAttentiveDebugHelper {
+- (void)invokeAttentiveDebugHelper
+{
   [_sdk invokeAttentiveDebugHelper];
 }
 
-- (void)exportDebugLogs:(RCTPromiseResolveBlock)resolve
-                  reject:(RCTPromiseRejectBlock)reject {
+- (void)exportDebugLogs:(RCTPromiseResolveBlock)resolve reject:(RCTPromiseRejectBlock)reject
+{
   NSString *exportContent = [_sdk exportDebugLogs];
   resolve(exportContent);
 }
