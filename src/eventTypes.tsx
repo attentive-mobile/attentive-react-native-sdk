@@ -99,6 +99,9 @@ export type InboxUnreadCountSubscription = AttentiveEventSubscription
 /** Handle returned by `addInboxStateListener`; call `remove()` to unsubscribe. */
 export type InboxStateSubscription = AttentiveEventSubscription
 
+/** Handle returned by `addEmailLeadListener`; call `remove()` to unsubscribe. */
+export type EmailLeadSubscription = AttentiveEventSubscription
+
 /** An inbox message, for apps that render their own inbox UI. */
 export type InboxMessage = {
   id: string

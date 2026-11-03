@@ -25,6 +25,7 @@ import type {
   TrackingConsent,
   UpdateUserParams,
   EmailLeadEvent,
+  EmailLeadSubscription,
 } from './eventTypes'
 import { CREATIVE_STATUSES, TRACKING_CONSENTS } from './eventTypes'
 import NativeAttentiveReactNativeSdkModule, {
@@ -783,7 +784,7 @@ function addInboxUnreadCountListener(
  */
 function addEmailLeadListener(
   listener: (event: EmailLeadEvent) => void
-): AttentiveEventSubscription {
+): EmailLeadSubscription {
   return addDeviceEventListener(
     DEVICE_EVENT_NAMES.emailLead,
     (event: { email?: string | null; rawPayload?: unknown }) => {
@@ -976,6 +977,7 @@ export type {
   CustomEvent,
   Item,
   EmailLeadEvent,
+  EmailLeadSubscription,
   // Creative Event Types
   CreativeStatus,
   CreativeEvent,
