@@ -475,6 +475,9 @@ useEffect(() => {
 
 Notes:
 
+- Leads are reported for creatives opened with `triggerCreative()`. For a creative your app opens
+  from native code, use the native SDK's API instead: `AttentiveSdk.creativeEmailLeads` on
+  Android, `ATTNSDK.creativeEmailLeadHandler` on iOS.
 - Leads aren't buffered: one that arrives while nothing is subscribed is lost. Keep the
   subscription active whenever a creative can be on screen.
 - Same transport and requirements as [creative lifecycle events](#observe-creative-lifecycle-events):
