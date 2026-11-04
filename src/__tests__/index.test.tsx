@@ -66,6 +66,7 @@ import {
   triggerCreative,
   destroyCreative,
   addCreativeEventListener,
+  addEmailLeadListener,
   updateDomain,
   recordProductViewEvent,
   recordAddToCartEvent,
@@ -363,7 +364,7 @@ describe('Attentive SDK', () => {
       expect(() => emitFromNative({ status: 'opened' })).not.toThrow()
       expect(listener).toHaveBeenCalled()
       expect(errorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('opened'),
+        expect.stringContaining('AttentiveCreativeEvent'),
         boom
       )
     })
@@ -415,6 +416,84 @@ describe('Attentive SDK', () => {
 
       expect(listener).not.toHaveBeenCalled()
       expect(warnSpy).toHaveBeenCalled()
+    })
+  })
+
+  describe('Email lead events', () => {
+    let warnSpy: jest.SpyInstance
+    let removeNativeSubscription: jest.Mock
+    let emitFromNative: (event: unknown) => void
+
+    beforeEach(() => {
+      warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {})
+      removeNativeSubscription = jest.fn()
+      mockDeviceEventEmitter.addListener.mockImplementation(
+        (_name: string, handler: (event: unknown) => void) => {
+          emitFromNative = handler
+          return { remove: removeNativeSubscription }
+        }
+      )
+    })
+
+    afterEach(() => {
+      warnSpy.mockRestore()
+    })
+
+    it('should subscribe to the device event both native bridges emit', () => {
+      addEmailLeadListener(jest.fn())
+
+      expect(mockDeviceEventEmitter.addListener).toHaveBeenCalledWith(
+        'AttentiveEmailLead',
+        expect.any(Function)
+      )
+    })
+
+    it('should deliver the email and raw payload', () => {
+      const listener = jest.fn()
+      addEmailLeadListener(listener)
+      const lead = {
+        email: 'test@example.com',
+        rawPayload: { email: 'test@example.com', visitorId: 'visitor-1' },
+      }
+
+      emitFromNative(lead)
+
+      expect(listener).toHaveBeenCalledWith(lead)
+    })
+
+    it.each([undefined, null])(
+      'should omit email entirely when native sends %p',
+      (email) => {
+        // toHaveBeenCalledWith treats a missing key and an undefined value as equal, so check
+        // the keys directly.
+        const listener = jest.fn()
+        addEmailLeadListener(listener)
+
+        emitFromNative({ email, rawPayload: {} })
+
+        expect(Object.keys(listener.mock.calls[0][0])).toEqual(['rawPayload'])
+      }
+    )
+
+    it.each([undefined, null, 'payload', ['payload']])(
+      'should drop an event whose rawPayload is %p',
+      (rawPayload) => {
+        const listener = jest.fn()
+        addEmailLeadListener(listener)
+
+        emitFromNative({ email: 'test@example.com', rawPayload })
+
+        expect(listener).not.toHaveBeenCalled()
+        expect(warnSpy).toHaveBeenCalled()
+      }
+    )
+
+    it('should detach the native subscription on remove', () => {
+      const subscription = addEmailLeadListener(jest.fn())
+
+      subscription.remove()
+
+      expect(removeNativeSubscription).toHaveBeenCalled()
     })
   })
 

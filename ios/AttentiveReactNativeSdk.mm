@@ -84,6 +84,9 @@ static NSString *const kAttentiveInboxUnreadCountEventName = @"AttentiveInboxUnr
 // Device-event name carrying inbox message-list and paging changes. Same contract as above.
 static NSString *const kAttentiveInboxStateEventName = @"AttentiveInboxState";
 
+// Device-event name carrying creative email leads. Same contract as above.
+static NSString *const kAttentiveEmailLeadEventName = @"AttentiveEmailLead";
+
 RCT_EXPORT_MODULE()
 
 #ifdef RCT_NEW_ARCH_ENABLED
@@ -556,6 +559,10 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
       return;
     }
 
+    [self->_sdk setCreativeEmailLeadHandler:^(NSDictionary<NSString *, id> *payload) {
+      [weakSelf emitEmailLead:payload];
+    }];
+
     UIWindow *window = [[UIApplication sharedApplication] keyWindow];
     UIView *topView = window.rootViewController.view;
 
@@ -607,6 +614,12 @@ customIdentifiers:(NSDictionary *)customIdentifiers {
 
   if (![self emitDeviceEvent:kAttentiveCreativeEventName payload:payload]) {
     RCTLogWarn(@"[AttentiveSDK] Dropping creative event '%@': no JS runtime attached yet.", status);
+  }
+}
+
+- (void)emitEmailLead:(NSDictionary<NSString *, id> *)payload {
+  if (![self emitDeviceEvent:kAttentiveEmailLeadEventName payload:payload]) {
+    RCTLogWarn(@"[AttentiveSDK] Dropping email lead: no JS runtime attached yet.");
   }
 }
 

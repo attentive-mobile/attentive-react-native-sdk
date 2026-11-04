@@ -190,6 +190,17 @@ struct DebugEvent {
     normalizedCreativeStatus(ATTNCreativeTriggerStatus.notOpened)
   }
 
+  @objc(setCreativeEmailLeadHandler:)
+  public func setCreativeEmailLeadHandler(_ handler: @escaping ([String: Any]) -> Void) {
+    sdk.creativeEmailLeadHandler = { lead in
+      var payload: [String: Any] = ["rawPayload": lead.rawPayload]
+      if let email = lead.email {
+        payload["email"] = email
+      }
+      handler(payload)
+    }
+  }
+
   /// Called from the native bridge when destroyCreative is invoked; shows debug overlay when debug mode is on.
   @objc
   public func notifyCreativeDestroyed() {

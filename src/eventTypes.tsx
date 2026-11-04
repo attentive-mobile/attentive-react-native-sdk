@@ -99,6 +99,9 @@ export type InboxUnreadCountSubscription = AttentiveEventSubscription
 /** Handle returned by `addInboxStateListener`; call `remove()` to unsubscribe. */
 export type InboxStateSubscription = AttentiveEventSubscription
 
+/** Handle returned by `addEmailLeadListener`; call `remove()` to unsubscribe. */
+export type EmailLeadSubscription = AttentiveEventSubscription
+
 /** An inbox message, for apps that render their own inbox UI. */
 export type InboxMessage = {
   id: string
@@ -221,4 +224,12 @@ export interface UpdateUserParams {
   email?: string
   /** E.164 phone number to set for the user */
   phone?: string
+}
+
+/**
+ * Event fired when an email lead is captured.
+ */
+export type EmailLeadEvent = {
+  email?: string
+  rawPayload: Record<string, unknown>
 }

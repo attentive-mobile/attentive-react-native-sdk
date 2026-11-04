@@ -8,6 +8,7 @@ import {
   triggerCreative,
   recordCustomEvent,
   addCreativeEventListener,
+  addEmailLeadListener,
   type CustomEvent,
 } from '@attentive-mobile/attentive-react-native-sdk'
 
@@ -16,6 +17,21 @@ import {
  * @returns Memoized functions for SDK actions
  */
 export function useAttentiveActions() {
+  /**
+   * Listen for email lead events and log them to the console.
+   */
+  useEffect(() => {
+    const subscription = addEmailLeadListener((event) => {
+      console.log(
+        `📧 [Attentive] Email lead received: ${event.email}, ${JSON.stringify(
+          event.rawPayload
+        )}`
+      )
+    })
+
+    return () => subscription.remove()
+  }, [])
+
   /**
    * Log the creative lifecycle stream so both platforms can be verified from Metro / logcat:
    * the happy path logs `opened` then `closed`, while a missing or fatigued creative logs a

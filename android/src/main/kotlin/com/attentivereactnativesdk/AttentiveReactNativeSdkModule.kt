@@ -47,6 +47,8 @@ import com.facebook.react.bridge.Callback
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.attentivereactnativesdk.debug.AttentiveDebugHelper
 import com.attentive.androidsdk.AttentiveLogLevel
+import org.json.JSONException
+import org.json.JSONObject
 import java.math.BigDecimal
 import java.security.InvalidParameterException
 import java.util.Currency
@@ -78,42 +80,41 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
 
         /** Device-event name carrying inbox message-list and paging changes to JS. */
         private const val INBOX_STATE_EVENT_NAME = "AttentiveInboxState"
+
+        /** Device-event name carrying creative email leads to JS. */
+        private const val EMAIL_LEAD_EVENT_NAME = "AttentiveEmailLead"
     }
 
     private var creative: Creative? = null
 
     /**
-     * Scope for observing the SDK's inbox state.
-     *
-     * The bridge owns this one (unlike the suspend SDK calls, which run their own coroutines)
-     * because a `StateFlow` collector outlives the call that started it. `Dispatchers.Main.immediate`
-     * keeps emission on the thread React Native already expects for JS calls, and `SupervisorJob`
-     * stops a failed collector from cancelling anything else added here later. Cancelled in
-     * [invalidate].
-     */
-    /**
      * Handler, not just a [SupervisorJob]: the job stops one failed child from cancelling the
      * others, but it does not swallow the exception — with no handler in the context it reaches
      * `Thread.getDefaultUncaughtExceptionHandler` and terminates the process. [emitDeviceEvent] is
-     * already guarded, but `AttentiveSdk.inboxState` and the `map` over it are not, so a throw from
-     * the SDK's flow would crash the host app. Every other native entry point in this module
-     * catches and logs; this makes the collector behave the same way.
+     * already guarded, but the SDK's flows and the operators over them are not, so a throw from
+     * one would crash the host app. Every other native entry point in this module catches and
+     * logs; this makes the collectors behave the same way.
      */
-    private val inboxExceptionHandler = CoroutineExceptionHandler { _, error ->
-        Log.w(TAG, "[AttentiveSDK] Inbox observer failed: ${error.message}", error)
+    private val observerExceptionHandler = CoroutineExceptionHandler { _, error ->
+        Log.w(TAG, "[AttentiveSDK] Flow observer failed: ${error.message}", error)
     }
 
-    private val inboxScope = CoroutineScope(
-        SupervisorJob() + Dispatchers.Main.immediate + inboxExceptionHandler,
+    /**
+     * Scope for observing the SDK's flows (inbox state, creative email leads).
+     *
+     * The bridge owns this one (unlike the suspend SDK calls, which run their own coroutines)
+     * because a flow collector outlives the call that started it. `Dispatchers.Main.immediate`
+     * keeps emission on the thread React Native already expects for JS calls, and `SupervisorJob`
+     * stops a failed collector from cancelling the others. Canceled in [invalidate].
+     */
+    private val observerScope = CoroutineScope(
+        SupervisorJob() + Dispatchers.Main.immediate + observerExceptionHandler,
     )
     private var inboxUnreadCountJob: Job? = null
     private var inboxStateJob: Job? = null
     private var inboxLoadMoreJob: Job? = null
-    private val debugHelper: AttentiveDebugHelper
-
-    init {
-        debugHelper = AttentiveDebugHelper(reactContext)
-    }
+    private var emailLeadJob: Job? = null
+    private val debugHelper: AttentiveDebugHelper = AttentiveDebugHelper(reactContext)
 
     override fun getName(): String {
         return NAME
@@ -249,6 +250,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
                             emitCreativeEvent("notOpened", creativeId)
                             return@runOnUiThread
                         }
+                        startObservingEmailLead()
                         creative = Creative(config, rootView, currentActivity)
                         creative?.trigger(createCreativeTriggerCallback(creativeId), creativeId)
                         if (debugHelper.isDebuggingEnabled()) {
@@ -304,6 +306,30 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             payload.putString("creativeId", creativeId)
         }
         emitDeviceEvent(CREATIVE_EVENT_NAME, payload)
+    }
+
+    /**
+     * Idempotent, like [startObservingInboxUnreadCount]. Called before each [Creative] is built:
+     * `creativeEmailLeads` has no replay, so a lead emitted before this subscribes is lost.
+     */
+    private fun startObservingEmailLead() {
+        if (emailLeadJob?.isActive == true) return
+
+        emailLeadJob = observerScope.launch {
+            AttentiveSdk.creativeEmailLeads
+                .collect { emailLead ->
+                    val payload = Arguments.createMap()
+                    emailLead.email?.let { payload.putString("email", it) }
+                    val rawPayload = try {
+                        JSONObject(emailLead.rawPayload).toWritableMap()
+                    } catch (e: JSONException) {
+                        Log.w(TAG, "[AttentiveSDK] Couldn't convert email lead payload: ${e.message}")
+                        Arguments.createMap()
+                    }
+                    payload.putMap("rawPayload", rawPayload)
+                    emitDeviceEvent(EMAIL_LEAD_EVENT_NAME, payload)
+                }
+        }
     }
 
     /**
@@ -363,7 +389,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      *
      * Idempotent — a live collector is reused, so repeated [getInboxUnreadCount] calls don't stack
      * collectors. The guard tests `isActive` rather than the reference on purpose:
-     * [inboxExceptionHandler] keeps a throw from `inboxState` non-fatal, but the job still
+     * [observerExceptionHandler] keeps a throw from `inboxState` non-fatal, but the job still
      * *completes*, and a reference check would then read that dead job as running and never
      * relaunch it — freezing the badge for the rest of the process, which is the very outcome the
      * handler exists to avoid.
@@ -376,7 +402,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
      */
     private fun startObservingInboxUnreadCount() {
         if (inboxUnreadCountJob?.isActive == true) return
-        inboxUnreadCountJob = inboxScope.launch {
+        inboxUnreadCountJob = observerScope.launch {
             AttentiveSdk.inboxState
                 .map { it.unreadCount }
                 .distinctUntilChanged()
@@ -414,7 +440,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     /** Idempotent, like [startObservingInboxUnreadCount]. */
     private fun startObservingInboxState() {
         if (inboxStateJob?.isActive == true) return
-        inboxStateJob = inboxScope.launch {
+        inboxStateJob = observerScope.launch {
             AttentiveSdk.inboxState
                 .map { InboxSnapshot(it) }
                 .distinctUntilChanged()
@@ -429,7 +455,7 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
             promise.resolve(null)
             return
         }
-        inboxLoadMoreJob = inboxScope.launch {
+        inboxLoadMoreJob = observerScope.launch {
             try {
                 AttentiveSdk.loadMoreInboxMessages()
                 promise.resolve(null)
@@ -491,11 +517,11 @@ class AttentiveReactNativeSdkModule(reactContext: ReactApplicationContext) :
     }
 
     /**
-     * Stops the inbox observer when React Native tears the module down, so a reload doesn't leave
+     * Stops the flow observers when React Native tears the module down, so a reload doesn't leave
      * a collector emitting into a dead JS runtime.
      */
     override fun invalidate() {
-        inboxScope.cancel()
+        observerScope.cancel()
         super.invalidate()
     }
 
