@@ -1,5 +1,12 @@
 
 
+## [2.3.1](https://github.com/attentive-mobile/attentive-react-native-sdk/compare/2.3.0...2.3.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **ios:** update ATTNSDKFramework to 2.2.1 ([f9c026d](https://github.com/attentive-mobile/attentive-react-native-sdk/commit/f9c026df1094d99ccd0475be38d0938c0705eb23))
+
 # [2.3.0](https://github.com/attentive-mobile/attentive-react-native-sdk/compare/2.2.0...2.3.0) (2026-10-20)
 
 
