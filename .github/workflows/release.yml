@@ -128,7 +128,7 @@ jobs:
           while [ "$elapsed" -lt "$timeout" ]; do
             # curl can fail mid-body after a 2xx status line, so its exit status counts too.
             curl_status=0
-            api_response=$(curl -s -w "\n%{http_code}" -X GET \
+            api_response=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -X GET \
               "https://circleci.com/api/v2/pipeline/${pipeline_id}/workflow" \
               -H "Circle-Token: ${CIRCLECI_TOKEN}" \
               -H "Content-Type: application/json") || curl_status=$?
