@@ -84,24 +84,38 @@ jobs:
           poll_interval=30
           timeout=5400  # 90 minutes (validation + cold-cache RN iOS/Android builds)
           elapsed=0
+          api_failures=0
+          max_api_failures=10
 
           echo "Waiting for CircleCI pipeline $pipeline_number to complete..."
           echo "Pipeline URL: https://app.circleci.com/pipelines/${CIRCLECI_PROJECT_SLUG}/${pipeline_number}"
 
           while [ "$elapsed" -lt "$timeout" ]; do
-            api_response=$(curl -s -w "\n%{http_code}" -X GET \
+            # curl can fail mid-body after a 2xx status line, so its exit status counts too.
+            curl_status=0
+            api_response=$(curl -s --connect-timeout 10 --max-time 30 -w "\n%{http_code}" -X GET \
               "https://circleci.com/api/v2/pipeline/${pipeline_id}/workflow" \
               -H "Circle-Token: ${CIRCLECI_TOKEN}" \
-              -H "Content-Type: application/json")
+              -H "Content-Type: application/json") || curl_status=$?
 
             http_code=$(echo "$api_response" | tail -1)
             response=$(echo "$api_response" | sed '$d')
 
-            if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
-              echo "::error::CircleCI API returned HTTP $http_code while polling workflows"
-              echo "$response"
-              exit 1
+            # A new pipeline can 404 for a moment after it's created, and the API can blip.
+            # Only give up after several failures in a row: the pipeline keeps running either way.
+            if [ "$curl_status" -ne 0 ] || [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+              api_failures=$((api_failures + 1))
+              if [ "$api_failures" -ge "$max_api_failures" ]; then
+                echo "::error::CircleCI API poll failed $api_failures times in a row (last: HTTP $http_code, curl exit $curl_status). The pipeline may still be running: check its URL above before dispatching again."
+                echo "$response"
+                exit 1
+              fi
+              echo "CircleCI API poll failed: HTTP $http_code, curl exit $curl_status (${api_failures}/${max_api_failures}), retrying..."
+              sleep "$poll_interval"
+              elapsed=$((elapsed + poll_interval))
+              continue
             fi
+            api_failures=0
 
             workflow_count=$(echo "$response" | jq '.items | length')
 
