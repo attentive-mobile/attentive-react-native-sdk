@@ -13,11 +13,11 @@ pre-commit:
   commands:
     lint-sdk:
       glob: "*.{js,ts,jsx,tsx}"
-      exclude: "(Bonni|example)/.*"
+      exclude: "Bonni/.*"
       run: npx eslint --no-cache {staged_files}
     types-sdk:
       glob: "*.{js,ts,jsx,tsx}"
-      exclude: "(Bonni|example)/.*"
+      exclude: "Bonni/.*"
       run: npx tsc --noEmit
     lint-bonni:
       glob: "Bonni/**/*.{js,ts,jsx,tsx}"

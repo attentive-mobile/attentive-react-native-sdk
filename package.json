@@ -14,7 +14,6 @@
     "ios",
     "cpp",
     "*.podspec",
-    "!lib/typescript/example",
     "!ios/build",
     "!ios/Pods",
     "!ios/Podfile.lock",
@@ -41,13 +40,12 @@
     "build": "bob build",
     "prepare": "bob build && npm run build:plugin",
     "release": "release-it",
-    "example": "npm --prefix example",
-    "bootstrap": "npm install && npm --prefix example install && npm --prefix example run pods",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build",
-    "dev:start": "npm run build && cd example && ./reset.sh && cd .. && npm run dev",
-    "dev": "npm --prefix example run start",
-    "dev:ios": "npm --prefix example run ios",
-    "dev:android": "npm --prefix example run android"
+    "bonni": "npm --prefix Bonni",
+    "bootstrap": "npm install && npm --prefix Bonni install && npm --prefix Bonni run pods",
+    "clean": "del-cli android/build Bonni/android/build Bonni/android/app/build Bonni/ios/build",
+    "dev": "npm --prefix Bonni run start",
+    "dev:ios": "npm --prefix Bonni run ios",
+    "dev:android": "npm --prefix Bonni run android"
   },
   "keywords": [
     "attentive",
@@ -115,7 +113,6 @@
       "<rootDir>/plugin/src"
     ],
     "modulePathIgnorePatterns": [
-      "<rootDir>/example/node_modules",
       "<rootDir>/Bonni",
       "<rootDir>/lib/",
       "<rootDir>/plugin/build/"

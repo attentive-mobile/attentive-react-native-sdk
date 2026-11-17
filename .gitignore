@@ -44,13 +44,6 @@ local.properties
 android.iml
 github.properties
 
-# Cocoapods
-#
-example/ios/Pods
-
-# Ruby
-example/vendor/
-
 # node.js
 #
 node_modules/

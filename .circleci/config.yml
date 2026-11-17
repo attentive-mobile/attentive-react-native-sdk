@@ -216,8 +216,6 @@ jobs:
 
   # Bonni (the sample app) has its own toolchain and node_modules. Install them
   # once on top of the shared workspace, then hand them to the Bonni checks below.
-  # The SDK's example/ app is intentionally excluded (it has no tests, mirroring
-  # iOS which excludes its Example app).
   setup-bonni:
     executor: node-executor
     steps:
