@@ -764,7 +764,7 @@ If you encounter issues during migration:
 
 1. Check the [Common Issues](#common-issues) section
 2. Review the [Updated API Reference](#updated-api-reference)
-3. See the example app in the repository for working code samples
+3. See the [Bonni example app](./Bonni) in the repository for working code samples
 4. Open an issue on GitHub with:
    - Your React Native version
    - Error messages and stack traces
