@@ -174,7 +174,7 @@ When viewing individual event details (iOS), each event detail view also include
 ## Development Tips
 
 1. **Use in Debug Mode**: Combine with `mode: 'debug'` for comprehensive debugging
-2. **Test All Events**: Use the example app to test all event types
+2. **Test All Events**: Use the Bonni example app to test all event types
 3. **Verify Payloads**: Check that all required fields are present and correctly formatted
 4. **Creative Testing**: Test creative triggering with and without specific IDs
 
@@ -189,15 +189,16 @@ If debug overlays are not appearing:
 
 ## Example App
 
-The included example app demonstrates all debugging features:
+[Bonni](./Bonni), the example app in this repository, runs with `enableDebugger: true`, so the debug overlay appears as you use it:
 
 ```bash
-cd example
+cd Bonni
 npm install
 # iOS
-npx react-native run-ios
+npm run pods
+npm run ios
 # Android
-npx react-native run-android
+npm run android
 ```
 
-The example app includes buttons to test all event types and debugging features.
+Its shopping flow sends product view, add-to-cart and purchase events, and the Settings screen triggers creatives and sends custom events. See [`Bonni/README.md`](./Bonni/README.md) for the full setup.
